@@ -1,0 +1,216 @@
+# 4AS Tutor Booking Application - Cursor Rules
+
+## Project Overview
+Full-stack tutor booking application with Next.js 14, Supabase, Stripe, and Netlify deployment.
+All UI in French (Canada). Currency: CAD only.
+
+## Tech Stack
+- **Framework**: Next.js 14 (App Router), TypeScript
+- **Styling**: Tailwind CSS, shadcn/ui components
+- **Database**: Supabase (PostgreSQL) with Prisma ORM
+- **Auth**: Supabase Auth (Email + OAuth)
+- **Payments**: Stripe Checkout (CAD, address collection)
+- **Deployment**: Netlify (with scheduled functions)
+
+## Code Conventions
+
+### File Structure
+- `app/`: Next.js pages (App Router pattern)
+- `components/`: React components (ui/, auth/, booking/, dashboard/, layout/)
+- `lib/`: Business logic, utilities, and actions
+  - `actions/`: Next.js Server Actions
+  - `slots/`: Slot generation engine
+  - `webhooks/`: Webhook handlers
+- `prisma/`: Database schema and migrations
+
+### Naming Conventions
+- **Files**: kebab-case (e.g., `course-booking-calendar.tsx`)
+- **Components**: PascalCase (e.g., `CourseBookingCalendar`)
+- **Functions**: camelCase (e.g., `getAvailableSlots`)
+- **Constants**: SCREAMING_SNAKE_CASE (e.g., `SLOT_GRID_MINUTES`)
+
+### TypeScript
+- Use strict mode
+- Prefer `interface` over `type` for object shapes
+- Import types from `@prisma/client` when needed
+- Use type inference where possible
+
+### React Patterns
+- Use Server Components by default
+- Add `'use client'` only when needed (forms, interactive components)
+- Prefer Server Actions over API routes
+- Use `async/await` for data fetching
+
+### Database
+- Use Prisma Client via `lib/prisma.ts` singleton
+- Always use transactions for multi-step operations
+- Apply RLS policies in Supabase for security
+- Use `@map` for snake_case column names
+
+### Authentication
+- Check auth via `getCurrentUser()` from `lib/actions/auth.ts`
+- Protect routes by redirecting if no user
+- Use Supabase Auth for sessions
+- Store role in `users` table (student/tutor/admin)
+
+### Styling
+- Use Tailwind utility classes
+- Follow shadcn/ui component patterns
+- Use CSS variables for theming (defined in globals.css)
+- Mobile-first responsive design
+
+### Forms
+- Use react-hook-form with zod validation
+- Use `@hookform/resolvers/zod` for schema validation
+- Display errors below fields
+- Show loading states during submission
+
+### Localization
+- All user-facing text in French (Canada)
+- Use `frCA` object from `lib/i18n/fr-CA.ts`
+- Format currency with `formatCurrency()` helper
+- Format dates with `formatDate()`, `formatDateTime()` helpers
+
+### Error Handling
+- Return `{ success: boolean, error?: string }` from Server Actions
+- Log errors to console for debugging
+- Display user-friendly French error messages
+- Use try-catch in async operations
+
+### Slot Booking System
+- Durations: 60, 90, or 120 minutes only
+- Slot grid: 30-minute increments
+- Lead time: minimum 12 hours
+- Max advance: 60 days
+- Holds expire after 15 minutes
+- Always check conflicts before creating appointments
+
+### Pricing
+- Base rate per tutor (60 min)
+- 90 min = base × 1.5
+- 120 min = base × 2
+- Coupons: percentage or fixed amount
+- Calculate discount in-app (Stripe not aware)
+
+### Webhooks
+- Verify Stripe signature
+- Log all webhook events to `webhook_events` table
+- Make operations idempotent (check existing records)
+- Send Make.com webhooks for signup and booking
+
+### Performance
+- Use indexes on frequently queried fields
+- Avoid N+1 queries (use `include` in Prisma)
+- Cache static data where appropriate
+- Optimize images and assets
+
+## Common Patterns
+
+### Server Action Template
+```typescript
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { prisma } from '@/lib/prisma'
+import { createClient } from '@/lib/supabase/server'
+
+export async function myAction(data: MyData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'Non autorisé' }
+  }
+
+  try {
+    // Your logic here
+    revalidatePath('/your-path')
+    return { success: true }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Une erreur est survenue' }
+  }
+}
+```
+
+### Protected Page Template
+```typescript
+import { redirect } from 'next/navigation'
+import { getCurrentUser } from '@/lib/actions/auth'
+
+export default async function ProtectedPage() {
+  const user = await getCurrentUser()
+  
+  if (!user) {
+    redirect('/connexion')
+  }
+  
+  // Role check if needed
+  if (user.role !== 'admin') {
+    redirect('/tableau-de-bord')
+  }
+  
+  return <div>...</div>
+}
+```
+
+### Client Component with Form
+```typescript
+'use client'
+
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
+
+const schema = z.object({
+  // schema definition
+})
+
+export function MyForm() {
+  const [error, setError] = useState<string | null>(null)
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(schema),
+  })
+
+  const onSubmit = async (data) => {
+    setError(null)
+    // submit logic
+  }
+
+  return <form>...</form>
+}
+```
+
+## Important Notes
+- Never bypass RLS policies with service role key for user operations
+- Always validate slot availability before creating holds/appointments
+- Use transactions for critical operations (checkout, appointment creation)
+- Clean up expired holds regularly (Netlify scheduled function)
+- Test payment flows in Stripe test mode before production
+- Keep sensitive keys in environment variables only
+- Never commit .env files
+
+## Development Workflow
+1. Make schema changes in `prisma/schema.prisma`
+2. Run `npm run prisma:generate && npm run prisma:push`
+3. Update RLS policies in Supabase if needed
+4. Create Server Actions for data mutations
+5. Build UI components (Server Components first)
+6. Add client interactivity where needed
+7. Test booking flow end-to-end
+8. Check webhook delivery in logs
+
+## Testing Checklist
+- [ ] Slot generation works for all durations
+- [ ] Holds prevent double-booking
+- [ ] Expired holds are cleaned up
+- [ ] Stripe checkout creates orders and appointments
+- [ ] Webhooks are logged and processed
+- [ ] Cancellation respects 2-hour cutoff
+- [ ] Coupons apply correctly
+- [ ] RLS policies prevent unauthorized access
+- [ ] French translations are consistent
+- [ ] Mobile layout is responsive
+
+

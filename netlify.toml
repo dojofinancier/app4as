@@ -1,0 +1,21 @@
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Scheduled function for cleanup of expired holds
+[[functions]]
+  name = "cleanup-holds"
+  schedule = "* * * * *"  # Every minute
+
+

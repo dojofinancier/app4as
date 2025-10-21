@@ -1,0 +1,489 @@
+// Prisma Schema for Tutor Booking Application
+// Database: Supabase (PostgreSQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  student
+  tutor
+  admin
+}
+
+enum AppointmentStatus {
+  scheduled
+  cancelled
+  completed
+  refunded
+}
+
+enum OrderStatus {
+  created
+  paid
+  failed
+  refunded
+}
+
+enum CouponType {
+  percent
+  fixed
+}
+
+enum ExternalCalendarProvider {
+  google
+  microsoft
+}
+
+enum WebhookSource {
+  stripe
+  make
+  app
+}
+
+// Users table (mirrors Supabase Auth)
+model User {
+  id         String   @id @default(uuid())
+  role       Role     @default(student)
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
+  email      String   @unique
+  phone      String?
+  stripeCustomerId String? @map("stripe_customer_id")
+  defaultPaymentMethodId String? @map("default_payment_method_id")
+  creditBalance Decimal @default(0) @map("credit_balance") @db.Decimal(10, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  tutor        Tutor?
+  carts        Cart[]
+  orders       Order[]
+  appointments Appointment[]
+  slotHolds    SlotHold[]
+  creditTransactions CreditTransaction[]
+  refundRequests RefundRequest[]
+  appointmentModifications AppointmentModification[]
+  processedRefunds RefundRequest[] @relation("ProcessedRefunds")
+  sentMessages Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  recurringSessions RecurringSession[]
+
+  @@map("users")
+}
+
+// Courses
+model Course {
+  id            String   @id @default(uuid())
+  slug          String   @unique
+  titleFr       String   @map("title_fr")
+  descriptionFr String   @map("description_fr") @db.Text
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  tutorCourses TutorCourse[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  appointments Appointment[]
+  slotHolds    SlotHold[]
+  recurringSessions RecurringSession[]
+
+  @@map("courses")
+}
+
+// Tutors (extends User)
+model Tutor {
+  id                 String  @id
+  displayName        String  @map("display_name")
+  bioFr              String  @map("bio_fr") @db.Text
+  hourlyBaseRateCad  Decimal @map("hourly_base_rate_cad") @db.Decimal(10, 2)
+  priority           Int     @default(100) // Lower number = higher priority
+  active             Boolean @default(true)
+
+  // Relations
+  user                   User                    @relation(fields: [id], references: [id], onDelete: Cascade)
+  tutorCourses           TutorCourse[]
+  availabilityRules      AvailabilityRule[]
+  availabilityExceptions AvailabilityException[]
+  timeOff                TimeOff[]
+  externalCalendars      ExternalCalendar[]
+  cartItems              CartItem[]
+  orderItems             OrderItem[]
+  appointments           Appointment[]
+  slotHolds              SlotHold[]
+  recurringSessions      RecurringSession[]
+
+  @@map("tutors")
+}
+
+// Tutor-Course assignment
+model TutorCourse {
+  id       String  @id @default(uuid())
+  tutorId  String  @map("tutor_id")
+  courseId String  @map("course_id")
+  active   Boolean @default(true)
+
+  // Relations
+  tutor  Tutor  @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([tutorId, courseId])
+  @@index([courseId])
+  @@map("tutor_courses")
+}
+
+// Recurring weekly availability
+model AvailabilityRule {
+  id        String @id @default(uuid())
+  tutorId   String @map("tutor_id")
+  weekday   Int // 0-6 (Sunday-Saturday)
+  startTime String @map("start_time") // HH:MM format
+  endTime   String @map("end_time") // HH:MM format
+
+  // Relations
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([tutorId, weekday])
+  @@map("availability_rules")
+}
+
+// One-off availability exceptions
+model AvailabilityException {
+  id        String  @id @default(uuid())
+  tutorId   String  @map("tutor_id")
+  date      String // YYYY-MM-DD format
+  startTime String  @map("start_time") // HH:MM format
+  endTime   String  @map("end_time") // HH:MM format
+  isOpen    Boolean @map("is_open") // true = available, false = blocked
+
+  // Relations
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([tutorId, date])
+  @@map("availability_exceptions")
+}
+
+// Time off / vacations
+model TimeOff {
+  id            String   @id @default(uuid())
+  tutorId       String   @map("tutor_id")
+  startDatetime DateTime @map("start_datetime")
+  endDatetime   DateTime @map("end_datetime")
+
+  // Relations
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([tutorId, startDatetime])
+  @@map("time_off")
+}
+
+// External calendars (Google/Microsoft)
+model ExternalCalendar {
+  id                     String                    @id @default(uuid())
+  tutorId                String                    @map("tutor_id")
+  provider               ExternalCalendarProvider
+  accountEmail           String                    @map("account_email")
+  accessTokenEncrypted   String                    @map("access_token_encrypted") @db.Text
+  refreshTokenEncrypted  String                    @map("refresh_token_encrypted") @db.Text
+  expiresAt              DateTime                  @map("expires_at")
+  active                 Boolean                   @default(true)
+
+  // Relations
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([tutorId])
+  @@map("external_calendars")
+}
+
+// Coupons
+model Coupon {
+  id              String     @id @default(uuid())
+  code            String     @unique
+  type            CouponType
+  value           Decimal    @db.Decimal(10, 2)
+  active          Boolean    @default(true)
+  startsAt        DateTime?  @map("starts_at")
+  endsAt          DateTime?  @map("ends_at")
+  maxRedemptions  Int?       @map("max_redemptions")
+  redemptionCount Int        @default(0) @map("redemption_count")
+
+  // Relations
+  carts Cart[]
+
+  @@map("coupons")
+}
+
+// Shopping carts
+model Cart {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  couponId  String?  @map("coupon_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coupon Coupon?    @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  items  CartItem[]
+
+  @@index([userId])
+  @@map("carts")
+}
+
+// Cart items
+model CartItem {
+  id            String  @id @default(uuid())
+  cartId        String  @map("cart_id")
+  courseId      String  @map("course_id")
+  tutorId       String  @map("tutor_id")
+  startDatetime DateTime @map("start_datetime")
+  durationMin   Int     @map("duration_min") // 60, 90, or 120
+  unitPriceCad  Decimal @map("unit_price_cad") @db.Decimal(10, 2)
+  lineTotalCad  Decimal @map("line_total_cad") @db.Decimal(10, 2)
+
+  // Relations
+  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  tutor  Tutor  @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([cartId])
+  @@map("cart_items")
+}
+
+// Slot holds (15-minute reservation)
+model SlotHold {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  tutorId       String   @map("tutor_id")
+  courseId      String   @map("course_id")
+  startDatetime DateTime @map("start_datetime")
+  durationMin   Int      @map("duration_min")
+  expiresAt     DateTime @map("expires_at")
+  recurringSessionId String? @map("recurring_session_id")
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tutor  Tutor  @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  recurringSession RecurringSession? @relation(fields: [recurringSessionId], references: [id], onDelete: SetNull)
+
+  @@unique([tutorId, startDatetime])
+  @@index([startDatetime, tutorId, expiresAt])
+  @@map("slot_holds")
+}
+
+// Orders
+model Order {
+  id                       String      @id @default(uuid())
+  userId                   String      @map("user_id")
+  subtotalCad              Decimal     @map("subtotal_cad") @db.Decimal(10, 2)
+  discountCad              Decimal     @map("discount_cad") @db.Decimal(10, 2) @default(0)
+  totalCad                 Decimal     @map("total_cad") @db.Decimal(10, 2)
+  currency                 String      @default("CAD")
+  stripePaymentIntentId    String?     @unique @map("stripe_payment_intent_id")
+  stripeCheckoutSessionId  String?     @unique @map("stripe_checkout_session_id")
+  status                   OrderStatus @default(created)
+  createdAt                DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items OrderItem[]
+
+  @@index([userId])
+  @@map("orders")
+}
+
+// Order items
+model OrderItem {
+  id            String   @id @default(uuid())
+  orderId       String   @map("order_id")
+  courseId      String   @map("course_id")
+  tutorId       String   @map("tutor_id")
+  startDatetime DateTime @map("start_datetime")
+  durationMin   Int      @map("duration_min")
+  unitPriceCad  Decimal  @map("unit_price_cad") @db.Decimal(10, 2)
+  lineTotalCad  Decimal  @map("line_total_cad") @db.Decimal(10, 2)
+
+  // Relations
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  course       Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  tutor        Tutor        @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  appointment  Appointment?
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// Appointments
+model Appointment {
+  id            String            @id @default(uuid())
+  userId        String            @map("user_id")
+  tutorId       String            @map("tutor_id")
+  courseId      String            @map("course_id")
+  startDatetime DateTime          @map("start_datetime")
+  endDatetime   DateTime          @map("end_datetime")
+  status        AppointmentStatus @default(scheduled)
+  orderItemId   String            @unique @map("order_item_id")
+  recurringSessionId String?      @map("recurring_session_id")
+  cancellationReason String?      @map("cancellation_reason")
+  cancelledBy   String?           @map("cancelled_by") // "student", "tutor", "admin"
+  cancelledAt   DateTime?         @map("cancelled_at")
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tutor     Tutor     @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  creditTransactions CreditTransaction[]
+  refundRequests RefundRequest[]
+  modifications AppointmentModification[]
+  messages Message[]
+  recurringSession RecurringSession? @relation(fields: [recurringSessionId], references: [id], onDelete: SetNull)
+
+  @@index([startDatetime, tutorId])
+  @@index([userId])
+  @@index([recurringSessionId])
+  @@map("appointments")
+}
+
+// Webhook events log
+model WebhookEvent {
+  id          String         @id @default(uuid())
+  source      WebhookSource
+  type        String
+  payloadJson String         @map("payload_json") @db.Text
+  processedAt DateTime?      @map("processed_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  @@index([source, type])
+  @@map("webhook_events")
+}
+
+// Credit Bank System
+model CreditTransaction {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  appointmentId String?  @map("appointment_id")
+  amount        Decimal  @map("amount") @db.Decimal(10, 2)
+  type          String   // "earned", "used", "refunded"
+  reason        String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user        User         @relation(fields: [userId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@map("credit_transactions")
+}
+
+// Refund Requests
+model RefundRequest {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  appointmentId String   @map("appointment_id")
+  amount        Decimal  @map("amount") @db.Decimal(10, 2)
+  reason        String
+  status        String   @default("pending") // "pending", "approved", "rejected"
+  processedBy   String?  @map("processed_by")
+  processedAt   DateTime? @map("processed_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user        User         @relation(fields: [userId], references: [id])
+  appointment Appointment  @relation(fields: [appointmentId], references: [id])
+  processor   User?        @relation("ProcessedRefunds", fields: [processedBy], references: [id])
+
+  @@map("refund_requests")
+}
+
+// Appointment Modification History
+model AppointmentModification {
+  id               String   @id @default(uuid())
+  appointmentId    String   @map("appointment_id")
+  modifiedBy       String   @map("modified_by")
+  modificationType String   @map("modification_type") // "reschedule", "cancel", "tutor_change", "course_change"
+  reason           String?
+  oldData          Json     @map("old_data")
+  newData          Json     @map("new_data")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  modifier    User        @relation(fields: [modifiedBy], references: [id])
+
+  @@map("appointment_modifications")
+}
+
+// Messaging System
+model Message {
+  id            String   @id @default(uuid())
+  senderId      String   @map("sender_id")
+  receiverId    String   @map("receiver_id")
+  appointmentId String?  @map("appointment_id")
+  content       String   @db.Text
+  isRead        Boolean  @default(false) @map("is_read")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  sender      User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    User         @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  attachments MessageAttachment[]
+
+  @@index([senderId, receiverId])
+  @@index([receiverId, isRead])
+  @@index([appointmentId])
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id        String   @id @default(uuid())
+  messageId String   @map("message_id")
+  fileName  String   @map("file_name")
+  fileSize  Int      @map("file_size") // Size in bytes
+  fileType  String   @map("file_type") // MIME type
+  filePath  String   @map("file_path") // Supabase Storage path
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("message_attachments")
+}
+
+// Recurring Sessions
+model RecurringSession {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  tutorId           String   @map("tutor_id")
+  courseId          String   @map("course_id")
+  startDate         DateTime @map("start_date")
+  endDate           DateTime? @map("end_date")
+  frequency         String   // "weekly" or "biweekly"
+  durationMin       Int      @map("duration_min")
+  totalSessions     Int      @map("total_sessions")
+  sessionsCreated   Int      @default(0) @map("sessions_created")
+  sessionsCompleted Int      @default(0) @map("sessions_completed")
+  sessionsCancelled Int      @default(0) @map("sessions_cancelled")
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tutor        Tutor         @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  slotHolds    SlotHold[]
+
+  @@index([userId])
+  @@index([tutorId])
+  @@index([courseId])
+  @@index([active])
+  @@map("recurring_sessions")
+}
+
+
