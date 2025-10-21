@@ -1,55 +1,318 @@
+// ============================================================================
+// 4AS Tutor Booking App - Dual Rate Pricing Calculator
+// ============================================================================
+// Purpose: Calculate student prices and tutor earnings with dual rate system
+// ============================================================================
+
 import { Decimal } from '@prisma/client/runtime/library'
 
-/**
- * Calculate price based on tutor's hourly base rate and duration
- * Pricing structure:
- * - 60 min = base rate
- * - 90 min = base rate × 1.5
- * - 120 min = base rate × 2
- */
-export function calculatePrice(
-  hourlyBaseRate: Decimal | number,
-  durationMin: 60 | 90 | 120
-): number {
-  const baseRate = typeof hourlyBaseRate === 'number' 
-    ? hourlyBaseRate 
-    : hourlyBaseRate.toNumber()
+// Duration multipliers for different session lengths
+export const DURATION_MULTIPLIERS = {
+  60: 1.0,    // 1 hour = base rate
+  90: 1.5,    // 1.5 hours = base rate × 1.5
+  120: 2.0,   // 2 hours = base rate × 2
+} as const
 
-  switch (durationMin) {
-    case 60:
-      return baseRate
-    case 90:
-      return baseRate * 1.5
-    case 120:
-      return baseRate * 2
-    default:
-      throw new Error(`Invalid duration: ${durationMin}. Must be 60, 90, or 120`)
-  }
+export type DurationMinutes = keyof typeof DURATION_MULTIPLIERS
+
+// ============================================================================
+// STUDENT PRICING (What students pay)
+// ============================================================================
+
+/**
+ * Calculate the price a student pays for a session
+ * @param courseRate - The course's student rate (what students pay)
+ * @param durationMin - Session duration in minutes (60, 90, or 120)
+ * @returns Student price in CAD
+ */
+export function calculateStudentPrice(
+  courseRate: number | Decimal,
+  durationMin: DurationMinutes
+): number {
+  const rate = typeof courseRate === 'number' ? courseRate : courseRate.toNumber()
+  const multiplier = DURATION_MULTIPLIERS[durationMin]
+  return rate * multiplier
 }
 
 /**
- * Calculate discount based on coupon
+ * Calculate student price with coupon discount
+ * @param basePrice - Base student price
+ * @param couponType - 'percent' or 'fixed'
+ * @param couponValue - Discount value
+ * @returns Final student price after discount
  */
-export function calculateDiscount(
-  subtotal: number,
-  coupon: {
-    type: 'percent' | 'fixed'
-    value: Decimal | number
-  }
+export function calculateStudentPriceWithCoupon(
+  basePrice: number,
+  couponType: 'percent' | 'fixed',
+  couponValue: number
 ): number {
-  const value = typeof coupon.value === 'number' 
-    ? coupon.value 
-    : coupon.value.toNumber()
-
-  if (coupon.type === 'percent') {
-    return subtotal * (value / 100)
+  if (couponType === 'percent') {
+    return basePrice * (1 - couponValue / 100)
   } else {
-    return Math.min(value, subtotal) // Don't discount more than subtotal
+    return Math.max(0, basePrice - couponValue)
   }
 }
 
+// ============================================================================
+// TUTOR EARNINGS (What tutors earn)
+// ============================================================================
+
 /**
- * Validate coupon is currently active and has redemptions available
+ * Calculate what a tutor earns for a session
+ * @param tutorRate - The tutor's hourly rate (what tutor earns)
+ * @param durationMin - Session duration in minutes (60, 90, or 120)
+ * @returns Tutor earnings in CAD
+ */
+export function calculateTutorEarnings(
+  tutorRate: number | Decimal,
+  durationMin: DurationMinutes
+): number {
+  const rate = typeof tutorRate === 'number' ? tutorRate : tutorRate.toNumber()
+  const multiplier = DURATION_MULTIPLIERS[durationMin]
+  return rate * multiplier
+}
+
+// ============================================================================
+// MARGIN CALCULATIONS
+// ============================================================================
+
+/**
+ * Calculate the gross margin for a session
+ * @param studentPrice - What the student pays
+ * @param tutorEarnings - What the tutor earns
+ * @returns Gross margin in CAD
+ */
+export function calculateMargin(studentPrice: number, tutorEarnings: number): number {
+  return studentPrice - tutorEarnings
+}
+
+/**
+ * Calculate the margin percentage
+ * @param studentPrice - What the student pays
+ * @param tutorEarnings - What the tutor earns
+ * @returns Margin percentage (0-100)
+ */
+export function calculateMarginPercentage(studentPrice: number, tutorEarnings: number): number {
+  if (studentPrice === 0) return 0
+  return ((studentPrice - tutorEarnings) / studentPrice) * 100
+}
+
+// ============================================================================
+// COMPREHENSIVE PRICING CALCULATOR
+// ============================================================================
+
+export interface PricingCalculation {
+  // Input
+  courseRate: number
+  tutorRate: number
+  durationMin: DurationMinutes
+  couponType?: 'percent' | 'fixed'
+  couponValue?: number
+  
+  // Output
+  baseStudentPrice: number
+  finalStudentPrice: number
+  tutorEarnings: number
+  grossMargin: number
+  marginPercentage: number
+  discountAmount: number
+}
+
+/**
+ * Calculate complete pricing breakdown for a session
+ * @param params - Pricing parameters
+ * @returns Complete pricing calculation
+ */
+export function calculateSessionPricing(params: {
+  courseRate: number | Decimal
+  tutorRate: number | Decimal
+  durationMin: DurationMinutes
+  couponType?: 'percent' | 'fixed'
+  couponValue?: number
+}): PricingCalculation {
+  const courseRate = typeof params.courseRate === 'number' ? params.courseRate : params.courseRate.toNumber()
+  const tutorRate = typeof params.tutorRate === 'number' ? params.tutorRate : params.tutorRate.toNumber()
+  
+  // Calculate base prices
+  const baseStudentPrice = calculateStudentPrice(courseRate, params.durationMin)
+  const tutorEarnings = calculateTutorEarnings(tutorRate, params.durationMin)
+  
+  // Apply coupon if provided
+  let finalStudentPrice = baseStudentPrice
+  let discountAmount = 0
+  
+  if (params.couponType && params.couponValue) {
+    finalStudentPrice = calculateStudentPriceWithCoupon(
+      baseStudentPrice,
+      params.couponType,
+      params.couponValue
+    )
+    discountAmount = baseStudentPrice - finalStudentPrice
+  }
+  
+  // Calculate margins
+  const grossMargin = calculateMargin(finalStudentPrice, tutorEarnings)
+  const marginPercentage = calculateMarginPercentage(finalStudentPrice, tutorEarnings)
+  
+  return {
+    courseRate,
+    tutorRate,
+    durationMin: params.durationMin,
+    couponType: params.couponType,
+    couponValue: params.couponValue,
+    baseStudentPrice,
+    finalStudentPrice,
+    tutorEarnings,
+    grossMargin,
+    marginPercentage,
+    discountAmount,
+  }
+}
+
+// ============================================================================
+// CART CALCULATIONS
+// ============================================================================
+
+export interface CartItemPricing {
+  courseId: string
+  tutorId: string
+  durationMin: DurationMinutes
+  courseRate: number
+  tutorRate: number
+  basePrice: number
+  finalPrice: number
+  tutorEarnings: number
+  margin: number
+}
+
+/**
+ * Calculate pricing for a cart item
+ * @param item - Cart item data
+ * @returns Pricing breakdown for cart item
+ */
+export function calculateCartItemPricing(item: {
+  courseRate: number | Decimal
+  tutorRate: number | Decimal
+  durationMin: DurationMinutes
+}): Omit<CartItemPricing, 'courseId' | 'tutorId'> {
+  const calculation = calculateSessionPricing({
+    courseRate: item.courseRate,
+    tutorRate: item.tutorRate,
+    durationMin: item.durationMin,
+  })
+  
+  return {
+    durationMin: item.durationMin,
+    courseRate: calculation.courseRate,
+    tutorRate: calculation.tutorRate,
+    basePrice: calculation.baseStudentPrice,
+    finalPrice: calculation.finalStudentPrice,
+    tutorEarnings: calculation.tutorEarnings,
+    margin: calculation.grossMargin,
+  }
+}
+
+// ============================================================================
+// ORDER CALCULATIONS
+// ============================================================================
+
+export interface OrderPricing {
+  subtotal: number
+  discount: number
+  total: number
+  totalTutorEarnings: number
+  totalMargin: number
+  marginPercentage: number
+  items: Array<{
+    courseId: string
+    tutorId: string
+    durationMin: DurationMinutes
+    studentPrice: number
+    tutorEarnings: number
+    margin: number
+  }>
+}
+
+/**
+ * Calculate complete order pricing
+ * @param items - Order items with pricing data
+ * @param couponType - Applied coupon type
+ * @param couponValue - Applied coupon value
+ * @returns Complete order pricing breakdown
+ */
+export function calculateOrderPricing(
+  items: Array<{
+    courseId: string
+    tutorId: string
+    durationMin: DurationMinutes
+    courseRate: number | Decimal
+    tutorRate: number | Decimal
+  }>,
+  couponType?: 'percent' | 'fixed',
+  couponValue?: number
+): OrderPricing {
+  // Calculate individual item pricing
+  const itemPricing = items.map(item => {
+    const calculation = calculateSessionPricing({
+      courseRate: item.courseRate,
+      tutorRate: item.tutorRate,
+      durationMin: item.durationMin,
+    })
+    
+    return {
+      courseId: item.courseId,
+      tutorId: item.tutorId,
+      durationMin: item.durationMin,
+      studentPrice: calculation.finalStudentPrice,
+      tutorEarnings: calculation.tutorEarnings,
+      margin: calculation.grossMargin,
+    }
+  })
+  
+  // Calculate totals
+  const subtotal = itemPricing.reduce((sum, item) => sum + item.studentPrice, 0)
+  const totalTutorEarnings = itemPricing.reduce((sum, item) => sum + item.tutorEarnings, 0)
+  const totalMargin = itemPricing.reduce((sum, item) => sum + item.margin, 0)
+  
+  // Apply order-level coupon if provided
+  let discount = 0
+  let total = subtotal
+  
+  if (couponType && couponValue) {
+    if (couponType === 'percent') {
+      discount = subtotal * (couponValue / 100)
+    } else {
+      discount = Math.min(couponValue, subtotal)
+    }
+    total = subtotal - discount
+  }
+  
+  const marginPercentage = total > 0 ? (totalMargin / total) * 100 : 0
+  
+  return {
+    subtotal,
+    discount,
+    total,
+    totalTutorEarnings,
+    totalMargin,
+    marginPercentage,
+    items: itemPricing,
+  }
+}
+
+// ============================================================================
+// COUPON VALIDATION
+// ============================================================================
+
+export interface CouponValidation {
+  valid: boolean
+  reason?: string
+}
+
+/**
+ * Validate a coupon
+ * @param coupon - Coupon object from database
+ * @returns Validation result
  */
 export function validateCoupon(coupon: {
   active: boolean
@@ -57,54 +320,62 @@ export function validateCoupon(coupon: {
   endsAt: Date | null
   maxRedemptions: number | null
   redemptionCount: number
-}): { valid: boolean; reason?: string } {
+}): CouponValidation {
   if (!coupon.active) {
-    return { valid: false, reason: 'Coupon is not active' }
+    return { valid: false, reason: 'Ce code promo n\'est plus actif' }
   }
 
   const now = new Date()
-
+  
   if (coupon.startsAt && now < coupon.startsAt) {
-    return { valid: false, reason: 'Coupon is not yet valid' }
+    return { valid: false, reason: 'Ce code promo n\'est pas encore valide' }
   }
 
   if (coupon.endsAt && now > coupon.endsAt) {
-    return { valid: false, reason: 'Coupon has expired' }
+    return { valid: false, reason: 'Ce code promo a expiré' }
   }
 
-  if (
-    coupon.maxRedemptions !== null &&
-    coupon.redemptionCount >= coupon.maxRedemptions
-  ) {
-    return { valid: false, reason: 'Coupon has reached max redemptions' }
+  if (coupon.maxRedemptions && coupon.redemptionCount >= coupon.maxRedemptions) {
+    return { valid: false, reason: 'Ce code promo a atteint sa limite d\'utilisation' }
   }
 
   return { valid: true }
 }
 
-/**
- * Calculate order totals with optional coupon
- */
-export function calculateOrderTotals(
-  items: Array<{ price: number }>,
-  coupon?: {
-    type: 'percent' | 'fixed'
-    value: Decimal | number
-  }
-): {
-  subtotal: number
-  discount: number
-  total: number
-} {
-  const subtotal = items.reduce((sum, item) => sum + item.price, 0)
-  const discount = coupon ? calculateDiscount(subtotal, coupon) : 0
-  const total = subtotal - discount
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
-  return {
-    subtotal: Math.round(subtotal * 100) / 100,
-    discount: Math.round(discount * 100) / 100,
-    total: Math.round(total * 100) / 100,
-  }
+/**
+ * Format currency for display
+ * @param amount - Amount in CAD
+ * @returns Formatted currency string
+ */
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('fr-CA', {
+    style: 'currency',
+    currency: 'CAD',
+  }).format(amount)
 }
 
+/**
+ * Validate duration is supported
+ * @param durationMin - Duration in minutes
+ * @returns True if duration is valid
+ */
+export function isValidDuration(durationMin: number): durationMin is DurationMinutes {
+  return durationMin in DURATION_MULTIPLIERS
+}
 
+/**
+ * Get duration label for display
+ * @param durationMin - Duration in minutes
+ * @returns Human-readable duration label
+ */
+export function getDurationLabel(durationMin: DurationMinutes): string {
+  const hours = durationMin / 60
+  if (hours === 1) return '1 heure'
+  if (hours === 1.5) return '1h30'
+  if (hours === 2) return '2 heures'
+  return `${hours} heures`
+}

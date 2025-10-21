@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
 import { addMinutes } from 'date-fns'
-import { calculatePrice, validateCoupon } from '@/lib/pricing'
+import { calculateStudentPrice, validateCoupon } from '@/lib/pricing'
 import type { Duration } from '@/lib/slots/types'
 
 const HOLD_TTL_MINUTES = 15
@@ -63,16 +63,26 @@ export async function addToCart(data: {
   }
 
   try {
-    // Get tutor to calculate price
-    const tutor = await prisma.tutor.findUnique({
-      where: { id: data.tutorId },
-    })
+    // Get course and tutor to calculate price
+    const [course, tutor] = await Promise.all([
+      prisma.course.findUnique({
+        where: { id: data.courseId },
+      }),
+      prisma.tutor.findUnique({
+        where: { id: data.tutorId },
+      }),
+    ])
+
+    if (!course) {
+      return { success: false, error: 'Cours introuvable' }
+    }
 
     if (!tutor) {
       return { success: false, error: 'Tuteur introuvable' }
     }
 
-    const price = calculatePrice(tutor.hourlyBaseRateCad, data.durationMin)
+    // Calculate student price using course rate (dual rate system)
+    const price = calculateStudentPrice(course.studentRateCad, data.durationMin)
 
     // Check if slot is still available (not booked or held by someone else)
     const now = new Date()

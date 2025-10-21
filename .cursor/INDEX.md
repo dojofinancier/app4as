@@ -2,10 +2,11 @@
 
 ## 📚 Planning Documents (Start Here)
 
-### 1. **[CONSOLIDATED_ROADMAP.md](./CONSOLIDATED_ROADMAP.md)** ⭐ PRIMARY
-**The single source of truth for all planning and implementation.**
+### 1. **[CONSOLIDATED_ROADMAP.md](./CONSOLIDATED_ROADMAP.md)** ⭐ PRIMARY (ALL-IN-ONE)
+**The single, complete source of truth for planning AND execution.**
 
 Contains:
+- **🚀 Quick Start Guide** - Step-by-step Phase 0 execution plan (at the top)
 - Complete V1 specifications
 - Implementation phases (0-8)
 - Status of all features (✅ 🚧 ⚠️ 🔲 🔄)
@@ -13,24 +14,15 @@ Contains:
 - Acceptance criteria for each feature
 - V1 vs V2 scope decisions
 - Recommended implementation order
+- Phase 0 execution checklist with time estimates
+- Progress tracking tools
 
-**Use this for:** Overall project understanding, feature planning, implementation priorities
+**Use this for:** EVERYTHING - planning, execution, tracking, understanding
 
-
-### 2. **[QUICK_START_GUIDE.md](./QUICK_START_GUIDE.md)** 🚀 ACTION PLAN
-**Immediate next steps - Phase 0 cleanup checklist.**
-
-Contains:
-- Step-by-step cleanup instructions
-- Critical issues to fix first
-- Checklists for Phase 0 tasks
-- Success metrics
-- Progress tracking
-
-**Use this for:** Getting started with cleanup, immediate action items
+**Start here:** Jump to "Quick Start Guide" section at the top for immediate action steps
 
 
-### 3. **[CLEANUP_SUMMARY.md](./CLEANUP_SUMMARY.md)** 📝 DETAILS
+### 2. **[CLEANUP_SUMMARY.md](./CLEANUP_SUMMARY.md)** 📝 DETAILS
 **Detailed answers to your questions and rationale.**
 
 Contains:
@@ -43,7 +35,7 @@ Contains:
 
 **Use this for:** Understanding decisions, technical details, rationale
 
-### 3B. **[DUAL_RATE_AND_UI_UPDATES.md](./DUAL_RATE_AND_UI_UPDATES.md)** 🆕 NEW FEATURES
+### 3. **[DUAL_RATE_AND_UI_UPDATES.md](./DUAL_RATE_AND_UI_UPDATES.md)** 🆕 NEW FEATURES
 **Implementation guide for dual rate system and UI enhancement.**
 
 Contains:
@@ -225,8 +217,8 @@ Includes:
 ## 🎯 Your Next Steps
 
 ### Immediate (Today)
-1. ✅ Read CONSOLIDATED_ROADMAP.md (understand full scope)
-2. ✅ Read QUICK_START_GUIDE.md (action items)
+1. ✅ Read CONSOLIDATED_ROADMAP.md (everything you need is here)
+2. ✅ Jump to "Quick Start Guide" section at the top
 3. 🔲 Backup current state (`git commit`)
 4. 🔲 Run RLS diagnostic queries
 5. 🔲 Check for data constraint violations
@@ -271,12 +263,11 @@ Before implementing ANY feature:
 
 ```
 .cursor/
-├── CONSOLIDATED_ROADMAP.md       ⭐ Main planning document
-├── QUICK_START_GUIDE.md          🚀 Immediate action plan
+├── CONSOLIDATED_ROADMAP.md       ⭐ ALL-IN-ONE planning + execution guide
 ├── CLEANUP_SUMMARY.md            📝 Detailed answers & rationale
 ├── DUAL_RATE_AND_UI_UPDATES.md   🆕 New features implementation guide
+├── INDEX.md                      📚 This file (navigation)
 ├── ROADMAP.md                    🗂️ Legacy (archived)
-├── INDEX.md                      📚 This file
 └── plans/
     ├── prompt.md                 📄 Original spec
     └── tutor-booking-*.md        📄 Original plan
@@ -293,14 +284,16 @@ prisma/
 ## ✅ Consolidation Complete!
 
 You now have:
-- ✅ Single source of truth (CONSOLIDATED_ROADMAP.md)
-- ✅ Clear action plan (QUICK_START_GUIDE.md)
+- ✅ **Single all-in-one document** (CONSOLIDATED_ROADMAP.md with Quick Start Guide built-in)
 - ✅ Detailed rationale (CLEANUP_SUMMARY.md)
+- ✅ New features guide (DUAL_RATE_AND_UI_UPDATES.md)
 - ✅ Database scripts ready to run
 - ✅ Clear implementation priorities
 - ✅ Consistency rules to prevent breaking changes
 
 **Ready to proceed with Phase 0!** 🎉
+
+**Start here:** Open CONSOLIDATED_ROADMAP.md and go to the "Quick Start Guide" section at the top!
 
 ---
 

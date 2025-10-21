@@ -49,7 +49,234 @@ This roadmap consolidates the original prompt, implementation plan, and feature 
 
 ---
 
-## **PHASE 0: Cleanup & Foundation (CURRENT PRIORITY)**
+## **🚀 QUICK START GUIDE - Phase 0 Execution Plan**
+
+### **📋 What We're Doing**
+Consolidating planning documents ✅, cleaning up the codebase, implementing dual rate system, and fixing broken features before adding new functionality.
+
+### **🎯 Key Decisions Made**
+
+| Topic | Decision |
+|-------|----------|
+| **Payment Flow** | Payment Intents ONLY (remove Checkout Sessions) |
+| **Booking Flow** | Cart-based ONLY (remove direct booking) |
+| **Guest Checkout** | Keep it (create account on payment) |
+| **Pricing Model** | **Dual Rate System** (tutor rate vs student rate) |
+| **Hold Cleanup** | Inline (not scheduled function for now) |
+| **Hold Duration** | Always 15 min from creation (no extension) |
+| **Cancellation** | Credits by default (admin manual refunds) |
+| **Reschedule Window** | 24 hours (different from 2h cancellation) |
+| **Make.com Webhooks** | All student/tutor events + retry logic |
+| **Database Constraints** | Add all recommended constraints |
+| **RLS Policies** | Consolidate into single file |
+| **UI Components** | shadcn/ui + TweakCN (Phase 6, after core works) |
+
+### **🚨 Critical Issues to Fix**
+
+| Issue | Impact | Priority | Est. Time |
+|-------|--------|----------|-----------|
+| **Recurring Sessions Breaking Cart** | High | Fix immediately | 4-6 hours |
+| **Duplicate Checkout Flows** | High | Before new features | 6-8 hours |
+| **Scattered RLS Policies** | Medium | Phase 0 | 2-3 hours |
+| **Test/Debug Code in Production** | Low | Phase 0 | 1 hour |
+
+---
+
+### **✅ PHASE 0 EXECUTION CHECKLIST**
+
+#### **Step 1: Backup Current State** (5 min)
+```bash
+git add .
+git commit -m "Pre-cleanup checkpoint"
+git push
+```
+
+#### **Step 2: Run RLS Diagnostic** (15 min)
+1. Copy contents of `prisma/check-rls-policies.sql`
+2. Run in Supabase SQL Editor
+3. Save output for review: `prisma/rls-policies.md`
+4. Identify conflicting policies
+
+#### **Step 3: Check Data for Constraint Violations** (15 min)
+```sql
+-- Run in Supabase SQL Editor:
+
+-- Check invalid durations
+SELECT 'cart_items' as table_name, COUNT(*) as violations 
+FROM cart_items WHERE duration_min NOT IN (60, 90, 120)
+UNION ALL
+SELECT 'order_items', COUNT(*) 
+FROM order_items WHERE duration_min NOT IN (60, 90, 120)
+UNION ALL
+SELECT 'slot_holds', COUNT(*) 
+FROM slot_holds WHERE duration_min NOT IN (60, 90, 120);
+
+-- Check negative prices
+SELECT 'tutors' as table_name, COUNT(*) as violations
+FROM tutors WHERE hourly_base_rate_cad <= 0
+UNION ALL
+SELECT 'orders', COUNT(*)
+FROM orders WHERE total_cad < 0;
+
+-- Check weekday range
+SELECT 'availability_rules', COUNT(*)
+FROM availability_rules WHERE weekday NOT BETWEEN 0 AND 6;
+```
+
+#### **Step 4: Implement Dual Rate System** (2-3 hours)
+```bash
+# 1. Update Prisma schema
+# Add studentRateCad to Course model (see Phase 0.2 below)
+
+# 2. Generate migration
+npm run prisma:generate
+
+# 3. Push to database
+npm run prisma:push
+
+# 4. Update pricing calculator (lib/pricing.ts)
+# - Add calculateStudentPrice() function
+# - Add calculateTutorEarnings() function
+# - Add calculateMargin() function
+```
+
+#### **Step 5: Delete Test/Debug Code** (30 min)
+```bash
+# Delete test routes
+rm -rf app/api/test
+rm -rf app/api/debug-appointments
+rm -rf app/api/debug-appointment-tutor
+rm -rf app/api/debug-payment
+rm -rf app/api/debug-tutor-data
+rm -rf app/api/debug-webhooks
+rm -rf app/api/test-appointment
+rm -rf app/api/test-tutor-relationship
+
+# Delete direct booking action
+rm lib/actions/booking.ts
+
+# Verify deletion
+git status
+```
+
+#### **Step 6: Apply Database Constraints** (1 hour)
+1. Fix any data violations found in Step 3
+2. Review `prisma/add-constraints.sql`
+3. Run in Supabase SQL Editor
+4. Test with sample queries
+
+#### **Step 7: Apply Clean RLS Policies** (1-2 hours)
+1. Backup existing policies (from Step 2 output)
+2. Review `prisma/rls-policies-v1-clean.sql`
+3. Generate DROP statements for old policies
+4. Run clean policy file
+5. Test with different user roles
+
+#### **Step 8: Commit Cleanup** (5 min)
+```bash
+git add .
+git commit -m "Phase 0: Cleanup, dual rate system, constraints, and RLS policies"
+git push
+```
+
+---
+
+### **🔧 PHASE 1 PRIORITY FIXES**
+
+After Phase 0, tackle these in order:
+
+#### **Priority 1: Fix Recurring Sessions** (4-6 hours)
+**Goal:** Make recurring sessions use the cart flow
+
+**Files to Modify:**
+- `components/booking/recurring-session-form.tsx`
+- `lib/actions/recurring-sessions.ts`
+- `lib/actions/cart.ts`
+
+**Acceptance Criteria:**
+- [ ] Recurring session form adds ALL sessions to cart
+- [ ] Single bookings still work
+- [ ] Holds created for all recurring slots
+- [ ] Payment creates all appointments at once
+- [ ] Can cancel individual sessions
+
+#### **Priority 2: Consolidate Checkout** (6-8 hours)
+**Goal:** Single cart-based Payment Intent checkout
+
+**Files to Modify:**
+- `app/checkout/page.tsx` (refactor)
+- `lib/actions/checkout.ts` (update to use course rates)
+- Remove old checkout components
+
+**Acceptance Criteria:**
+- [ ] Works from cart page
+- [ ] Guest flow (account creation + payment)
+- [ ] Logged-in flow (saved cards)
+- [ ] Uses course `studentRateCad` for pricing
+- [ ] Tracks tutor earnings separately
+- [ ] Payment succeeds → creates order + appointments
+
+#### **Priority 3: Fix Stripe Webhook** (3-4 hours)
+**Goal:** Handle Payment Intent webhook correctly with dual rates
+
+**Files to Modify:**
+- `app/api/webhooks/stripe/route.ts`
+
+**Acceptance Criteria:**
+- [ ] Listens for `payment_intent.succeeded`
+- [ ] Idempotent (check payment_intent_id)
+- [ ] Creates order + order_items + appointments atomically
+- [ ] Stores both student payment and tutor earnings
+- [ ] Deletes holds
+- [ ] Triggers Make.com webhook
+- [ ] Logs all events
+
+---
+
+### **📊 Phase 0 Progress Tracker**
+
+Track your progress:
+
+- [ ] **Backup created** (git commit)
+- [ ] **RLS diagnostic run** (policies reviewed)
+- [ ] **Data validated** (no constraint violations)
+- [ ] **Dual rate system added** (studentRateCad in schema)
+- [ ] **Test code deleted** (cleaner codebase)
+- [ ] **Constraints applied** (business rules enforced)
+- [ ] **RLS policies consolidated** (single source of truth)
+- [ ] **Direct booking removed** (cart flow only)
+- [ ] **Cleanup committed** (changes saved)
+
+---
+
+### **🎯 Success Metrics**
+
+After Phase 0, you should have:
+
+1. ✅ Single roadmap document (this file)
+2. ✅ No test/debug routes in production
+3. ✅ **Dual rate system in database** (Course.studentRateCad)
+4. ✅ Database constraints enforcing business rules
+5. ✅ Clean, consolidated RLS policies
+6. ✅ Single payment flow (Payment Intents)
+7. ✅ Single booking flow (cart-based)
+8. ✅ Clear path forward for Phase 1
+
+---
+
+### **🚀 After Phase 0**
+
+Follow this sequence:
+1. **Fix recurring sessions** (Priority 1)
+2. **Consolidate checkout** (Priority 2)
+3. **Fix Stripe webhook** (Priority 3)
+4. **Tutor Availability CRUD** (blocks student booking improvements)
+5. **Admin Course CRUD** (with rate management)
+6. Continue with remaining features as outlined in phases below
+
+---
+
+## **PHASE 0: Cleanup & Foundation (DETAILED PLANNING)**
 
 ### **0.1 Code Cleanup**
 **Status:** 🚧 In Progress

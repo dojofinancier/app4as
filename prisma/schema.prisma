@@ -82,6 +82,7 @@ model Course {
   slug          String   @unique
   titleFr       String   @map("title_fr")
   descriptionFr String   @map("description_fr") @db.Text
+  studentRateCad Decimal @default(45.00) @map("student_rate_cad") @db.Decimal(10, 2) // What students pay
   active        Boolean  @default(true)
   createdAt     DateTime @default(now()) @map("created_at")
 

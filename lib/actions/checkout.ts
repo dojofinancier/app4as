@@ -5,7 +5,7 @@ import { getStripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
 import { getOrCreateCart } from './cart'
-import { calculateOrderTotals } from '@/lib/pricing'
+import { calculateOrderPricing } from '@/lib/pricing'
 import { formatDateTime } from '@/lib/utils'
 
 /**
@@ -28,15 +28,17 @@ export async function createCheckoutSession() {
       return { success: false, error: 'Votre panier est vide' }
     }
 
-    // Calculate totals
-    const totals = calculateOrderTotals(
-      cart.items.map((item) => ({ price: item.unitPriceCad.toNumber() })),
-      cart.coupon
-        ? {
-            type: cart.coupon.type,
-            value: cart.coupon.value,
-          }
-        : undefined
+    // Calculate totals using dual rate system
+    const orderPricing = calculateOrderPricing(
+      cart.items.map((item) => ({
+        courseId: item.courseId,
+        tutorId: item.tutorId,
+        durationMin: item.durationMin,
+        courseRate: item.course.studentRateCad,
+        tutorRate: item.tutor.hourlyBaseRateCad,
+      })),
+      cart.coupon?.type,
+      cart.coupon?.value.toNumber()
     )
 
     // Create line items for Stripe
@@ -54,14 +56,14 @@ export async function createCheckoutSession() {
       }))
 
     // If there's a discount, add it as a negative line item
-    if (totals.discount > 0) {
+    if (orderPricing.discount > 0) {
       lineItems.push({
         price_data: {
           currency: 'cad',
           product_data: {
             name: `Rabais - ${cart.coupon?.code}`,
           },
-          unit_amount: -Math.round(totals.discount * 100),
+          unit_amount: -Math.round(orderPricing.discount * 100),
         },
         quantity: 1,
       })
