@@ -93,7 +93,7 @@ export async function sendMessage(data: {
       senderName: `${message.sender.firstName} ${message.sender.lastName}`,
       receiverName: `${message.receiver.firstName} ${message.receiver.lastName}`,
       content: message.content,
-      appointmentId: message.appointmentId,
+      appointmentId: message.appointmentId || undefined,
       appointmentTitle: message.appointment?.course.titleFr,
       timestamp: message.createdAt.toISOString()
     })

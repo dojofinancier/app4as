@@ -75,8 +75,8 @@ export async function POST(request: NextRequest) {
     // No DB writes here; hold was created during session creation
 
     // Get or create Stripe customer for logged-in users only
-    let customerId = null
-    if (hold.user && !hold.userId.startsWith('guest_')) {
+    let customerId: string | null = null
+    if (hold.user && hold.userId) {
       // Only create Stripe customer for actual logged-in users
       customerId = hold.user.stripeCustomerId
       if (!customerId) {

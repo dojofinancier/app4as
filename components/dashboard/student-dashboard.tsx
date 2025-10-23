@@ -11,7 +11,7 @@ import { AppointmentCard } from './appointment-card'
 import { ProfileManagementTab } from './profile-management-tab'
 import { ReservationManagementTab } from './reservation-management-tab'
 import { MessagingTab } from '../messaging/messaging-tab'
-import { Calendar, User, Settings, BookOpen, MessageCircle } from 'lucide-react'
+import { Calendar, User as UserIcon, Settings, BookOpen, MessageCircle } from 'lucide-react'
 import type { Appointment, Course, Tutor, User, Order } from '@prisma/client'
 
 interface StudentDashboardProps {
@@ -96,7 +96,7 @@ export function StudentDashboard({
           variant={activeTab === 'profile' ? 'default' : 'outline'}
           onClick={() => setActiveTab('profile')}
         >
-          <User className="h-4 w-4 mr-2" />
+          <UserIcon className="h-4 w-4 mr-2" />
           Mon profil
         </Button>
         <Button

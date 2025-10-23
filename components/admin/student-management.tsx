@@ -56,7 +56,7 @@ export function StudentManagement() {
           phone: '+1-514-987-6543',
           role: 'student',
           stripeCustomerId: 'cus_0987654321',
-          defaultPaymentMethodId: null,
+          defaultPaymentMethodId: undefined,
           createdAt: new Date('2024-02-20')
         }
       ]

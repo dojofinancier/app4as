@@ -218,7 +218,9 @@ export async function cancelRecurringSession(
         })
 
         // Calculate credit amount (same as appointment duration)
-        const creditAmount = appointment.durationMin / 60 // Convert minutes to hours
+        const durationMs = appointment.endDatetime.getTime() - appointment.startDatetime.getTime()
+        const durationHours = durationMs / (1000 * 60 * 60) // Convert milliseconds to hours
+        const creditAmount = durationHours
 
         // Add credit to user's bank
         await tx.user.update({
@@ -410,7 +412,7 @@ export async function generateRecurringAppointments(
       return { success: false, error: 'Session récurrente non trouvée' }
     }
 
-    const appointments = []
+    const appointments: any[] = []
     let currentDate = new Date(recurringSession.startDate)
     const endDate = new Date(recurringSession.endDate || new Date())
     

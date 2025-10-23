@@ -60,10 +60,10 @@ export function TutorManagement() {
   const fetchTutors = async () => {
     try {
       const result = await getAllTutors()
-      if (result.success) {
-        setTutors(result.data)
+      if (result.success && result.data) {
+        setTutors(result.data as any)
       } else {
-        setError(result.error)
+        setError(result.error || 'Erreur lors du chargement des tuteurs')
       }
     } catch (error) {
       setError('Erreur lors du chargement des tuteurs')
@@ -82,7 +82,7 @@ export function TutorManagement() {
       if (result.success) {
         await fetchTutors()
       } else {
-        setError(result.error)
+        setError(result.error || 'Erreur lors de la désactivation du tuteur')
       }
     } catch (error) {
       setError('Erreur lors de la désactivation du tuteur')
@@ -281,7 +281,7 @@ function CreateTutorForm({ onClose, onSuccess }: { onClose: () => void; onSucces
       if (result.success) {
         onSuccess()
       } else {
-        setError(result.error)
+        setError(result.error || 'Erreur')
       }
     } catch (error) {
       setError('Erreur lors de la création du tuteur')

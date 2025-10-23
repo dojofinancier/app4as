@@ -4,25 +4,46 @@ import Stripe from 'stripe'
 import { getStripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
-import { getOrCreateCart } from './cart'
-import { calculateOrderPricing } from '@/lib/pricing'
+import { getOrCreateCartByIdentity } from './cart'
+import { calculateOrderPricing, calculateTutorEarnings } from '@/lib/pricing'
 import { formatDateTime } from '@/lib/utils'
 
 /**
- * Create Stripe Checkout session from cart
+ * Create Stripe Payment Intent from cart
  */
-export async function createCheckoutSession() {
+export async function createPaymentIntent() {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { success: false, error: 'Non autorisé' }
-  }
-
   try {
-    const cart = await getOrCreateCart(user.id)
+    let cart
+    let dbUser = null
+    let userId = null
+
+    if (user) {
+      // Authenticated user
+      cart = await getOrCreateCartByIdentity({ userId: user.id })
+      dbUser = await prisma.user.findUnique({
+        where: { id: user.id }
+      })
+      userId = user.id
+    } else {
+      // Guest user - get cart by session
+      const { getCartSessionId, getOrCreateCartSessionId } = await import('@/lib/utils/session')
+      const sessionId = getCartSessionId() || getOrCreateCartSessionId()
+      
+      // Set session id for RLS policies
+      try {
+        await prisma.$executeRaw`select set_config('app.cart_session_id', ${sessionId}, true)`
+      } catch (e) {
+        // ignore if not configured
+      }
+      
+      cart = await getOrCreateCartByIdentity({ sessionId })
+      userId = `guest_${sessionId}` // Use session ID as guest user ID
+    }
 
     if (cart.items.length === 0) {
       return { success: false, error: 'Votre panier est vide' }
@@ -33,7 +54,7 @@ export async function createCheckoutSession() {
       cart.items.map((item) => ({
         courseId: item.courseId,
         tutorId: item.tutorId,
-        durationMin: item.durationMin,
+        durationMin: item.durationMin as 60 | 90 | 120,
         courseRate: item.course.studentRateCad,
         tutorRate: item.tutor.hourlyBaseRateCad,
       })),
@@ -41,70 +62,164 @@ export async function createCheckoutSession() {
       cart.coupon?.value.toNumber()
     )
 
-    // Create line items for Stripe
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
-      cart.items.map((item) => ({
-        price_data: {
-          currency: 'cad',
-          product_data: {
-            name: `${item.course.titleFr} - ${item.tutor.displayName}`,
-            description: `${formatDateTime(item.startDatetime)} (${item.durationMin} min)`,
-          },
-          unit_amount: Math.round(item.unitPriceCad.toNumber() * 100),
-        },
-        quantity: 1,
-      }))
+    // Create or get Stripe customer
+    const stripe = getStripe()
+    let customerId: string
 
-    // If there's a discount, add it as a negative line item
-    if (orderPricing.discount > 0) {
-      lineItems.push({
-        price_data: {
-          currency: 'cad',
-          product_data: {
-            name: `Rabais - ${cart.coupon?.code}`,
-          },
-          unit_amount: -Math.round(orderPricing.discount * 100),
+    if (user && dbUser?.stripeCustomerId) {
+      // Authenticated user with existing Stripe customer
+      customerId = dbUser.stripeCustomerId
+    } else if (user && dbUser) {
+      // Authenticated user without Stripe customer
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          userId: user.id,
         },
-        quantity: 1,
       })
+      customerId = customer.id
+
+      // Update user with Stripe customer ID
+      await prisma.user.update({
+        where: { id: dbUser.id },
+        data: { stripeCustomerId: customerId },
+      })
+    } else {
+      // Guest user - create temporary customer
+      const customer = await stripe.customers.create({
+        metadata: {
+          userId: userId, // guest_sessionId
+          isGuest: 'true',
+        },
+      })
+      customerId = customer.id
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // Store cart data in database for webhook processing
+    const cartData = {
+      items: cart.items.map((item) => ({
+        courseId: item.courseId,
+        tutorId: item.tutorId,
+        startDatetime: item.startDatetime.toISOString(),
+        durationMin: item.durationMin,
+        unitPriceCad: item.unitPriceCad.toNumber(),
+        lineTotalCad: item.lineTotalCad.toNumber(),
+        // Calculate tutor earnings for each item
+        tutorEarningsCad: calculateTutorEarnings(item.tutor.hourlyBaseRateCad, item.durationMin as 60 | 90 | 120),
+      })),
+      couponCode: cart.coupon?.code || '',
+      discountAmount: orderPricing.discount,
+    }
 
-    // Create Checkout session
-    const stripe = getStripe()
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items: lineItems,
-      customer_email: user.email,
-      billing_address_collection: 'required',
+    // Create Payment Intent with minimal metadata
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(orderPricing.total * 100), // Convert to cents
+      currency: 'cad',
+      customer: customerId,
       metadata: {
-        userId: user.id,
+        userId: userId, // Can be real user ID or guest_sessionId
         cartId: cart.id,
+        // Store only essential info in metadata (under 500 chars)
+        itemCount: cart.items.length.toString(),
+        couponCode: cart.coupon?.code || '',
+        discountAmount: orderPricing.discount.toString(),
       },
-      success_url: `${appUrl}/paiement/succes?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/paiement/annule`,
+      automatic_payment_methods: {
+        enabled: true,
+      },
     })
 
-    return { success: true, sessionId: session.id, url: session.url }
+    // Store the full cart data in the database for webhook processing
+    await prisma.paymentIntentData.create({
+      data: {
+        paymentIntentId: paymentIntent.id,
+        cartData: JSON.stringify(cartData),
+      }
+    })
+
+    return { 
+      success: true, 
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id
+    }
   } catch (error) {
-    console.error('Error creating checkout session:', error)
+    console.error('Error creating payment intent:', error)
     return { success: false, error: 'Une erreur est survenue' }
   }
 }
 
 /**
- * Get checkout session
+ * Create Setup Intent for saving payment methods
  */
-export async function getCheckoutSession(sessionId: string) {
+export async function createSetupIntent() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'Non autorisé' }
+  }
+
   try {
+    // Get user from database to access Stripe customer ID
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id }
+    })
+
+    if (!dbUser) {
+      return { success: false, error: 'Utilisateur non trouvé' }
+    }
+
     const stripe = getStripe()
-    const session = await stripe.checkout.sessions.retrieve(sessionId)
-    return { success: true, session }
+    let customerId: string
+
+    if (dbUser.stripeCustomerId) {
+      customerId = dbUser.stripeCustomerId
+    } else {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          userId: user.id,
+        },
+      })
+      customerId = customer.id
+
+      // Update user with Stripe customer ID
+      await prisma.user.update({
+        where: { id: dbUser.id },
+        data: { stripeCustomerId: customerId },
+      })
+    }
+
+    // Create Setup Intent
+    const setupIntent = await stripe.setupIntents.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      usage: 'off_session',
+    })
+
+    return { 
+      success: true, 
+      clientSecret: setupIntent.client_secret,
+      setupIntentId: setupIntent.id
+    }
   } catch (error) {
-    console.error('Error retrieving checkout session:', error)
-    return { success: false, error: 'Session introuvable' }
+    console.error('Error creating setup intent:', error)
+    return { success: false, error: 'Une erreur est survenue' }
   }
 }
 
+/**
+ * Get payment intent
+ */
+export async function getPaymentIntent(paymentIntentId: string) {
+  try {
+    const stripe = getStripe()
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+    return { success: true, paymentIntent }
+  } catch (error) {
+    console.error('Error retrieving payment intent:', error)
+    return { success: false, error: 'Payment intent introuvable' }
+  }
+}

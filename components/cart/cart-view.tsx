@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { removeFromCart, applyCoupon, removeCoupon } from '@/lib/actions/cart'
-import { createCheckoutSession } from '@/lib/actions/checkout'
-import { calculateOrderTotals } from '@/lib/pricing'
+import { calculateOrderPricing } from '@/lib/pricing'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { frCA } from '@/lib/i18n/fr-CA'
 import type { Cart, CartItem, Course, Tutor, Coupon } from '@prisma/client'
@@ -64,24 +63,20 @@ export function CartView({ initialCart }: CartViewProps) {
     setIsLoading(true)
     setError(null)
 
-    const result = await createCheckoutSession()
-
-    if (result.success && result.url) {
-      window.location.href = result.url
-    } else {
-      setError(result.error || 'Une erreur est survenue')
-      setIsLoading(false)
-    }
+    // Redirect to checkout page
+    router.push('/checkout')
   }
 
-  const totals = calculateOrderTotals(
-    cart.items.map((item) => ({ price: item.unitPriceCad.toNumber() })),
-    cart.coupon
-      ? {
-          type: cart.coupon.type,
-          value: cart.coupon.value,
-        }
-      : undefined
+  const totals = calculateOrderPricing(
+    cart.items.map((item) => ({
+      courseId: item.courseId,
+      tutorId: item.tutorId,
+      durationMin: item.durationMin as 60 | 90 | 120,
+      courseRate: item.course.studentRateCad,
+      tutorRate: item.tutor.hourlyBaseRateCad,
+    })),
+    cart.coupon?.type,
+    cart.coupon ? Number((cart.coupon as any).value) : undefined
   )
 
   if (cart.items.length === 0) {
@@ -122,7 +117,7 @@ export function CartView({ initialCart }: CartViewProps) {
                     Durée: {item.durationMin} minutes
                   </p>
                   <p className="mt-2 font-semibold text-primary">
-                    {formatCurrency(item.unitPriceCad.toNumber())}
+                    {formatCurrency(typeof item.unitPriceCad === 'number' ? item.unitPriceCad : Number((item.unitPriceCad as any)))}
                   </p>
                 </div>
                 <Button

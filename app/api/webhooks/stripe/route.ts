@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import { getStripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
+import { calculateTutorEarnings } from '@/lib/pricing'
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
@@ -42,228 +43,6 @@ export async function POST(req: NextRequest) {
   })
 
   try {
-    if (event.type === 'checkout.session.completed') {
-      console.log('=== PROCESSING CHECKOUT.SESSION.COMPLETED ===')
-      const session = event.data.object as Stripe.Checkout.Session
-      
-      console.log('Session ID:', session.id)
-      console.log('Session metadata:', session.metadata)
-      
-      // Get metadata from the session
-      const {
-        holdId,
-        tutorId,
-        startDatetime,
-        endDatetime,
-        duration,
-        courseSlug,
-        firstName,
-        lastName,
-        phone,
-        password,
-        isNewUser,
-        userInfo: userInfoJson
-      } = session.metadata || {}
-
-      // Parse user info if provided (for guest users)
-      let userInfo = null
-      if (userInfoJson) {
-        try {
-          userInfo = JSON.parse(userInfoJson)
-        } catch (error) {
-          console.error('Error parsing userInfo:', error)
-        }
-      }
-
-      console.log('Extracted metadata:', {
-        holdId,
-        tutorId,
-        startDatetime,
-        endDatetime,
-        duration,
-        courseSlug,
-        isNewUser
-      })
-
-
-      if (!holdId || !tutorId) {
-        console.error('Missing required metadata in checkout session')
-        return NextResponse.json({ error: 'Missing metadata' }, { status: 400 })
-      }
-
-      // Find the course
-      const course = await prisma.course.findUnique({
-        where: { slug: courseSlug }
-      })
-
-      if (!course) {
-        console.error('Course not found:', courseSlug)
-        return NextResponse.json({ error: 'Course not found' }, { status: 400 })
-      }
-
-
-      let userId: string
-
-      if (isNewUser === 'true') {
-        // Create new user account
-        const supabase = await createClient()
-        
-        // Create user in Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-          email: session.customer_email!,
-          password: password || 'temp_password_' + Date.now(), // Generate temp password if not provided
-          email_confirm: true,
-          user_metadata: {
-            first_name: userInfo?.firstName || firstName,
-            last_name: userInfo?.lastName || lastName,
-            phone: userInfo?.phone || phone
-          }
-        })
-
-        if (authError) {
-          console.error('Error creating user in Supabase:', authError)
-          return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
-        }
-
-        // Create user in our database
-        const user = await prisma.user.create({
-          data: {
-            id: authData.user.id,
-            email: session.customer_email!,
-            firstName: userInfo?.firstName || firstName,
-            lastName: userInfo?.lastName || lastName,
-            phone: userInfo?.phone || phone,
-            role: 'student'
-          }
-        })
-
-        userId = user.id
-      } else {
-        // User already exists, get their ID from the hold
-        const hold = await prisma.slotHold.findUnique({
-          where: { id: holdId },
-          include: {
-            user: {
-              select: { id: true, firstName: true, lastName: true, email: true, role: true }
-            }
-          }
-        })
-        
-        if (!hold?.userId) {
-          console.error('Hold not found or no user ID')
-          return NextResponse.json({ error: 'Invalid hold' }, { status: 400 })
-        }
-        
-        userId = hold.userId
-        
-        // If this is a temporary user (guest), update it with real data
-        if (hold.userId.startsWith('guest_')) {
-          console.log('Updating temporary user with real data:', hold.userId)
-          
-          // Create user in Supabase Auth
-          const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: session.customer_email!,
-            password: password || 'temp_password_' + Date.now(), // Generate temp password if not provided
-            email_confirm: true,
-            user_metadata: {
-              first_name: userInfo?.firstName || firstName,
-              last_name: userInfo?.lastName || lastName,
-              phone: userInfo?.phone || phone
-            }
-          })
-
-          if (authError) {
-            console.error('Error creating user in Supabase:', authError)
-            return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
-          }
-
-          // Update the temporary user with real data
-          await prisma.user.update({
-            where: { id: hold.userId },
-            data: {
-              id: authData.user.id, // Update to real Supabase user ID
-              email: session.customer_email!,
-              firstName: userInfo?.firstName || firstName,
-              lastName: userInfo?.lastName || lastName,
-              phone: userInfo?.phone || phone,
-              role: 'student'
-            }
-          })
-          
-          // Update the slot hold to use the new user ID
-          await prisma.slotHold.update({
-            where: { id: holdId },
-            data: { userId: authData.user.id }
-          })
-          
-          userId = authData.user.id
-        }
-      }
-
-      console.log('Creating order and appointment for user:', userId)
-
-      // Create everything in a transaction
-      const result = await prisma.$transaction(async (tx) => {
-        // Create the order
-        const order = await tx.order.create({
-          data: {
-            userId: userId,
-            totalCad: session.amount_total! / 100, // Convert from cents
-            status: 'completed',
-            stripeSessionId: session.id,
-            stripePaymentIntentId: session.payment_intent as string
-          }
-        })
-
-        // Create order item
-        const orderItem = await tx.orderItem.create({
-          data: {
-            orderId: order.id,
-            courseId: course.id,
-            tutorId: tutorId,
-            startDatetime: new Date(startDatetime),
-            endDatetime: new Date(endDatetime),
-            priceCad: session.amount_total! / 100
-          }
-        })
-
-        // Check if appointment already exists for this order item
-        const existingAppointment = await tx.appointment.findUnique({
-          where: { orderItemId: orderItem.id }
-        })
-
-        if (existingAppointment) {
-          return { order, orderItem, appointment: existingAppointment }
-        }
-
-        // Create the appointment
-
-        const appointment = await tx.appointment.create({
-          data: {
-            userId: userId,
-            tutorId: tutorId,
-            courseId: course.id,
-            startDatetime: new Date(startDatetime),
-            endDatetime: new Date(endDatetime),
-            status: 'scheduled',
-            orderItemId: orderItem.id
-          }
-        })
-
-        // Delete the hold
-        await tx.slotHold.delete({
-          where: { id: holdId }
-        })
-
-        return { order, orderItem, appointment }
-      })
-
-      // TODO: Send Make.com webhook for booking confirmation
-      // This will handle email notifications and calendar invites
-
-      console.log('Booking completed successfully')
-    }
-
     if (event.type === 'payment_intent.succeeded') {
       console.log('=== PROCESSING PAYMENT_INTENT.SUCCEEDED ===')
       const paymentIntent = event.data.object as Stripe.PaymentIntent
@@ -273,179 +52,210 @@ export async function POST(req: NextRequest) {
       
       // Get metadata from the payment intent
       const {
-        holdId,
-        tutorId,
-        courseId,
-        startDatetime,
-        duration,
-        courseSlug,
-        recurringSessionId
+        userId,
+        cartId,
+        itemCount,
+        couponCode,
+        discountAmount
       } = paymentIntent.metadata || {}
 
-      if (!holdId || !tutorId) {
-        console.error('Missing required metadata in payment intent')
+      if (!userId || !cartId) {
+        console.error('Missing required metadata in payment intent:', paymentIntent.metadata)
         return NextResponse.json({ error: 'Missing metadata' }, { status: 400 })
       }
 
-      // Get the user from the hold
-      const hold = await prisma.slotHold.findUnique({
-        where: { id: holdId },
-        include: { user: true }
+      // Get cart data from database
+      const paymentIntentData = await prisma.paymentIntentData.findUnique({
+        where: { paymentIntentId: paymentIntent.id }
       })
 
-      if (!hold) {
-        console.error('Hold not found:', holdId)
-        return NextResponse.json({ error: 'Hold not found' }, { status: 400 })
+      if (!paymentIntentData) {
+        console.error('No payment intent data found for:', paymentIntent.id)
+        return NextResponse.json({ error: 'Payment intent data not found' }, { status: 400 })
       }
 
-      const userId = hold.userId
-
-      // Save payment method if it's a new one and user is logged in
-      if (paymentIntent.payment_method && userId) {
-        try {
-          const user = await prisma.user.findUnique({
-            where: { id: userId }
-          })
-
-          if (user && !user.defaultPaymentMethodId) {
-            // This is a new payment method for a logged-in user
-            // Save it as their default payment method
-            await prisma.user.update({
-              where: { id: userId },
-              data: {
-                stripeCustomerId: paymentIntent.customer as string,
-                defaultPaymentMethodId: paymentIntent.payment_method as string
-              }
-            })
-            console.log('Saved new payment method for user:', userId)
-          }
-        } catch (error) {
-          console.error('Error saving payment method:', error)
-          // Don't fail the webhook for this
-        }
+      // Parse cart data
+      let cartData: {
+        items: Array<{
+          courseId: string
+          tutorId: string
+          startDatetime: string
+          durationMin: number
+          unitPriceCad: number
+          lineTotalCad: number
+          tutorEarningsCad: number
+        }>
+        couponCode: string
+        discountAmount: number
+      }
+      
+      try {
+        cartData = JSON.parse(paymentIntentData.cartData)
+      } catch (error) {
+        console.error('Error parsing cart data:', error)
+        return NextResponse.json({ error: 'Invalid cart data' }, { status: 400 })
       }
 
-      // Create order, order item, and appointment
-      const course = await prisma.course.findUnique({
-        where: { id: courseId }
-      })
+      const cartItems = cartData.items
+      const finalCouponCode = cartData.couponCode || couponCode || ''
+      const finalDiscountAmount = cartData.discountAmount || (discountAmount ? parseFloat(discountAmount) : 0)
 
-      if (!course) {
-        console.error('Course not found:', courseId)
-        return NextResponse.json({ error: 'Course not found' }, { status: 400 })
+      if (cartItems.length === 0) {
+        console.error('No items in payment intent metadata')
+        return NextResponse.json({ error: 'No cart items in metadata' }, { status: 400 })
       }
 
-      const { order, orderItem, appointment } = await prisma.$transaction(async (tx) => {
-        // Create order
+      // Create everything in a transaction
+      const result = await prisma.$transaction(async (tx) => {
+        // Create the order
         const order = await tx.order.create({
           data: {
             userId: userId,
-            status: 'paid',
             subtotalCad: paymentIntent.amount / 100,
+            discountCad: finalDiscountAmount,
             totalCad: paymentIntent.amount / 100,
-            stripePaymentIntentId: paymentIntent.id
+            status: 'paid',
+            stripePaymentIntentId: paymentIntent.id,
           }
         })
 
-        // Create order item
-        const orderItem = await tx.orderItem.create({
-          data: {
-            orderId: order.id,
-            courseId: courseId,
-            tutorId: tutorId,
-            startDatetime: new Date(startDatetime),
-            durationMin: parseInt(duration),
-            unitPriceCad: paymentIntent.amount / 100,
-            lineTotalCad: paymentIntent.amount / 100
-          }
-        })
+        // Create order items and appointments
+        const orderItems = []
+        const appointments = []
 
-        // Create appointment(s)
-        let appointment
-        if (recurringSessionId) {
-          // For recurring sessions, generate all appointments
-          const recurringSession = await tx.recurringSession.findUnique({
-            where: { id: recurringSessionId }
+        for (const item of cartItems) {
+          // Create order item
+          const orderItem = await tx.orderItem.create({
+            data: {
+              orderId: order.id,
+              courseId: item.courseId,
+              tutorId: item.tutorId,
+              startDatetime: new Date(item.startDatetime),
+              endDatetime: new Date(new Date(item.startDatetime).getTime() + item.durationMin * 60000),
+              durationMin: item.durationMin,
+              unitPriceCad: item.unitPriceCad,
+              lineTotalCad: item.lineTotalCad,
+              tutorEarningsCad: item.tutorEarningsCad
+            }
           })
-          
-          if (!recurringSession) {
-            throw new Error('Recurring session not found')
-          }
 
-          const appointments = []
-          let currentDate = new Date(recurringSession.startDate)
-          const endDate = new Date(recurringSession.endDate || new Date())
-          
-          // Generate all appointment dates
-          while (currentDate <= endDate && appointments.length < recurringSession.totalSessions) {
-            // Check if this time slot is available
-            const existingAppointment = await tx.appointment.findFirst({
-              where: {
-                tutorId: recurringSession.tutorId,
-                startDatetime: currentDate,
-                status: { in: ['scheduled', 'completed'] }
+          orderItems.push(orderItem)
+
+          // Check if appointment already exists (idempotency)
+          const existingAppointment = await tx.appointment.findFirst({
+            where: {
+              orderItemId: orderItem.id
+            }
+          })
+
+          if (!existingAppointment) {
+            // Create the appointment
+            const appointment = await tx.appointment.create({
+              data: {
+                userId: userId,
+                tutorId: item.tutorId,
+                courseId: item.courseId,
+                startDatetime: new Date(item.startDatetime),
+                endDatetime: new Date(new Date(item.startDatetime).getTime() + item.durationMin * 60000),
+                status: 'scheduled',
+                orderItemId: orderItem.id
               }
             })
 
-            if (!existingAppointment) {
-              const endDateTime = new Date(currentDate.getTime() + recurringSession.durationMin * 60000)
-              
-              const newAppointment = await tx.appointment.create({
-                data: {
-                  userId: userId,
-                  tutorId: recurringSession.tutorId,
-                  courseId: recurringSession.courseId,
-                  orderItemId: orderItem.id,
-                  startDatetime: currentDate,
-                  endDatetime: endDateTime,
-                  durationMin: recurringSession.durationMin,
-                  status: 'scheduled',
-                  recurringSessionId: recurringSessionId
-                }
-              })
-              
-              appointments.push(newAppointment)
-            }
-
-            // Move to next appointment date
-            const daysToAdd = recurringSession.frequency === 'weekly' ? 7 : 14
-            currentDate = new Date(currentDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000)
+            appointments.push(appointment)
           }
+        }
 
-          // Update recurring session with sessions created count
-          await tx.recurringSession.update({
-            where: { id: recurringSessionId },
-            data: {
-              sessionsCreated: appointments.length
-            }
-          })
+        // Delete all holds for this cart
+        await tx.slotHold.deleteMany({
+          where: {
+            userId: userId,
+            tutorId: { in: cartItems.map(item => item.tutorId) },
+            startDatetime: { in: cartItems.map(item => new Date(item.startDatetime)) }
+          }
+        })
 
-          appointment = appointments[0] // Return first appointment for compatibility
-        } else {
-          // Regular single appointment
-          appointment = await tx.appointment.create({
-            data: {
-              userId: userId,
-              tutorId: tutorId,
-              courseId: courseId,
-              orderItemId: orderItem.id,
-              startDatetime: new Date(startDatetime),
-              endDatetime: new Date(new Date(startDatetime).getTime() + parseInt(duration) * 60000),
-              durationMin: parseInt(duration),
-              status: 'scheduled'
-            }
+        // Clear the cart
+        await tx.cartItem.deleteMany({
+          where: { cartId: cartId }
+        })
+
+        // Update coupon redemption count if applicable
+        if (finalCouponCode) {
+          await tx.coupon.updateMany({
+            where: { code: finalCouponCode },
+              data: {
+                redemptionCount: {
+                  increment: 1
+                }
+              }
           })
         }
 
-        // Delete the hold
-        await tx.slotHold.delete({
-          where: { id: holdId }
-        })
-
-        return { order, orderItem, appointment }
+        return { order, orderItems, appointments }
       })
 
-      console.log('Payment intent processed successfully')
+      // Handle user creation/update
+      let actualUserId = userId
+      
+      // Check if this is a guest user (userId starts with 'guest_')
+      if (userId.startsWith('guest_')) {
+        console.log('Guest user payment detected - account creation will be handled by confirm-payment-with-password API')
+        
+        // For guest users, we don't create accounts here anymore
+        // The confirm-payment-with-password API will handle account creation and order/appointment creation
+        // We just need to clean up the payment intent data
+        await prisma.paymentIntentData.delete({
+          where: { paymentIntentId: paymentIntent.id }
+        })
+        
+        console.log('Guest payment processed - waiting for account creation via API')
+        return NextResponse.json({ received: true })
+      } else {
+        // Existing authenticated user - update Stripe customer ID if not already set
+        if (paymentIntent.customer) {
+          await prisma.user.update({
+            where: { id: userId },
+            data: { stripeCustomerId: paymentIntent.customer as string }
+          })
+        }
+
+        // Save payment method if it's a new one
+        if (paymentIntent.payment_method) {
+          try {
+            const user = await prisma.user.findUnique({
+              where: { id: userId }
+            })
+
+            if (user && !user.defaultPaymentMethodId) {
+              await prisma.user.update({
+                where: { id: userId },
+                data: {
+                  defaultPaymentMethodId: paymentIntent.payment_method as string
+                }
+              })
+              console.log('Saved new payment method for user:', userId)
+            }
+          } catch (error) {
+            console.error('Error saving payment method:', error)
+            // Don't fail the webhook for this
+          }
+        }
+      }
+
+      // Clean up payment intent data after successful processing
+      await prisma.paymentIntentData.delete({
+        where: { paymentIntentId: paymentIntent.id }
+      })
+
+      // TODO: Send Make.com webhook for booking confirmation
+      // This will handle email notifications and calendar invites
+
+      console.log('Payment intent processed successfully:', {
+        orderId: result.order.id,
+        appointmentsCreated: result.appointments.length,
+        totalAmount: paymentIntent.amount / 100
+      })
     }
 
     // Mark webhook as processed

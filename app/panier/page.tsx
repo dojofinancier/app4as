@@ -1,16 +1,13 @@
-import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/actions/auth'
-import { getOrCreateCart } from '@/lib/actions/cart'
+import { getOrCreateCartByIdentity } from '@/lib/actions/cart'
+import { getOrCreateCartSessionId } from '@/lib/utils/session'
 import { CartView } from '@/components/cart/cart-view'
 
 export default async function CartPage() {
   const user = await getCurrentUser()
-
-  if (!user) {
-    redirect('/connexion')
-  }
-
-  const cart = await getOrCreateCart(user.id)
+  const cart = user
+    ? await getOrCreateCartByIdentity({ userId: user.id })
+    : await getOrCreateCartByIdentity({ sessionId: getOrCreateCartSessionId() })
 
   return (
     <div className="container mx-auto px-4 py-12">

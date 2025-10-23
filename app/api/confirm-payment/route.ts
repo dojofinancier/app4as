@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
+  let paymentIntentId: string | undefined
+  
   try {
     console.log('=== CONFIRM PAYMENT START ===')
     console.log('Request received at:', new Date().toISOString())
@@ -19,7 +21,12 @@ export async function POST(request: NextRequest) {
       hasBillingAddress: !!body.billingAddress 
     })
     
-    const { paymentIntentId, userInfo, billingAddress } = body
+    const { paymentIntentId: piId, userInfo, billingAddress } = body
+    paymentIntentId = piId
+
+    if (!paymentIntentId) {
+      throw new Error('Payment Intent ID is required')
+    }
 
     // Retrieve payment intent from Stripe
     console.log('Retrieving payment intent from Stripe:', paymentIntentId)
@@ -196,13 +203,13 @@ export async function POST(request: NextRequest) {
       // CRITICAL: Payment has already succeeded, so we need to handle this gracefully
       // Log the error for manual resolution, but don't fail the user experience
       console.error('PAYMENT SUCCEEDED BUT BOOKING FAILED - MANUAL RESOLUTION REQUIRED')
-      console.error('Payment Intent ID:', body.paymentIntentId)
+      console.error('Payment Intent ID:', paymentIntentId)
       console.error('User should be contacted and booking manually completed')
       
       return NextResponse.json(
         { 
           error: 'Votre paiement a été traité avec succès, mais il y a eu un problème technique. Notre équipe va résoudre cela rapidement et vous contacter sous peu.',
-          paymentIntentId: body.paymentIntentId,
+          paymentIntentId: paymentIntentId,
           requiresManualResolution: true
         },
         { status: 200 } // Return 200 so user doesn't think payment failed

@@ -152,7 +152,7 @@ export default async function DashboardPage() {
         <StripeProvider>
           <StudentDashboard
             user={user}
-            appointments={appointments}
+            appointments={appointments as any}
             orders={orders}
           />
         </StripeProvider>

@@ -134,8 +134,8 @@ export async function cancelAppointment(data: {
     // Send webhook notification
     await sendBookingWebhook({
       type: 'appointment_cancelled',
+      userId: authUser.id,
       appointmentId: data.appointmentId,
-      studentId: authUser.id,
       tutorId: appointment.tutorId,
       reason: data.reason,
       action: data.action,
@@ -265,8 +265,8 @@ export async function rescheduleAppointment(data: {
     // Send webhook notification
     await sendBookingWebhook({
       type: 'appointment_rescheduled',
+      userId: authUser.id,
       appointmentId: data.appointmentId,
-      studentId: authUser.id,
       tutorId: appointment.tutorId,
       reason: data.reason,
       oldStartDatetime: appointment.startDatetime.toISOString(),
@@ -318,7 +318,6 @@ export async function getStudentAppointments(userId: string) {
       ...apt,
       startDatetime: apt.startDatetime.toISOString(),
       endDatetime: apt.endDatetime.toISOString(),
-      createdAt: apt.createdAt?.toISOString(),
       orderItem: apt.orderItem ? {
         ...apt.orderItem,
         lineTotalCad: Number(apt.orderItem.lineTotalCad)
@@ -371,10 +370,10 @@ export async function getAvailableRescheduleSlots(appointmentId: string) {
     const toDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
 
     // Get tutor's availability
-    const tutorAvailability = await prisma.tutorAvailability.findMany({
+    const tutorAvailability = await prisma.availabilityRule.findMany({
       where: {
         tutorId: appointment.tutorId,
-        dayOfWeek: {
+        weekday: {
           in: Array.from({ length: 7 }, (_, i) => i) // All days
         }
       }
@@ -413,7 +412,7 @@ export async function getAvailableRescheduleSlots(appointmentId: string) {
     
     while (currentDate <= toDate) {
       const dayOfWeek = currentDate.getDay()
-      const dayAvailability = tutorAvailability.filter(av => av.dayOfWeek === dayOfWeek)
+      const dayAvailability = tutorAvailability.filter(av => av.weekday === dayOfWeek)
       
       for (const availability of dayAvailability) {
         const startTime = new Date(currentDate)
@@ -494,10 +493,7 @@ export async function getStudentCreditTransactions(userId: string) {
         ...transaction.appointment,
         startDatetime: transaction.appointment.startDatetime.toISOString(),
         endDatetime: transaction.appointment.endDatetime.toISOString(),
-        orderItem: transaction.appointment.orderItem ? {
-          ...transaction.appointment.orderItem,
-          lineTotalCad: Number(transaction.appointment.orderItem.lineTotalCad)
-        } : null
+        orderItemId: transaction.appointment.orderItemId
       } : null
     }))
 

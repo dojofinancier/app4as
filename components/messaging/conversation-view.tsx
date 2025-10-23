@@ -49,7 +49,7 @@ export function ConversationView({ participant, onBack }: ConversationViewProps)
     try {
       setLoading(true)
       const result = await getConversation(participant.id)
-      if (result.success) {
+      if (result.success && result.messages) {
         setMessages(result.messages)
       } else {
         setError(result.error || 'Erreur lors du chargement des messages')
@@ -76,7 +76,7 @@ export function ConversationView({ participant, onBack }: ConversationViewProps)
       setSending(true)
       setError(null)
 
-      console.log('Submitting message:', { content: data.content, hasFile: !!pendingFile })
+      console.log('Submitting message:', { content: data.content })
 
       // Check if we have content
       if (!data.content) {

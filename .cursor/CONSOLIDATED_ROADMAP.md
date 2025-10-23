@@ -181,12 +181,12 @@ git push
 
 ---
 
-### **🔧 PHASE 1 PRIORITY FIXES**
+### **🔧 PHASE 0.5: CRITICAL FIXES (Before Phase 1)**
 
-After Phase 0, tackle these in order:
+These are broken features that need immediate fixing before we can proceed with new development:
 
-#### **Priority 1: Fix Recurring Sessions** (4-6 hours)
-**Goal:** Make recurring sessions use the cart flow
+#### **Fix 1: Recurring Sessions Integration** (4-6 hours)
+**Goal:** Make recurring sessions use the cart flow instead of bypassing it
 
 **Files to Modify:**
 - `components/booking/recurring-session-form.tsx`
@@ -200,8 +200,8 @@ After Phase 0, tackle these in order:
 - [ ] Payment creates all appointments at once
 - [ ] Can cancel individual sessions
 
-#### **Priority 2: Consolidate Checkout** (6-8 hours)
-**Goal:** Single cart-based Payment Intent checkout
+#### **Fix 2: Consolidate Checkout Flows** (6-8 hours)
+**Goal:** Single cart-based Payment Intent checkout (remove duplicate flows)
 
 **Files to Modify:**
 - `app/checkout/page.tsx` (refactor)
@@ -216,7 +216,7 @@ After Phase 0, tackle these in order:
 - [ ] Tracks tutor earnings separately
 - [ ] Payment succeeds → creates order + appointments
 
-#### **Priority 3: Fix Stripe Webhook** (3-4 hours)
+#### **Fix 3: Fix Stripe Webhook** (3-4 hours)
 **Goal:** Handle Payment Intent webhook correctly with dual rates
 
 **Files to Modify:**
@@ -267,11 +267,14 @@ After Phase 0, you should have:
 ### **🚀 After Phase 0**
 
 Follow this sequence:
-1. **Fix recurring sessions** (Priority 1)
-2. **Consolidate checkout** (Priority 2)
-3. **Fix Stripe webhook** (Priority 3)
-4. **Tutor Availability CRUD** (blocks student booking improvements)
-5. **Admin Course CRUD** (with rate management)
+1. **PHASE 0.5: Critical Fixes** (CURRENT)
+   - Fix recurring sessions integration
+   - Consolidate checkout flows
+   - Fix Stripe webhook
+2. **PHASE 1: Core Booking Flow** (Make.com webhooks)
+3. **PHASE 2: Student Dashboard Features**
+4. **PHASE 3: Tutor Dashboard Features** (Availability CRUD)
+5. **PHASE 4: Admin Dashboard Features** (Course CRUD with rate management)
 6. Continue with remaining features as outlined in phases below
 
 ---
@@ -386,7 +389,7 @@ model Tutor {
 
 ---
 
-## **PHASE 1: Core Booking Flow (Cart-Based)**
+## **PHASE 1: Core Booking Flow (Cart-Based) - AFTER FIXES**
 
 ### **1.1 Slot Generation Engine**
 **Status:** ✅ Completed
@@ -412,7 +415,7 @@ model Tutor {
 ---
 
 ### **1.2 Cart System with Holds**
-**Status:** ⚠️ Needs Refactoring (recurring sessions broke cart)
+**Status:** ⚠️ Needs Refactoring (recurring sessions broke cart) - **FIXED IN PHASE 0.5**
 
 **Location:** `lib/actions/cart.ts`, `components/cart/`
 
@@ -437,7 +440,7 @@ model Tutor {
 ---
 
 ### **1.3 Stripe Payment Intent Checkout**
-**Status:** 🚧 Partially Implemented
+**Status:** 🚧 Partially Implemented - **FIXED IN PHASE 0.5**
 
 **Location:** `app/checkout/`, `lib/actions/checkout.ts`
 
@@ -461,7 +464,7 @@ model Tutor {
 ---
 
 ### **1.4 Stripe Webhook Handler**
-**Status:** 🚧 Partially Implemented
+**Status:** 🚧 Partially Implemented - **FIXED IN PHASE 0.5**
 
 **Location:** `app/api/webhooks/stripe/route.ts`
 
@@ -896,6 +899,7 @@ model Tutor {
 - [ ] View tutor earnings (calculated from tutor rate)
 - [ ] Edit payment status (mark as paid)
 - [ ] Add payment confirmation number
+- [ ] Setting tutor priority
 - [ ] View availability utilization (% of available slots booked)
 - [ ] Performance analytics
 - [ ] **Revenue margin analysis** (total collected from students - total paid to tutor)
@@ -1785,28 +1789,37 @@ When implementing ANY form, ALWAYS:
 
 Based on technical dependencies and user value:
 
-1. **PHASE 0:** Cleanup & Foundation + **Dual Rate System** (CURRENT)
+1. **PHASE 0:** Cleanup & Foundation + **Dual Rate System** ✅ COMPLETED
    - Database schema hardening
    - Add `studentRateCad` to Course model
    - Update pricing calculations
    - RLS policy consolidation
-2. **Cart + Payment Flow Fix** (High priority, blocks everything)
-   - Fix to use course rates for students
-3. **Tutor Availability CRUD** (Blocks student booking)
-4. **Admin Course CRUD** (Needed for testing, includes rate management)
-5. **Make.com Webhooks** (Communications dependency)
-6. **Recurring Sessions Fix** (Currently broken)
-7. **Tutor Messaging** (Complete messaging feature)
-8. **Meeting Links** (High user value)
-9. **Support Tickets** (User support)
-10. **Rating System** (Trust building)
-11. **Admin Features** (Coupons, Orders, Revenue Analytics with margin tracking)
-12. **PHASE 6: UI/UX Enhancement with TweakCN** (After core functionality)
-    - Homepage, course pages, booking flow
-    - Cart, checkout, dashboards
-    - 35-50 hours estimated
-13. **Testing & QA**
-14. **Deployment**
+2. **PHASE 0.5: Critical Fixes** (CURRENT - 13-18 hours)
+   - Fix recurring sessions integration with cart
+   - Consolidate checkout flows (Payment Intents)
+   - Fix Stripe webhook for dual rates
+3. **PHASE 1: Core Booking Flow** (After fixes)
+   - Cart system with holds (now working)
+   - Payment Intent checkout (now working)
+   - Stripe webhook (now working)
+   - Make.com webhooks
+4. **PHASE 2: Student Dashboard Features**
+5. **PHASE 3: Tutor Dashboard Features**
+   - Tutor Availability CRUD (HIGH PRIORITY)
+6. **PHASE 4: Admin Dashboard Features**
+   - Admin Course CRUD (with rate management)
+   - Enhanced tutor management
+   - Revenue analytics with margin tracking
+7. **PHASE 5: Cross-Cutting Features**
+   - Meeting Links
+   - Support Tickets
+   - Rating System
+8. **PHASE 6: UI/UX Enhancement with TweakCN**
+   - Homepage, course pages, booking flow
+   - Cart, checkout, dashboards
+   - 35-50 hours estimated
+9. **PHASE 7: Performance & Security**
+10. **PHASE 8: Testing & Deployment**
 
 ---
 

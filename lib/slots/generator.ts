@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { calculatePrice } from '@/lib/pricing'
+import { calculateStudentPrice } from '@/lib/pricing'
 import {
   type TimeSlot,
   type TutorAvailability,
@@ -33,7 +33,16 @@ export async function getAvailableSlots(
   fromDate: Date,
   toDate: Date
 ): Promise<TimeSlot[]> {
-  // 1. Get all active tutors assigned to this course
+  // 1. Get course data
+  const course = await prisma.course.findUnique({
+    where: { id: courseId }
+  })
+
+  if (!course) {
+    return []
+  }
+
+  // 2. Get all active tutors assigned to this course
   const tutorCourses = await prisma.tutorCourse.findMany({
     where: {
       courseId,
@@ -53,7 +62,7 @@ export async function getAvailableSlots(
     return []
   }
 
-  // 2. For each tutor, get their availability
+  // 3. For each tutor, get their availability
   const tutorAvailabilities = await Promise.all(
     tutorCourses.map(async (tc) => {
       const availability = await getTutorAvailability(
@@ -71,11 +80,11 @@ export async function getAvailableSlots(
     })
   )
 
-  // 3. Get all booked slots (appointments and holds) for these tutors
+  // 4. Get all booked slots (appointments and holds) for these tutors
   const tutorIds = tutorCourses.map((tc) => tc.tutor.id)
   const bookedSlots = await getBookedSlots(tutorIds, fromDate, toDate)
 
-  // 4. Generate slots for each tutor
+  // 5. Generate slots for each tutor
   const allSlots: TimeSlot[] = []
 
   for (const tutorAvail of tutorAvailabilities) {
@@ -86,13 +95,14 @@ export async function getAvailableSlots(
     const tutorSlots = generateSlotsForTutor(
       tutorAvail,
       courseId,
-      tutorBookedSlots
+      tutorBookedSlots,
+      course.studentRateCad
     )
 
     allSlots.push(...tutorSlots)
   }
 
-  // 5. Sort by start time, then by tutor priority
+  // 6. Sort by start time, then by tutor priority
   const sortedSlots = allSlots.sort((a, b) => {
     const timeDiff = a.startDatetime.getTime() - b.startDatetime.getTime()
     if (timeDiff !== 0) return timeDiff
@@ -255,7 +265,8 @@ async function getBookedSlots(
 function generateSlotsForTutor(
   tutorAvail: TutorAvailability,
   courseId: string,
-  bookedSlots: BookedSlot[]
+  bookedSlots: BookedSlot[],
+  studentRateCad: any
 ): TimeSlot[] {
   const slots: TimeSlot[] = []
   const now = new Date()
@@ -305,7 +316,7 @@ function generateSlotsForTutor(
           startDatetime: currentSlotStart,
           availableDurations: availableDurations.map((duration) => ({
             minutes: duration,
-            price: calculatePrice(tutorAvail.hourlyBaseRate, duration),
+            price: calculateStudentPrice(studentRateCad, duration),
           })),
         })
       }

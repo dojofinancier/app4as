@@ -64,11 +64,7 @@ export function FileUploadDirect({ messageId, onUploadComplete, onUploadError }:
         .from('message-attachments')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false,
-          onUploadProgress: (progress) => {
-            const percent = Math.round((progress.loaded / progress.total) * 100)
-            setUploadProgress(percent)
-          }
+          upsert: false
         })
 
       if (uploadError) {

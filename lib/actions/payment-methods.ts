@@ -14,6 +14,10 @@ export async function createPaymentMethod(
       return { success: false, error: 'Non autorisé' }
     }
 
+    if (!stripe) {
+      return { success: false, error: 'Stripe non initialisé' }
+    }
+
     // Get or create Stripe customer
     let customerId = currentUser.stripeCustomerId
 
@@ -68,6 +72,10 @@ export async function getPaymentMethod(): Promise<{
       return { success: false, error: 'Non autorisé' }
     }
 
+    if (!stripe) {
+      return { success: false, error: 'Stripe non initialisé' }
+    }
+
     if (!currentUser.stripeCustomerId || !currentUser.defaultPaymentMethodId) {
       return { success: true, paymentMethod: null }
     }
@@ -90,6 +98,10 @@ export async function updatePaymentMethod(
     const currentUser = await getCurrentUser()
     if (!currentUser) {
       return { success: false, error: 'Non autorisé' }
+    }
+
+    if (!stripe) {
+      return { success: false, error: 'Stripe non initialisé' }
     }
 
     if (!currentUser.stripeCustomerId) {
@@ -140,6 +152,10 @@ export async function deletePaymentMethod(): Promise<{ success: boolean; error?:
       return { success: false, error: 'Non autorisé' }
     }
 
+    if (!stripe) {
+      return { success: false, error: 'Stripe non initialisé' }
+    }
+
     if (!currentUser.defaultPaymentMethodId) {
       return { success: false, error: 'Aucune méthode de paiement à supprimer' }
     }
@@ -176,6 +192,10 @@ export async function getAdminUserPaymentMethod(
     const currentUser = await getCurrentUser()
     if (!currentUser || currentUser.role !== 'admin') {
       return { success: false, error: 'Non autorisé' }
+    }
+
+    if (!stripe) {
+      return { success: false, error: 'Stripe non initialisé' }
     }
 
     const user = await prisma.user.findUnique({

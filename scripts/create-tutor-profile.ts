@@ -26,7 +26,7 @@ async function createTutorProfile() {
   }
 
   console.log(`📋 Found ${usersWithoutTutorProfile.length} users without tutor profiles:`)
-  usersWithoutTutorProfile.forEach((user, index) => {
+  usersWithoutTutorProfile.forEach((user: any, index: number) => {
     console.log(`${index + 1}. ${user.firstName} ${user.lastName} (${user.email}) - ID: ${user.id}`)
   })
 
@@ -37,7 +37,7 @@ async function createTutorProfile() {
   })
 
   console.log('\n📚 Available courses:')
-  courses.forEach((course, index) => {
+  courses.forEach((course: any, index: number) => {
     console.log(`${index + 1}. ${course.titleFr} (${course.slug})`)
   })
 

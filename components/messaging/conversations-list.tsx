@@ -20,7 +20,7 @@ export function ConversationsList({ onSelectConversation }: ConversationsListPro
     try {
       setLoading(true)
       const result = await getConversations()
-      if (result.success) {
+      if (result.success && result.conversations) {
         setConversations(result.conversations)
       } else {
         setError(result.error || 'Erreur lors du chargement des conversations')

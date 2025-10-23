@@ -20,7 +20,7 @@ export function MessageIndicator({ tutorId }: MessageIndicatorProps) {
     const loadUnreadCount = async () => {
       try {
         const result = await getUnreadMessageCount()
-        if (result.success) {
+        if (result.success && result.count !== undefined) {
           setUnreadCount(result.count)
         }
       } catch (error) {

@@ -6,36 +6,33 @@ import { createClient } from '@/lib/supabase/server'
 import { addMinutes } from 'date-fns'
 import { calculateStudentPrice, validateCoupon } from '@/lib/pricing'
 import type { Duration } from '@/lib/slots/types'
+import { getCartSessionId, getOrCreateCartSessionId } from '@/lib/utils/session'
 
 const HOLD_TTL_MINUTES = 15
 
 /**
  * Get or create cart for current user
  */
-export async function getOrCreateCart(userId: string) {
+export async function getOrCreateCartByIdentity(args: { userId?: string; sessionId?: string }) {
+  const { userId, sessionId } = args
+  if (!userId && !sessionId) {
+    throw new Error('Missing identity for cart retrieval')
+  }
+
+  // Try by userId first if present
   let cart = await prisma.cart.findFirst({
-    where: { userId },
+    where: userId ? { userId } : { sessionId: sessionId! },
     include: {
-      items: {
-        include: {
-          course: true,
-          tutor: true,
-        },
-      },
+      items: { include: { course: true, tutor: true } },
       coupon: true,
     },
   })
 
   if (!cart) {
     cart = await prisma.cart.create({
-      data: { userId },
+      data: userId ? { userId } : { sessionId: sessionId! },
       include: {
-        items: {
-          include: {
-            course: true,
-            tutor: true,
-          },
-        },
+        items: { include: { course: true, tutor: true } },
         coupon: true,
       },
     })
@@ -58,8 +55,19 @@ export async function addToCart(data: {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { success: false, error: 'Non autorisé' }
+  // Determine identity (user or guest session)
+  let identity: { userId?: string; sessionId?: string }
+  if (user) {
+    identity = { userId: user.id }
+  } else {
+    const existing = getCartSessionId() || getOrCreateCartSessionId()
+    identity = { sessionId: existing }
+    // Set session id for RLS policies (if configured)
+    try {
+      await prisma.$executeRaw`select set_config('app.cart_session_id', ${existing}, true)`
+    } catch (e) {
+      // ignore if not configured
+    }
   }
 
   try {
@@ -93,7 +101,10 @@ export async function addToCart(data: {
         tutorId: data.tutorId,
         startDatetime: data.startDatetime,
         expiresAt: { gt: now },
-        userId: { not: user.id },
+        OR: [
+          identity.userId ? { userId: { not: identity.userId } } : {},
+          identity.sessionId ? { sessionId: { not: identity.sessionId } } : {},
+        ],
       },
     })
 
@@ -119,7 +130,7 @@ export async function addToCart(data: {
     }
 
     // Create or update cart
-    const cart = await getOrCreateCart(user.id)
+    const cart = await getOrCreateCartByIdentity(identity)
 
     // Check if item already exists in cart
     const existingItem = cart.items.find(
@@ -144,7 +155,8 @@ export async function addToCart(data: {
           },
         },
         create: {
-          userId: user.id,
+          userId: identity.userId ?? null,
+          sessionId: identity.sessionId ?? null,
           tutorId: data.tutorId,
           courseId: data.courseId,
           startDatetime: data.startDatetime,
@@ -256,7 +268,7 @@ export async function applyCoupon(code: string) {
       return { success: false, error: validation.reason }
     }
 
-    const cart = await getOrCreateCart(user.id)
+    const cart = await getOrCreateCartByIdentity({ userId: user.id })
 
     await prisma.cart.update({
       where: { id: cart.id },
@@ -285,7 +297,7 @@ export async function removeCoupon() {
   }
 
   try {
-    const cart = await getOrCreateCart(user.id)
+    const cart = await getOrCreateCartByIdentity({ userId: user.id })
 
     await prisma.cart.update({
       where: { id: cart.id },
@@ -314,7 +326,7 @@ export async function extendCartHolds() {
   }
 
   try {
-    const cart = await getOrCreateCart(user.id)
+    const cart = await getOrCreateCartByIdentity({ userId: user.id })
     const now = new Date()
 
     await prisma.slotHold.updateMany({

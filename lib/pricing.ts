@@ -26,10 +26,10 @@ export type DurationMinutes = keyof typeof DURATION_MULTIPLIERS
  * @returns Student price in CAD
  */
 export function calculateStudentPrice(
-  courseRate: number | Decimal,
+  courseRate: number | Decimal | string,
   durationMin: DurationMinutes
 ): number {
-  const rate = typeof courseRate === 'number' ? courseRate : courseRate.toNumber()
+  const rate = toNumeric(courseRate)
   const multiplier = DURATION_MULTIPLIERS[durationMin]
   return rate * multiplier
 }
@@ -64,10 +64,10 @@ export function calculateStudentPriceWithCoupon(
  * @returns Tutor earnings in CAD
  */
 export function calculateTutorEarnings(
-  tutorRate: number | Decimal,
+  tutorRate: number | Decimal | string,
   durationMin: DurationMinutes
 ): number {
-  const rate = typeof tutorRate === 'number' ? tutorRate : tutorRate.toNumber()
+  const rate = toNumeric(tutorRate)
   const multiplier = DURATION_MULTIPLIERS[durationMin]
   return rate * multiplier
 }
@@ -124,14 +124,14 @@ export interface PricingCalculation {
  * @returns Complete pricing calculation
  */
 export function calculateSessionPricing(params: {
-  courseRate: number | Decimal
-  tutorRate: number | Decimal
+  courseRate: number | Decimal | string
+  tutorRate: number | Decimal | string
   durationMin: DurationMinutes
   couponType?: 'percent' | 'fixed'
   couponValue?: number
 }): PricingCalculation {
-  const courseRate = typeof params.courseRate === 'number' ? params.courseRate : params.courseRate.toNumber()
-  const tutorRate = typeof params.tutorRate === 'number' ? params.tutorRate : params.tutorRate.toNumber()
+  const courseRate = toNumeric(params.courseRate)
+  const tutorRate = toNumeric(params.tutorRate)
   
   // Calculate base prices
   const baseStudentPrice = calculateStudentPrice(courseRate, params.durationMin)
@@ -191,8 +191,8 @@ export interface CartItemPricing {
  * @returns Pricing breakdown for cart item
  */
 export function calculateCartItemPricing(item: {
-  courseRate: number | Decimal
-  tutorRate: number | Decimal
+  courseRate: number | Decimal | string
+  tutorRate: number | Decimal | string
   durationMin: DurationMinutes
 }): Omit<CartItemPricing, 'courseId' | 'tutorId'> {
   const calculation = calculateSessionPricing({
@@ -245,8 +245,8 @@ export function calculateOrderPricing(
     courseId: string
     tutorId: string
     durationMin: DurationMinutes
-    courseRate: number | Decimal
-    tutorRate: number | Decimal
+    courseRate: number | Decimal | string
+    tutorRate: number | Decimal | string
   }>,
   couponType?: 'percent' | 'fixed',
   couponValue?: number
@@ -378,4 +378,25 @@ export function getDurationLabel(durationMin: DurationMinutes): string {
   if (hours === 1.5) return '1h30'
   if (hours === 2) return '2 heures'
   return `${hours} heures`
+}
+
+// ============================================================================
+// INTERNAL NUMERIC COERCION
+// ============================================================================
+
+function toNumeric(value: number | Decimal | string | null | undefined): number {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    const n = Number(value)
+    return Number.isNaN(n) ? 0 : n
+  }
+  if (value && typeof (value as any).toNumber === 'function') {
+    try {
+      return (value as any).toNumber()
+    } catch {
+      // fallthrough
+    }
+  }
+  const fallback = Number(value as any)
+  return Number.isNaN(fallback) ? 0 : fallback
 }

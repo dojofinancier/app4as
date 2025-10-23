@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { format, startOfWeek, endOfWeek, isSameDay, isToday, isPast, addMinutes, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +21,7 @@ interface CalendarBookingProps {
   tutorId: string
   onSlotSelect: (slot: TimeSlot) => void
   selectedDuration: number
+  selectedSessions?: TimeSlot[]
 }
 
 const TIME_SLOTS = [
@@ -33,7 +34,8 @@ export function CalendarBooking({
   courseId, 
   tutorId, 
   onSlotSelect, 
-  selectedDuration
+  selectedDuration,
+  selectedSessions = []
 }: CalendarBookingProps) {
   const [currentMonth, setCurrentMonth] = useState<Date | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -42,8 +44,8 @@ export function CalendarBooking({
   const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
 
   // Get month dates for calendar grid
-  const monthStart = startOfMonth(currentMonth)
-  const monthEnd = endOfMonth(currentMonth)
+  const monthStart = currentMonth ? startOfMonth(currentMonth) : new Date()
+  const monthEnd = currentMonth ? endOfMonth(currentMonth) : new Date()
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 }) // Monday
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
@@ -137,8 +139,18 @@ export function CalendarBooking({
     onSlotSelect(slot)
   }
 
+  const isSlotSelected = (slot: TimeSlot) => {
+    return selectedSessions.some(session => 
+      session.start.getTime() === slot.start.getTime() &&
+      session.end.getTime() === slot.end.getTime()
+    )
+  }
+
   const navigateMonth = (direction: 'prev' | 'next') => {
-    setCurrentMonth(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1))
+    setCurrentMonth(prev => {
+      const baseDate = prev || new Date()
+      return direction === 'next' ? addMonths(baseDate, 1) : subMonths(baseDate, 1)
+    })
   }
 
   // Initialize currentMonth on client side to avoid hydration issues
@@ -283,18 +295,29 @@ export function CalendarBooking({
             </div>
           ) : (
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {availableSlots.map((slot, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  className="w-full h-12 flex items-center justify-center"
-                  onClick={() => handleSlotSelect(slot)}
-                >
-                  <span className="text-sm font-medium">
-                    {format(slot.start, 'HH:mm')} - {format(slot.end, 'HH:mm')}
-                  </span>
-                </Button>
-              ))}
+              {availableSlots.map((slot, index) => {
+                const isSelected = isSlotSelected(slot)
+                return (
+                  <Button
+                    key={index}
+                    variant={isSelected ? "default" : "outline"}
+                    className="w-full h-12 flex items-center justify-center gap-2"
+                    onClick={() => handleSlotSelect(slot)}
+                    disabled={isSelected}
+                  >
+                    <span className="text-sm font-medium">
+                      {format(slot.start, 'HH:mm')} - {format(slot.end, 'HH:mm')}
+                    </span>
+                    {isSelected ? (
+                      <Badge variant="secondary" className="text-xs">
+                        Sélectionné
+                      </Badge>
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                  </Button>
+                )
+              })}
             </div>
           )}
         </CardContent>
