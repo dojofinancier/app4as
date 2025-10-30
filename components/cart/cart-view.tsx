@@ -6,11 +6,61 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { removeFromCart, applyCoupon, removeCoupon } from '@/lib/actions/cart'
+import { removeFromCart, applyCoupon, removeCoupon, applyCouponGuest, removeCouponGuest, getOrCreateCartByIdentity } from '@/lib/actions/cart'
 import { calculateOrderPricing } from '@/lib/pricing'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { frCA } from '@/lib/i18n/fr-CA'
+import { Loader2 } from 'lucide-react'
 import type { Cart, CartItem, Course, Tutor, Coupon } from '@prisma/client'
+
+// Serialized versions for client components
+interface SerializedCartItem {
+  id: string
+  tutorId: string
+  courseId: string
+  startDatetime: Date
+  durationMin: number
+  cartId: string
+  unitPriceCad: number
+  lineTotalCad: number
+  course: {
+    id: string
+    slug: string
+    titleFr: string
+    descriptionFr: string
+    active: boolean
+    createdAt: Date
+    studentRateCad: number
+  }
+  tutor: {
+    id: string
+    displayName: string
+    bioFr: string
+    hourlyBaseRateCad: number
+    priority: number
+    active: boolean
+  }
+}
+
+interface SerializedCart {
+  id: string
+  userId: string | null
+  sessionId: string | null
+  createdAt: Date
+  updatedAt: Date
+  items: SerializedCartItem[]
+  coupon: {
+    id: string
+    code: string
+    type: 'percent' | 'fixed'
+    value: number
+    active: boolean
+    startsAt: Date | null
+    endsAt: Date | null
+    maxRedemptions: number | null
+    redemptionCount: number
+  } | null
+}
 
 interface CartWithItems extends Cart {
   items: (CartItem & {
@@ -21,20 +71,65 @@ interface CartWithItems extends Cart {
 }
 
 interface CartViewProps {
-  initialCart: CartWithItems
+  initialCart: SerializedCart
+  sessionId?: string
 }
 
-export function CartView({ initialCart }: CartViewProps) {
+export function CartView({ initialCart, sessionId }: CartViewProps) {
   const router = useRouter()
   const [cart, setCart] = useState(initialCart)
   const [couponCode, setCouponCode] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isCouponLoading, setIsCouponLoading] = useState(false)
+
+  // Function to refresh cart data
+  const refreshCart = async () => {
+    try {
+      const updatedCart = await getOrCreateCartByIdentity(
+        sessionId ? { sessionId } : { userId: cart.userId || undefined }
+      )
+      
+      // Convert Decimal fields to numbers for Client Component compatibility
+      const serializedCart = {
+        ...updatedCart,
+        items: updatedCart.items.map(item => ({
+          ...item,
+          unitPriceCad: Number(item.unitPriceCad),
+          lineTotalCad: Number(item.lineTotalCad),
+          course: {
+            ...item.course,
+            studentRateCad: Number(item.course.studentRateCad)
+          },
+          tutor: {
+            ...item.tutor,
+            hourlyBaseRateCad: Number(item.tutor.hourlyBaseRateCad)
+          }
+        })),
+        coupon: updatedCart.coupon ? {
+          id: updatedCart.coupon.id,
+          code: updatedCart.coupon.code,
+          type: updatedCart.coupon.type,
+          value: Number(updatedCart.coupon.value),
+          active: updatedCart.coupon.active,
+          startsAt: updatedCart.coupon.startsAt,
+          endsAt: updatedCart.coupon.endsAt,
+          maxRedemptions: updatedCart.coupon.maxRedemptions,
+          redemptionCount: updatedCart.coupon.redemptionCount
+        } : null
+      }
+      
+      setCart(serializedCart)
+    } catch (error) {
+      console.error('Error refreshing cart:', error)
+    }
+  }
 
   const handleRemoveItem = async (itemId: string) => {
-    const result = await removeFromCart(itemId)
+    const result = await removeFromCart(itemId, sessionId)
     if (result.success) {
-      router.refresh()
+      // Force a full page reload to ensure the cart is updated
+      window.location.reload()
     } else {
       setError(result.error || 'Une erreur est survenue')
     }
@@ -43,19 +138,45 @@ export function CartView({ initialCart }: CartViewProps) {
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return
 
-    const result = await applyCoupon(couponCode)
-    if (result.success) {
-      router.refresh()
-      setCouponCode('')
-    } else {
-      setError(result.error || 'Code promo invalide')
+    setIsCouponLoading(true)
+    setError(null)
+
+    try {
+      const result = sessionId 
+        ? await applyCouponGuest(couponCode, sessionId)
+        : await applyCoupon(couponCode)
+        
+      if (result.success) {
+        setCouponCode('')
+        await refreshCart() // Refresh cart data immediately
+      } else {
+        setError(result.error || 'Code promo invalide')
+      }
+    } catch (error) {
+      setError('Une erreur est survenue')
+    } finally {
+      setIsCouponLoading(false)
     }
   }
 
   const handleRemoveCoupon = async () => {
-    const result = await removeCoupon()
-    if (result.success) {
-      router.refresh()
+    setIsCouponLoading(true)
+    setError(null)
+
+    try {
+      const result = sessionId 
+        ? await removeCouponGuest(sessionId)
+        : await removeCoupon()
+        
+      if (result.success) {
+        await refreshCart() // Refresh cart data immediately
+      } else {
+        setError(result.error || 'Erreur lors de la suppression du coupon')
+      }
+    } catch (error) {
+      setError('Une erreur est survenue')
+    } finally {
+      setIsCouponLoading(false)
     }
   }
 
@@ -143,12 +264,21 @@ export function CartView({ initialCart }: CartViewProps) {
                   <p className="font-semibold">{cart.coupon.code}</p>
                   <p className="text-sm text-muted-foreground">
                     {cart.coupon.type === 'percent'
-                      ? `${cart.coupon.value.toNumber()}% de rabais`
-                      : `${formatCurrency(cart.coupon.value.toNumber())} de rabais`}
+                      ? `${Number(cart.coupon.value)}% de rabais`
+                      : `${formatCurrency(Number(cart.coupon.value))} de rabais`}
                   </p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={handleRemoveCoupon}>
-                  Retirer
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleRemoveCoupon}
+                  disabled={isCouponLoading}
+                >
+                  {isCouponLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Retirer'
+                  )}
                 </Button>
               </div>
             ) : (
@@ -158,7 +288,15 @@ export function CartView({ initialCart }: CartViewProps) {
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value)}
                 />
-                <Button onClick={handleApplyCoupon}>Appliquer</Button>
+                <Button 
+                  onClick={handleApplyCoupon}
+                  disabled={isCouponLoading || !couponCode.trim()}
+                >
+                  {isCouponLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  Appliquer
+                </Button>
               </div>
             )}
           </CardContent>

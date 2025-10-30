@@ -17,6 +17,8 @@ export async function createPaymentIntent() {
     data: { user },
   } = await supabase.auth.getUser()
 
+  console.log('createPaymentIntent: Starting, user:', user ? 'authenticated' : 'guest')
+
   try {
     let cart
     let dbUser = null
@@ -31,8 +33,19 @@ export async function createPaymentIntent() {
       userId = user.id
     } else {
       // Guest user - get cart by session
-      const { getCartSessionId, getOrCreateCartSessionId } = await import('@/lib/utils/session')
-      const sessionId = getCartSessionId() || getOrCreateCartSessionId()
+      console.log('createPaymentIntent: Guest user flow - importing session utils')
+      const { getCartSessionId } = await import('@/lib/utils/session')
+      console.log('createPaymentIntent: Session utils imported, calling getCartSessionId')
+      const sessionId = await getCartSessionId()
+      
+      console.log('createPaymentIntent: Guest user, sessionId:', sessionId)
+      console.log('createPaymentIntent: Session ID type:', typeof sessionId)
+      console.log('createPaymentIntent: Session ID length:', sessionId?.length)
+      
+      if (!sessionId) {
+        console.log('createPaymentIntent: No session ID found - returning error')
+        return { success: false, error: 'Session de panier introuvable' }
+      }
       
       // Set session id for RLS policies
       try {
@@ -42,6 +55,7 @@ export async function createPaymentIntent() {
       }
       
       cart = await getOrCreateCartByIdentity({ sessionId })
+      console.log('createPaymentIntent: Cart found, items count:', cart.items.length)
       userId = `guest_${sessionId}` // Use session ID as guest user ID
     }
 
@@ -55,15 +69,16 @@ export async function createPaymentIntent() {
         courseId: item.courseId,
         tutorId: item.tutorId,
         durationMin: item.durationMin as 60 | 90 | 120,
-        courseRate: item.course.studentRateCad,
-        tutorRate: item.tutor.hourlyBaseRateCad,
+        courseRate: Number(item.course.studentRateCad),
+        tutorRate: Number(item.tutor.hourlyBaseRateCad),
       })),
       cart.coupon?.type,
-      cart.coupon?.value.toNumber()
+      cart.coupon?.value ? Number(cart.coupon.value) : undefined
     )
 
     // Create or get Stripe customer
     const stripe = getStripe()
+    console.log('createPaymentIntent: Stripe client created')
     let customerId: string
 
     if (user && dbUser?.stripeCustomerId) {
@@ -86,12 +101,14 @@ export async function createPaymentIntent() {
       })
     } else {
       // Guest user - create temporary customer
+      console.log('createPaymentIntent: Creating guest customer for userId:', userId)
       const customer = await stripe.customers.create({
         metadata: {
           userId: userId, // guest_sessionId
           isGuest: 'true',
         },
       })
+      console.log('createPaymentIntent: Guest customer created:', customer.id)
       customerId = customer.id
     }
 
@@ -102,10 +119,10 @@ export async function createPaymentIntent() {
         tutorId: item.tutorId,
         startDatetime: item.startDatetime.toISOString(),
         durationMin: item.durationMin,
-        unitPriceCad: item.unitPriceCad.toNumber(),
-        lineTotalCad: item.lineTotalCad.toNumber(),
+        unitPriceCad: Number(item.unitPriceCad),
+        lineTotalCad: Number(item.lineTotalCad),
         // Calculate tutor earnings for each item
-        tutorEarningsCad: calculateTutorEarnings(item.tutor.hourlyBaseRateCad, item.durationMin as 60 | 90 | 120),
+        tutorEarningsCad: calculateTutorEarnings(Number(item.tutor.hourlyBaseRateCad), item.durationMin as 60 | 90 | 120),
       })),
       couponCode: cart.coupon?.code || '',
       discountAmount: orderPricing.discount,
@@ -134,6 +151,7 @@ export async function createPaymentIntent() {
       data: {
         paymentIntentId: paymentIntent.id,
         cartData: JSON.stringify(cartData),
+        userId: userId, // Store the userId for webhook processing
       }
     })
 
@@ -144,7 +162,9 @@ export async function createPaymentIntent() {
     }
   } catch (error) {
     console.error('Error creating payment intent:', error)
-    return { success: false, error: 'Une erreur est survenue' }
+    console.error('Error details:', error instanceof Error ? error.message : 'Unknown error')
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    return { success: false, error: error instanceof Error ? error.message : 'Une erreur est survenue' }
   }
 }
 

@@ -13,13 +13,58 @@ export async function GET() {
     // Authenticated users use user.id; guests use session cookie
     if (user) {
       const cart = await getOrCreateCartByIdentity({ userId: user.id })
-      return NextResponse.json({ cart })
+      
+      // Convert Decimal fields to numbers for Client Component compatibility
+      const serializedCart = {
+        ...cart,
+        items: cart.items.map(item => ({
+          ...item,
+          unitPriceCad: Number(item.unitPriceCad),
+          lineTotalCad: Number(item.lineTotalCad),
+          course: {
+            ...item.course,
+            studentRateCad: Number(item.course.studentRateCad)
+          },
+          tutor: {
+            ...item.tutor,
+            hourlyBaseRateCad: Number(item.tutor.hourlyBaseRateCad)
+          }
+        }))
+      }
+      
+      return NextResponse.json({ cart: serializedCart })
     }
 
-    const sessionId = getOrCreateCartSessionId()
-    const cart = await getOrCreateCartByIdentity({ sessionId })
+    // Use same logic as cart creation - try to get existing session ID first
+    const { getCartSessionId } = await import('@/lib/utils/session')
+    const existingSessionId = await getCartSessionId()
+    
+    if (!existingSessionId) {
+      // No existing session - return empty cart
+      return NextResponse.json({ cart: { id: '', items: [], coupon: null } })
+    }
+    
+    const cart = await getOrCreateCartByIdentity({ sessionId: existingSessionId })
 
-    return NextResponse.json({ cart })
+    // Convert Decimal fields to numbers for Client Component compatibility
+    const serializedCart = {
+      ...cart,
+      items: cart.items.map(item => ({
+        ...item,
+        unitPriceCad: Number(item.unitPriceCad),
+        lineTotalCad: Number(item.lineTotalCad),
+        course: {
+          ...item.course,
+          studentRateCad: Number(item.course.studentRateCad)
+        },
+        tutor: {
+          ...item.tutor,
+          hourlyBaseRateCad: Number(item.tutor.hourlyBaseRateCad)
+        }
+      }))
+    }
+
+    return NextResponse.json({ cart: serializedCart })
   } catch (error) {
     console.error('Error getting cart:', error)
     return NextResponse.json(

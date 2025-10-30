@@ -17,11 +17,31 @@ import {
   Trash2,
   DollarSign,
   TrendingUp,
-  UserCheck
+  UserCheck,
+  Clock,
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  XCircle
 } from 'lucide-react'
 import { TutorManagement } from '@/components/admin/tutor-management'
 import { StudentManagement } from '@/components/admin/student-management'
-import { RecurringSessionsManagement } from '@/components/admin/recurring-sessions-management'
+import { CourseManagement } from '@/components/admin/course-management'
+import { CourseRequests } from '@/components/admin/course-requests'
+import { CouponManagement } from '@/components/admin/coupon-management'
+import { AppointmentManagement } from '@/components/admin/appointment-management'
+import { OrderManagement } from '@/components/admin/order-management'
+import { SupportTicketsManagement } from '@/components/admin/support-tickets-management'
+import { RatingsManagement } from '@/components/dashboard/admin/ratings-management'
+import { 
+  getOrderAnalytics,
+  getFinancialAnalytics,
+  getOperationalMetrics,
+  getPerformanceAnalytics,
+  getSystemHealth,
+  getSupportTickets,
+  getRevenueBreakdown
+} from '@/lib/actions/admin'
 import type { User } from '@prisma/client'
 
 interface AdminDashboardProps {
@@ -79,14 +99,130 @@ interface Order {
   user: { firstName: string; lastName: string }
 }
 
+interface OrderAnalytics {
+  totalRevenue: number
+  totalRefunded: number
+  refundRate: number
+  averageOrderValue: number
+  totalOrders: number
+  monthlyData: Array<{
+    month: number
+    orders: number
+    revenue: number
+  }>
+  topCourses: Array<{
+    id: string
+    title: string
+    count: number
+  }>
+  topTutors: Array<{
+    id: string
+    name: string
+    appointments: number
+  }>
+}
+
+interface FinancialAnalytics {
+  yearly: {
+    revenue: number
+    refunds: number
+    refundRate: number
+    avgOrderValue: number
+    grossMargin: number
+    grossMarginPercent: number
+    tutorPayments: number
+    orders: number
+  }
+  monthly: {
+    revenue: number
+    refunds: number
+    avgOrderValue: number
+    grossMargin: number
+    tutorPayments: number
+    orders: number
+  }
+  monthlyBreakdown: Array<{
+    month: number
+    revenue: number
+    refunds: number
+    tutorPayments: number
+    grossMargin: number
+    orders: number
+  }>
+}
+
+interface OperationalMetrics {
+  activeCourses: number
+  activeTutors: number
+  yearlyOrders: number
+  monthlyOrders: number
+  tutorOutstanding: number
+}
+
+interface PerformanceAnalytics {
+  topCourses: Array<{
+    id: string
+    title: string
+    count: number
+  }>
+  topTutors: Array<{
+    id: string
+    name: string
+    appointments: number
+  }>
+  topStudents: Array<{
+    id: string
+    name: string
+    totalSpent: number
+    orderCount: number
+  }>
+}
+
+interface SystemHealth {
+  database: { status: string; message: string }
+  stripe: { status: string; message: string }
+  errors: { status: string; message: string; rate: number }
+  uptime: { status: string; message: string }
+}
+
+interface SupportTickets {
+  totalCount: number
+  recentTickets: Array<{
+    id: string
+    title: string
+    status: string
+    priority: string
+    createdAt: Date
+  }>
+}
+
+interface RevenueBreakdown {
+  byCourse: {
+    yearly: Array<{ title: string; yearly: number; monthly: number }>
+    monthly: Array<{ title: string; yearly: number; monthly: number }>
+  }
+  byTutor: {
+    yearly: Array<{ name: string; yearly: number; monthly: number }>
+    monthly: Array<{ name: string; yearly: number; monthly: number }>
+  }
+}
+
 export function AdminDashboard({ user }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'courses' | 'tutors' | 'students' | 'coupons' | 'appointments' | 'orders' | 'recurring'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'courses' | 'course-requests' | 'tutors' | 'students' | 'coupons' | 'appointments' | 'orders' | 'tickets'>('overview')
   const [courses, setCourses] = useState<Course[]>([])
   const [tutors, setTutors] = useState<Tutor[]>([])
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [orders, setOrders] = useState<Order[]>([])
+  const [orderAnalytics, setOrderAnalytics] = useState<OrderAnalytics | null>(null)
+  const [financialAnalytics, setFinancialAnalytics] = useState<FinancialAnalytics | null>(null)
+  const [operationalMetrics, setOperationalMetrics] = useState<OperationalMetrics | null>(null)
+  const [performanceAnalytics, setPerformanceAnalytics] = useState<PerformanceAnalytics | null>(null)
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null)
+  const [supportTickets, setSupportTickets] = useState<SupportTickets | null>(null)
+  const [revenueBreakdown, setRevenueBreakdown] = useState<RevenueBreakdown | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showMonthlyModal, setShowMonthlyModal] = useState(false)
 
   useEffect(() => {
     fetchAdminData()
@@ -94,7 +230,48 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
 
   const fetchAdminData = async () => {
     try {
-      // TODO: Replace with actual API calls
+      // Fetch all analytics in parallel
+      const [
+        orderAnalyticsResult,
+        financialAnalyticsResult,
+        operationalMetricsResult,
+        performanceAnalyticsResult,
+        systemHealthResult,
+        supportTicketsResult,
+        revenueBreakdownResult
+      ] = await Promise.all([
+        getOrderAnalytics(),
+        getFinancialAnalytics(),
+        getOperationalMetrics(),
+        getPerformanceAnalytics(),
+        getSystemHealth(),
+        getSupportTickets(),
+        getRevenueBreakdown()
+      ])
+
+      if (orderAnalyticsResult.success && orderAnalyticsResult.data) {
+        setOrderAnalytics(orderAnalyticsResult.data)
+      }
+      if (financialAnalyticsResult.success && financialAnalyticsResult.data) {
+        setFinancialAnalytics(financialAnalyticsResult.data)
+      }
+      if (operationalMetricsResult.success && operationalMetricsResult.data) {
+        setOperationalMetrics(operationalMetricsResult.data)
+      }
+      if (performanceAnalyticsResult.success && performanceAnalyticsResult.data) {
+        setPerformanceAnalytics(performanceAnalyticsResult.data)
+      }
+      if (systemHealthResult.success && systemHealthResult.data) {
+        setSystemHealth(systemHealthResult.data)
+      }
+      if (supportTicketsResult.success && supportTicketsResult.data) {
+        setSupportTickets(supportTicketsResult.data)
+      }
+      if (revenueBreakdownResult.success && revenueBreakdownResult.data) {
+        setRevenueBreakdown(revenueBreakdownResult.data)
+      }
+
+      // TODO: Replace with actual API calls for other data
       // Mock data for now
       const mockCourses: Course[] = [
         {
@@ -267,6 +444,13 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
           Cours
         </Button>
         <Button
+          variant={activeTab === 'course-requests' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('course-requests')}
+        >
+          <Clock className="h-4 w-4 mr-2" />
+          Demandes de cours
+        </Button>
+        <Button
           variant={activeTab === 'tutors' ? 'default' : 'outline'}
           onClick={() => setActiveTab('tutors')}
         >
@@ -302,156 +486,304 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
           Commandes
         </Button>
         <Button
-          variant={activeTab === 'recurring' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('recurring')}
+          variant={activeTab === 'tickets' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('tickets')}
         >
-          <Calendar className="h-4 w-4 mr-2" />
-          Sessions récurrentes
+          <AlertTriangle className="h-4 w-4 mr-2" />
+          Tickets de support
         </Button>
       </div>
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Cours actifs</CardTitle>
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{courses.filter(c => c.active).length}</div>
-                <p className="text-xs text-muted-foreground">
-                  sur {courses.length} cours total
-                </p>
-              </CardContent>
-            </Card>
+          {/* Financial Overview - Prominent Cards */}
+          {financialAnalytics && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold">Aperçu financier</h2>
+              
+              {/* Yearly Financial Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Revenus totaux (Année)</CardTitle>
+                    <DollarSign className="h-4 w-4 text-green-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-green-700">{formatCurrency(financialAnalytics.yearly.revenue)}</div>
+                    <p className="text-xs text-green-600">
+                      {financialAnalytics.yearly.orders} commandes
+                    </p>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Tuteurs actifs</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{tutors.filter(t => t.active).length}</div>
-                <p className="text-xs text-muted-foreground">
-                  sur {tutors.length} tuteurs total
-                </p>
-              </CardContent>
-            </Card>
+                <Card className="bg-gradient-to-r from-red-50 to-red-100 border-red-200">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Remboursements (Année)</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-red-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-red-700">{formatCurrency(financialAnalytics.yearly.refunds)}</div>
+                    <p className="text-xs text-red-600">
+                      {financialAnalytics.yearly.refundRate.toFixed(1)}% du total
+                    </p>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Coupons actifs</CardTitle>
-                <Tag className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{getActiveCoupons()}</div>
-                <p className="text-xs text-muted-foreground">
-                  codes promotionnels
-                </p>
-              </CardContent>
-            </Card>
+                <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Marge brute (Année)</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-blue-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-blue-700">{formatCurrency(financialAnalytics.yearly.grossMargin)}</div>
+                    <p className="text-xs text-blue-600">
+                      {financialAnalytics.yearly.grossMarginPercent.toFixed(1)}% de marge
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Revenus totaux</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(getTotalRevenue())}</div>
-                <p className="text-xs text-muted-foreground">
-                  {orders.length} commandes
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+              {/* Monthly Financial Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Valeur moyenne (Mois)</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{formatCurrency(financialAnalytics.monthly.avgOrderValue)}</div>
+                    <p className="text-xs text-muted-foreground">
+                      par commande ce mois
+                    </p>
+                  </CardContent>
+                </Card>
 
-          {/* Recent Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Rendez-vous récents</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {appointments.slice(0, 3).map((appointment) => (
-                    <div key={appointment.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{appointment.course.titleFr}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {appointment.user.firstName} {appointment.user.lastName} avec {appointment.tutor.displayName}
-                        </p>
-                      </div>
-                      <Badge variant="secondary">{appointment.status}</Badge>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Marge brute (Mois)</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{formatCurrency(financialAnalytics.monthly.grossMargin)}</div>
+                    <p className="text-xs text-muted-foreground">
+                      ce mois-ci
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setShowMonthlyModal(true)}>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Revenus par mois</CardTitle>
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{formatCurrency(financialAnalytics.monthly.revenue)}</div>
+                    <p className="text-xs text-muted-foreground">
+                      Cliquez pour voir le détail
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {/* Operational Metrics */}
+          {operationalMetrics && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold">Métriques opérationnelles</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Cours actifs</CardTitle>
+                    <BookOpen className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{operationalMetrics.activeCourses}</div>
+                    <p className="text-xs text-muted-foreground">
+                      cours disponibles
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Tuteurs actifs</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{operationalMetrics.activeTutors}</div>
+                    <p className="text-xs text-muted-foreground">
+                      tuteurs disponibles
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Commandes (Année)</CardTitle>
+                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{operationalMetrics.yearlyOrders}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {operationalMetrics.monthlyOrders} ce mois
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Paiements tuteurs dus</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{formatCurrency(operationalMetrics.tutorOutstanding)}</div>
+                    <p className="text-xs text-muted-foreground">
+                      montant en attente
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {/* Performance Analytics */}
+          {performanceAnalytics && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold">Analyses de performance</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Top 5 Cours</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {performanceAnalytics.topCourses.map((course, index) => (
+                        <div key={course.id} className="flex justify-between items-center">
+                          <span className="text-sm truncate">{course.title}</span>
+                          <Badge variant="secondary">{course.count}</Badge>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Commandes récentes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {orders.slice(0, 3).map((order) => (
-                    <div key={order.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{formatCurrency(order.totalCad)}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {order.user.firstName} {order.user.lastName}
-                        </p>
-                      </div>
-                      <Badge variant="secondary">{order.status}</Badge>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Top 5 Tuteurs</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {performanceAnalytics.topTutors.map((tutor, index) => (
+                        <div key={tutor.id} className="flex justify-between items-center">
+                          <span className="text-sm truncate">{tutor.name}</span>
+                          <Badge variant="secondary">{tutor.appointments}</Badge>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Top 5 Étudiants</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {performanceAnalytics.topStudents.map((student, index) => (
+                        <div key={student.id} className="flex justify-between items-center">
+                          <span className="text-sm truncate">{student.name}</span>
+                          <Badge variant="secondary">{formatCurrency(student.totalSpent)}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {/* System Status */}
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold">État du système</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* System Health Indicators */}
+              {systemHealth && (
+                <>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Base de données</CardTitle>
+                      <div className={`h-2 w-2 rounded-full ${systemHealth.database.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm font-medium">{systemHealth.database.message}</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Stripe API</CardTitle>
+                      <div className={`h-2 w-2 rounded-full ${systemHealth.stripe.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm font-medium">{systemHealth.stripe.message}</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Taux d'erreur</CardTitle>
+                      <div className={`h-2 w-2 rounded-full ${systemHealth.errors.status === 'healthy' ? 'bg-green-500' : systemHealth.errors.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`} />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm font-medium">{systemHealth.errors.message}</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Activité</CardTitle>
+                      <div className={`h-2 w-2 rounded-full ${systemHealth.uptime.status === 'healthy' ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm font-medium">{systemHealth.uptime.message}</div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+
+              {/* Support Tickets */}
+              {supportTickets && (
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Tickets de support</CardTitle>
+                    <Badge variant="destructive">{supportTickets.totalCount}</Badge>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-sm font-medium">Tickets non résolus</div>
+                    <p className="text-xs text-muted-foreground">
+                      {supportTickets.recentTickets.length} récents
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Courses Tab */}
       {activeTab === 'courses' && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Gestion des cours</CardTitle>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nouveau cours
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {courses.map((course) => (
-                <div key={course.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{course.titleFr}</p>
-                    <p className="text-sm text-muted-foreground">{course.descriptionFr}</p>
-                    <p className="text-xs text-muted-foreground">Slug: {course.slug}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant={course.active ? "default" : "secondary"}>
-                      {course.active ? "Actif" : "Inactif"}
-                    </Badge>
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <CourseManagement />
+      )}
+
+      {/* Course Requests Tab */}
+      {activeTab === 'course-requests' && (
+        <CourseRequests />
       )}
 
       {/* Tutors Tab */}
@@ -465,113 +797,75 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
       )}
 
       {/* Coupons Tab */}
-      {activeTab === 'coupons' && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Gestion des coupons</CardTitle>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nouveau coupon
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {coupons.map((coupon) => (
-                <div key={coupon.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{coupon.code}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {coupon.type === 'percent' ? `${coupon.value}% de réduction` : `${formatCurrency(coupon.value)} de réduction`}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {coupon.redemptionCount} utilisations
-                      {coupon.maxRedemptions && ` / ${coupon.maxRedemptions} max`}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant={coupon.active ? "default" : "secondary"}>
-                      {coupon.active ? "Actif" : "Inactif"}
-                    </Badge>
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {activeTab === 'coupons' && <CouponManagement />}
 
       {/* Appointments Tab */}
-      {activeTab === 'appointments' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Tous les rendez-vous</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {appointments.map((appointment) => (
-                <div key={appointment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{appointment.course.titleFr}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {appointment.user.firstName} {appointment.user.lastName} avec {appointment.tutor.displayName}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(appointment.startDatetime)} • {appointment.startDatetime.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })} - {appointment.endDatetime.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant="secondary">{appointment.status}</Badge>
-                    <Button variant="outline" size="sm">Détails</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {activeTab === 'appointments' && <AppointmentManagement />}
 
       {/* Orders Tab */}
-      {activeTab === 'orders' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Toutes les commandes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {orders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{formatCurrency(order.totalCad)}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {order.user.firstName} {order.user.lastName}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(order.createdAt)}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant="secondary">{order.status}</Badge>
-                    <Button variant="outline" size="sm">Détails</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {activeTab === 'orders' && <OrderManagement />}
+
+      {activeTab === 'tickets' && <SupportTicketsManagement />}
+
+      {activeTab === 'ratings' && (
+        <RatingsManagement />
       )}
 
-      {/* Recurring Sessions Tab */}
-      {activeTab === 'recurring' && (
-        <RecurringSessionsManagement />
+      {/* Monthly Breakdown Modal */}
+      {showMonthlyModal && financialAnalytics && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Revenus par mois - {new Date().getFullYear()}</h2>
+                <Button variant="outline" onClick={() => setShowMonthlyModal(false)}>
+                  Fermer
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {financialAnalytics.monthlyBreakdown.map((monthData) => {
+                  const monthNames = [
+                    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+                  ]
+                  
+                  return (
+                    <Card key={monthData.month} className="p-4">
+                      <div className="space-y-2">
+                        <h3 className="font-semibold text-lg">{monthNames[monthData.month - 1]}</h3>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span>Revenus:</span>
+                            <span className="font-medium text-green-600">{formatCurrency(monthData.revenue)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Remboursements:</span>
+                            <span className="font-medium text-red-600">{formatCurrency(monthData.refunds)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Paiements tuteurs:</span>
+                            <span className="font-medium text-blue-600">{formatCurrency(monthData.tutorPayments)}</span>
+                          </div>
+                          <div className="flex justify-between border-t pt-1">
+                            <span className="font-semibold">Marge brute:</span>
+                            <span className="font-bold text-purple-600">{formatCurrency(monthData.grossMargin)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Commandes:</span>
+                            <span className="font-medium">{monthData.orders}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
+
     </div>
   )
 }

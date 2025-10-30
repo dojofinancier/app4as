@@ -25,7 +25,17 @@ const profileSchema = z.object({
 type ProfileFormData = z.infer<typeof profileSchema>
 
 interface ProfileInfoFormProps {
-  user: User
+  user: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+    phone: string | null
+    role: string
+    stripeCustomerId: string | null
+    defaultPaymentMethodId: string | null
+    createdAt: Date
+  }
 }
 
 export function ProfileInfoForm({ user }: ProfileInfoFormProps) {

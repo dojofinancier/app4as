@@ -15,13 +15,6 @@ interface GuestCheckoutFormProps {
   totalPrice: number
   courseSlug: string
   sessionId: string | null
-  recurringSession?: {
-    id: string
-    frequency: string
-    totalSessions: number
-    startDate: string
-    endDate?: string
-  }
   onSuccess: (paymentIntentId: string) => void
   onError: (error: string) => void
 }
@@ -33,7 +26,6 @@ export function GuestCheckoutForm({
   totalPrice,
   courseSlug,
   sessionId,
-  recurringSession,
   onSuccess,
   onError
 }: GuestCheckoutFormProps) {
@@ -41,7 +33,6 @@ export function GuestCheckoutForm({
   const elements = useElements()
   
   const [loading, setLoading] = useState(false)
-  const [savePaymentMethod, setSavePaymentMethod] = useState(false)
   
   // Form data
   const [formData, setFormData] = useState({
@@ -102,8 +93,7 @@ export function GuestCheckoutForm({
           sessionId: sessionId,
           useSavedPaymentMethod: false,
           billingAddress: formData.billingAddress,
-          recurringSessionId: recurringSession?.id,
-          savePaymentMethod: savePaymentMethod,
+          savePaymentMethod: false,
           // Include user info for account creation
           userInfo: {
             firstName: formData.firstName,
@@ -317,19 +307,6 @@ export function GuestCheckoutForm({
             />
           </div>
 
-          {/* Save Payment Method Option */}
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="save-payment-method"
-              checked={savePaymentMethod}
-              onChange={(e) => setSavePaymentMethod(e.target.checked)}
-              className="h-4 w-4"
-            />
-            <Label htmlFor="save-payment-method" className="text-sm">
-              Enregistrer cette carte pour mes prochains achats
-            </Label>
-          </div>
         </CardContent>
       </Card>
 

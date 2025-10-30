@@ -7,40 +7,61 @@ import { createClient } from '@/lib/supabase/server'
 import { calculateTutorEarnings } from '@/lib/pricing'
 
 export async function POST(req: NextRequest) {
+  console.log('=== STRIPE WEBHOOK RECEIVED ===')
+  
   const body = await req.text()
-  const signature = headers().get('stripe-signature')
+  const headersList = await headers()
+  const signature = headersList.get('stripe-signature')
+
+  console.log('Signature present:', !!signature)
+  console.log('Body length:', body.length)
+  console.log('Webhook secret configured:', !!process.env.STRIPE_WEBHOOK_SECRET)
 
   if (!signature) {
+    console.log('ERROR: No signature header')
     return NextResponse.json({ error: 'No signature' }, { status: 400 })
+  }
+
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.log('ERROR: STRIPE_WEBHOOK_SECRET not configured')
+    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
   }
 
   const stripe = getStripe()
   let event: Stripe.Event
 
   try {
+    console.log('Attempting signature verification...')
     event = stripe.webhooks.constructEvent(
       body,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET!
     )
+    console.log('Signature verification successful!')
   } catch (err) {
     console.error('Webhook signature verification failed:', err)
+    console.error('Error details:', err instanceof Error ? err.message : 'Unknown error')
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
   // Log the webhook event
-  console.log('=== STRIPE WEBHOOK RECEIVED ===')
   console.log('Event type:', event.type)
   console.log('Event ID:', event.id)
   console.log('Event data:', JSON.stringify(event.data, null, 2))
 
-  await prisma.webhookEvent.create({
-    data: {
-      source: 'stripe',
-      type: event.type,
-      payloadJson: JSON.stringify(event.data)
-    }
-  })
+  try {
+    await prisma.webhookEvent.create({
+      data: {
+        source: 'stripe',
+        type: event.type,
+        payloadJson: JSON.stringify(event.data)
+      }
+    })
+    console.log('Webhook event logged to database successfully')
+  } catch (dbError) {
+    console.error('Error logging webhook event to database:', dbError)
+    // Continue processing even if logging fails
+  }
 
   try {
     if (event.type === 'payment_intent.succeeded') {
@@ -50,21 +71,7 @@ export async function POST(req: NextRequest) {
       console.log('Payment Intent ID:', paymentIntent.id)
       console.log('Payment Intent metadata:', paymentIntent.metadata)
       
-      // Get metadata from the payment intent
-      const {
-        userId,
-        cartId,
-        itemCount,
-        couponCode,
-        discountAmount
-      } = paymentIntent.metadata || {}
-
-      if (!userId || !cartId) {
-        console.error('Missing required metadata in payment intent:', paymentIntent.metadata)
-        return NextResponse.json({ error: 'Missing metadata' }, { status: 400 })
-      }
-
-      // Get cart data from database
+      // Get cart data from database first
       const paymentIntentData = await prisma.paymentIntentData.findUnique({
         where: { paymentIntentId: paymentIntent.id }
       })
@@ -72,6 +79,29 @@ export async function POST(req: NextRequest) {
       if (!paymentIntentData) {
         console.error('No payment intent data found for:', paymentIntent.id)
         return NextResponse.json({ error: 'Payment intent data not found' }, { status: 400 })
+      }
+
+      // Get metadata from the payment intent
+      const {
+        userId: metadataUserId,
+        cartId,
+        itemCount,
+        couponCode,
+        discountAmount
+      } = paymentIntent.metadata || {}
+
+      // Use userId from paymentIntentData if available, otherwise fall back to metadata
+      const userId = paymentIntentData.userId || metadataUserId
+
+      if (!userId || !cartId) {
+        console.error('Missing required userId or cartId:', { 
+          userId, 
+          cartId, 
+          metadataUserId, 
+          paymentIntentDataUserId: paymentIntentData.userId,
+          paymentIntentMetadata: paymentIntent.metadata 
+        })
+        return NextResponse.json({ error: 'Missing userId or cartId' }, { status: 400 })
       }
 
       // Parse cart data
@@ -124,6 +154,20 @@ export async function POST(req: NextRequest) {
         const appointments = []
 
         for (const item of cartItems) {
+          // Get tutor's current rate for earnings calculation
+          const tutor = await tx.tutor.findUnique({
+            where: { id: item.tutorId },
+            select: { hourlyBaseRateCad: true }
+          })
+
+          if (!tutor) {
+            throw new Error(`Tutor not found: ${item.tutorId}`)
+          }
+
+          // Calculate hours worked (default to full duration)
+          const hoursWorked = item.durationMin / 60
+          const rateAtTime = Number(tutor.hourlyBaseRateCad)
+
           // Create order item
           const orderItem = await tx.orderItem.create({
             data: {
@@ -135,7 +179,10 @@ export async function POST(req: NextRequest) {
               durationMin: item.durationMin,
               unitPriceCad: item.unitPriceCad,
               lineTotalCad: item.lineTotalCad,
-              tutorEarningsCad: item.tutorEarningsCad
+              tutorEarningsCad: item.tutorEarningsCad,
+              hoursWorked: hoursWorked,
+              rateAtTime: rateAtTime,
+              earningsStatus: 'scheduled' // Set to 'scheduled' initially - will become 'earned' when appointment is completed
             }
           })
 
@@ -204,11 +251,7 @@ export async function POST(req: NextRequest) {
         
         // For guest users, we don't create accounts here anymore
         // The confirm-payment-with-password API will handle account creation and order/appointment creation
-        // We just need to clean up the payment intent data
-        await prisma.paymentIntentData.delete({
-          where: { paymentIntentId: paymentIntent.id }
-        })
-        
+        // We keep the payment intent data so the API can access it
         console.log('Guest payment processed - waiting for account creation via API')
         return NextResponse.json({ received: true })
       } else {
@@ -248,8 +291,55 @@ export async function POST(req: NextRequest) {
         where: { paymentIntentId: paymentIntent.id }
       })
 
-      // TODO: Send Make.com webhook for booking confirmation
-      // This will handle email notifications and calendar invites
+      // Send Make.com webhook for booking confirmation
+      try {
+        // Fetch full order details with relationships
+        const orderWithDetails = await prisma.order.findUnique({
+          where: { id: result.order.id },
+          include: {
+            items: {
+              include: {
+                course: true,
+                tutor: {
+                  include: {
+                    user: true
+                  }
+                },
+                appointment: true
+              }
+            }
+          }
+        })
+
+        if (orderWithDetails) {
+          const { sendBookingCreatedWebhook } = await import('@/lib/webhooks/make')
+          
+          await sendBookingCreatedWebhook({
+            orderId: orderWithDetails.id,
+            userId: orderWithDetails.userId,
+            currency: orderWithDetails.currency || 'CAD',
+            subtotalCad: Number(orderWithDetails.subtotalCad),
+            discountCad: Number(orderWithDetails.discountCad),
+            totalCad: Number(orderWithDetails.totalCad),
+            couponCode: finalCouponCode || undefined,
+            items: orderWithDetails.items.map(item => ({
+              appointmentId: item.appointment?.id || '',
+              courseId: item.courseId,
+              courseTitleFr: item.course.titleFr,
+              tutorId: item.tutorId,
+              tutorName: item.tutor.displayName,
+              startDatetime: item.startDatetime.toISOString(),
+              durationMin: item.durationMin,
+              priceCad: Number(item.lineTotalCad),
+              tutorEarningsCad: Number(item.tutorEarningsCad)
+            })),
+            createdAt: orderWithDetails.createdAt.toISOString()
+          })
+        }
+      } catch (webhookError) {
+        // Don't fail the webhook processing if Make.com webhook fails
+        console.error('Error sending booking.created webhook:', webhookError)
+      }
 
       console.log('Payment intent processed successfully:', {
         orderId: result.order.id,

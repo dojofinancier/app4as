@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/actions/auth'
 import { SignInForm } from '@/components/auth/sign-in-form'
@@ -18,15 +17,6 @@ export default async function SignInPage() {
           <h2 className="mt-6 text-center text-3xl font-bold tracking-tight">
             {frCA.auth.signIn}
           </h2>
-          <p className="mt-2 text-center text-sm text-muted-foreground">
-            {frCA.auth.dontHaveAccount}{' '}
-            <Link
-              href="/inscription"
-              className="font-medium text-primary hover:underline"
-            >
-              {frCA.auth.createAccount}
-            </Link>
-          </p>
         </div>
         <SignInForm />
       </div>

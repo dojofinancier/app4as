@@ -11,8 +11,9 @@ export async function GET(request: NextRequest) {
     const courseId = searchParams.get('courseId')
     const date = searchParams.get('date') // YYYY-MM-DD format
     const duration = parseInt(searchParams.get('duration') || '60')
+    const tutorId = searchParams.get('tutorId') // Optional tutor filter
 
-    console.log('Parameters:', { courseId, date, duration })
+    console.log('Parameters:', { courseId, date, duration, tutorId })
 
     if (!courseId || !date) {
       console.log('Missing required parameters')
@@ -47,31 +48,55 @@ export async function GET(request: NextRequest) {
         duration: duration,
         tutorId: slot.tutorId,
         tutorName: slot.tutorName,
+        tutorPriority: slot.tutorPriority,
         price: durationOption.price
       }]
     })
 
-    // Filter slots for the specific date
+    // Filter slots for the specific date and tutor (if specified)
     const filteredSlots = transformedSlots.filter(slot => {
       const slotDate = format(slot.start, 'yyyy-MM-dd')
-      return slotDate === date
+      const dateMatches = slotDate === date
+      
+      // If tutorId is specified, only return slots for that tutor
+      if (tutorId) {
+        return dateMatches && slot.tutorId === tutorId
+      }
+      
+      return dateMatches
     })
+
+    // Deduplicate slots by time - keep only the highest priority tutor (lowest priority number)
+    const deduplicatedSlots = filteredSlots.reduce((acc, slot) => {
+      const timeKey = `${slot.start.getTime()}-${slot.duration}`
+      const existingSlot = acc.get(timeKey)
+      
+      if (!existingSlot || slot.tutorPriority < existingSlot.tutorPriority) {
+        acc.set(timeKey, slot)
+      }
+      
+      return acc
+    }, new Map())
+
+    const finalSlots = Array.from(deduplicatedSlots.values())
 
     console.log('Transformed slots:', transformedSlots.length)
     console.log('Filtered slots:', filteredSlots.length)
+    console.log('Deduplicated slots:', finalSlots.length)
 
     // Check if the date has any availability (for calendar dots)
-    const hasAvailability = filteredSlots.length > 0
+    const hasAvailability = finalSlots.length > 0
 
     const response = {
       hasAvailability,
-      slots: filteredSlots.map(slot => ({
+      slots: finalSlots.map(slot => ({
         start: slot.start.toISOString(),
         end: slot.end.toISOString(),
         available: true,
         duration: slot.duration,
         tutorId: slot.tutorId,
         tutorName: slot.tutorName,
+        tutorPriority: slot.tutorPriority,
         price: slot.price
       }))
     }
@@ -121,16 +146,31 @@ export async function POST(request: NextRequest) {
         duration: duration,
         tutorId: slot.tutorId,
         tutorName: slot.tutorName,
+        tutorPriority: slot.tutorPriority,
         price: durationOption.price
       }]
     })
+
+    // Deduplicate slots by time - keep only the highest priority tutor (lowest priority number)
+    const deduplicatedSlots = transformedSlots.reduce((acc, slot) => {
+      const timeKey = `${slot.start.getTime()}-${slot.duration}`
+      const existingSlot = acc.get(timeKey)
+      
+      if (!existingSlot || slot.tutorPriority < existingSlot.tutorPriority) {
+        acc.set(timeKey, slot)
+      }
+      
+      return acc
+    }, new Map())
+
+    const finalSlots = Array.from(deduplicatedSlots.values())
 
     // Create a map of date -> has availability
     const availabilityMap: Record<string, boolean> = {}
     
     dates.forEach(dateStr => {
       const date = format(new Date(dateStr), 'yyyy-MM-dd')
-      const hasSlots = transformedSlots.some(slot => {
+      const hasSlots = finalSlots.some(slot => {
         const slotDate = format(slot.start, 'yyyy-MM-dd')
         return slotDate === date
       })

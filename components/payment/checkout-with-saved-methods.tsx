@@ -18,13 +18,6 @@ interface CheckoutWithSavedMethodsProps {
   isLoggedIn: boolean
   courseSlug: string
   sessionId: string | null
-  recurringSession?: {
-    id: string
-    frequency: string
-    totalSessions: number
-    startDate: string
-    endDate?: string
-  }
   onSuccess: (paymentIntentId: string) => void
   onError: (error: string) => void
 }
@@ -38,7 +31,6 @@ export function CheckoutWithSavedMethods({
   isLoggedIn,
   courseSlug,
   sessionId,
-  recurringSession,
   onSuccess,
   onError
 }: CheckoutWithSavedMethodsProps) {
@@ -49,7 +41,6 @@ export function CheckoutWithSavedMethods({
   const [savedPaymentMethod, setSavedPaymentMethod] = useState<any>(null)
   const [useSavedMethod, setUseSavedMethod] = useState(true)
   const [loadingPaymentMethod, setLoadingPaymentMethod] = useState(true)
-  const [savePaymentMethod, setSavePaymentMethod] = useState(false)
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -88,7 +79,6 @@ export function CheckoutWithSavedMethods({
             sessionId: sessionId,
             useSavedPaymentMethod: true,
             paymentMethodId: savedPaymentMethod.id,
-            recurringSessionId: recurringSession?.id
           }),
         })
 
@@ -137,8 +127,7 @@ export function CheckoutWithSavedMethods({
           body: JSON.stringify({
             sessionId: sessionId,
             useSavedPaymentMethod: false,
-            recurringSessionId: recurringSession?.id,
-            savePaymentMethod: savePaymentMethod
+            savePaymentMethod: false
           }),
         })
 
@@ -281,21 +270,6 @@ export function CheckoutWithSavedMethods({
                   />
                 </div>
                 
-                {/* Save Payment Method Consent - Only for logged-in users */}
-                {isLoggedIn && (
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="save-payment-method"
-                      checked={savePaymentMethod}
-                      onChange={(e) => setSavePaymentMethod(e.target.checked)}
-                      className="h-4 w-4"
-                    />
-                    <Label htmlFor="save-payment-method" className="text-sm">
-                      Enregistrer cette carte pour mes prochains achats
-                    </Label>
-                  </div>
-                )}
               </div>
             )}
           </div>

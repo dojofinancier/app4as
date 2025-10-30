@@ -216,6 +216,7 @@ export function RescheduleModal({ appointment }: RescheduleModalProps) {
                     <li>• Même tuteur et même cours</li>
                     <li>• Même durée que le rendez-vous original</li>
                     <li>• Le tuteur sera notifié du changement</li>
+                    <li>• Reprogrammation possible jusqu'à 2h avant le rendez-vous</li>
                   </ul>
                 </div>
               </div>

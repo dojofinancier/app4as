@@ -3,153 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
-import { sendBookingWebhook } from '@/lib/webhooks/make'
-
-export async function cancelAppointment(data: {
-  appointmentId: string
-  reason: string
-  action: 'credit' | 'refund' // credit = add to credit bank, refund = request refund
-}) {
-  const supabase = await createClient()
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser()
-
-  if (!authUser) {
-    return { success: false, error: 'Non autorisé' }
-  }
-
-  try {
-    // Get the appointment with related data
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: data.appointmentId },
-      include: {
-        user: true,
-        tutor: { include: { user: true } },
-        course: true,
-        orderItem: true
-      }
-    })
-
-    if (!appointment) {
-      return { success: false, error: 'Rendez-vous non trouvé' }
-    }
-
-    // Check if user owns this appointment
-    if (appointment.userId !== authUser.id) {
-      return { success: false, error: 'Non autorisé' }
-    }
-
-    // Check if appointment is in the future
-    const now = new Date()
-    if (appointment.startDatetime <= now) {
-      return { success: false, error: 'Impossible d\'annuler un rendez-vous passé' }
-    }
-
-    // Check 2-hour cancellation policy
-    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000)
-    if (appointment.startDatetime <= twoHoursFromNow) {
-      return { success: false, error: 'Impossible d\'annuler moins de 2 heures avant le rendez-vous' }
-    }
-
-    // Check if already cancelled
-    if (appointment.status === 'cancelled') {
-      return { success: false, error: 'Ce rendez-vous est déjà annulé' }
-    }
-
-    // Calculate credit amount (based on order item price)
-    const creditAmount = appointment.orderItem?.lineTotalCad || 0
-
-    // Use transaction to ensure data consistency
-    const result = await prisma.$transaction(async (tx) => {
-      // Update appointment status
-      const updatedAppointment = await tx.appointment.update({
-        where: { id: data.appointmentId },
-        data: {
-          status: 'cancelled',
-          cancellationReason: data.reason,
-          cancelledBy: 'student',
-          cancelledAt: new Date()
-        }
-      })
-
-      // Log the modification
-      await tx.appointmentModification.create({
-        data: {
-          appointmentId: data.appointmentId,
-          modifiedBy: authUser.id,
-          modificationType: 'cancel',
-          reason: data.reason,
-          oldData: {
-            status: appointment.status,
-            startDatetime: appointment.startDatetime,
-            endDatetime: appointment.endDatetime
-          },
-          newData: {
-            status: 'cancelled',
-            cancellationReason: data.reason,
-            cancelledBy: 'student',
-            cancelledAt: new Date()
-          }
-        }
-      })
-
-      if (data.action === 'credit') {
-        // Add credit to user's account
-        await tx.user.update({
-          where: { id: authUser.id },
-          data: {
-            creditBalance: {
-              increment: creditAmount
-            }
-          }
-        })
-
-        // Create credit transaction record
-        await tx.creditTransaction.create({
-          data: {
-            userId: authUser.id,
-            appointmentId: data.appointmentId,
-            amount: creditAmount,
-            type: 'earned',
-            reason: `Annulation: ${data.reason}`
-          }
-        })
-      } else {
-        // Create refund request
-        await tx.refundRequest.create({
-          data: {
-            userId: authUser.id,
-            appointmentId: data.appointmentId,
-            amount: creditAmount,
-            reason: data.reason,
-            status: 'pending'
-          }
-        })
-      }
-
-      return updatedAppointment
-    })
-
-    // Send webhook notification
-    await sendBookingWebhook({
-      type: 'appointment_cancelled',
-      userId: authUser.id,
-      appointmentId: data.appointmentId,
-      tutorId: appointment.tutorId,
-      reason: data.reason,
-      action: data.action,
-      amount: Number(creditAmount),
-      timestamp: new Date().toISOString()
-    })
-
-    revalidatePath('/', 'layout')
-    return { success: true }
-  } catch (error) {
-    console.error('Error cancelling appointment:', error)
-    return { success: false, error: 'Erreur lors de l\'annulation du rendez-vous' }
-  }
-}
+import { sendBookingRescheduledWebhook } from '@/lib/webhooks/make'
+import { autoCompletePastAppointments } from './appointments'
 
 export async function rescheduleAppointment(data: {
   appointmentId: string
@@ -192,10 +47,10 @@ export async function rescheduleAppointment(data: {
       return { success: false, error: 'Impossible de reprogrammer un rendez-vous passé' }
     }
 
-    // Check 24-hour rescheduling policy
-    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-    if (appointment.startDatetime <= twentyFourHoursFromNow) {
-      return { success: false, error: 'Impossible de reprogrammer moins de 24 heures avant le rendez-vous' }
+    // Check 2-hour rescheduling policy
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000)
+    if (appointment.startDatetime <= twoHoursFromNow) {
+      return { success: false, error: 'Impossible de reprogrammer moins de 2 heures avant le rendez-vous' }
     }
 
     // Check if already cancelled
@@ -263,14 +118,19 @@ export async function rescheduleAppointment(data: {
     })
 
     // Send webhook notification
-    await sendBookingWebhook({
-      type: 'appointment_rescheduled',
-      userId: authUser.id,
+    await sendBookingRescheduledWebhook({
       appointmentId: data.appointmentId,
+      userId: appointment.userId,
       tutorId: appointment.tutorId,
+      courseId: appointment.courseId,
+      courseTitleFr: appointment.course.titleFr,
+      rescheduledBy: 'student',
+      rescheduledById: authUser.id,
       reason: data.reason,
       oldStartDatetime: appointment.startDatetime.toISOString(),
+      oldEndDatetime: appointment.endDatetime.toISOString(),
       newStartDatetime: data.newStartDatetime.toISOString(),
+      newEndDatetime: data.newEndDatetime.toISOString(),
       timestamp: new Date().toISOString()
     })
 
@@ -284,6 +144,9 @@ export async function rescheduleAppointment(data: {
 
 export async function getStudentAppointments(userId: string) {
   try {
+    // Auto-complete past appointments first
+    await autoCompletePastAppointments()
+    
     console.log('Fetching appointments for user:', userId)
     
     const appointments = await prisma.appointment.findMany({
@@ -308,7 +171,7 @@ export async function getStudentAppointments(userId: string) {
           orderBy: { createdAt: 'desc' }
         }
       },
-      orderBy: { startDatetime: 'desc' }
+      orderBy: { startDatetime: 'asc' }
     })
 
     console.log('Found appointments with includes:', appointments.length)
@@ -324,7 +187,7 @@ export async function getStudentAppointments(userId: string) {
       } : null,
       modifications: apt.modifications?.map(mod => ({
         ...mod,
-        createdAt: mod.createdAt.toISOString()
+        createdAt: mod.createdAt?.toISOString() || new Date().toISOString()
       })) || []
     }))
 
@@ -332,20 +195,6 @@ export async function getStudentAppointments(userId: string) {
   } catch (error) {
     console.error('Error fetching student appointments:', error)
     return []
-  }
-}
-
-export async function getStudentCreditBalance(userId: string) {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { creditBalance: true }
-    })
-
-    return Number(user?.creditBalance || 0)
-  } catch (error) {
-    console.error('Error fetching credit balance:', error)
-    return 0
   }
 }
 
@@ -465,41 +314,66 @@ export async function getAvailableRescheduleSlots(appointmentId: string) {
   }
 }
 
-export async function getStudentCreditTransactions(userId: string) {
+export async function updateMeetingLink(data: {
+  appointmentId: string
+  meetingLink: string
+}) {
+  const supabase = await createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
+
+  if (!authUser) {
+    return { success: false, error: 'Non autorisé' }
+  }
+
   try {
-    const transactions = await prisma.creditTransaction.findMany({
-      where: { userId },
+    // Get the appointment to verify the user is the tutor
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: data.appointmentId },
       include: {
-        appointment: {
-          include: {
-            course: true,
-            tutor: {
-              include: {
-                user: true
-              }
-            }
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
+        tutor: true
+      }
     })
 
-    // Serialize the data to make it client-safe
-    const serializedTransactions = transactions.map(transaction => ({
-      ...transaction,
-      createdAt: transaction.createdAt.toISOString(),
-      amount: Number(transaction.amount),
-      appointment: transaction.appointment ? {
-        ...transaction.appointment,
-        startDatetime: transaction.appointment.startDatetime.toISOString(),
-        endDatetime: transaction.appointment.endDatetime.toISOString(),
-        orderItemId: transaction.appointment.orderItemId
-      } : null
-    }))
+    if (!appointment) {
+      return { success: false, error: 'Rendez-vous non trouvé' }
+    }
 
-    return serializedTransactions
+    // Check if the current user is the tutor for this appointment
+    if (appointment.tutorId !== authUser.id) {
+      return { success: false, error: 'Non autorisé - vous n\'êtes pas le tuteur de ce rendez-vous' }
+    }
+
+    // Validate meeting link format (basic URL validation)
+    if (data.meetingLink && !isValidUrl(data.meetingLink)) {
+      return { success: false, error: 'Format de lien invalide' }
+    }
+
+    // Update the meeting link
+    await prisma.appointment.update({
+      where: { id: data.appointmentId },
+      data: {
+        meetingLink: data.meetingLink || null
+      }
+    })
+
+    revalidatePath('/tuteur/tableau-de-bord')
+    revalidatePath('/tableau-de-bord')
+    
+    return { success: true }
   } catch (error) {
-    console.error('Error fetching credit transactions:', error)
-    return []
+    console.error('Error updating meeting link:', error)
+    return { success: false, error: 'Une erreur est survenue' }
+  }
+}
+
+// Helper function to validate URLs
+function isValidUrl(string: string): boolean {
+  try {
+    new URL(string)
+    return true
+  } catch (_) {
+    return false
   }
 }

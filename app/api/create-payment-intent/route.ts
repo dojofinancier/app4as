@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('Request body:', body)
     
-    const { sessionId, billingAddress, useSavedPaymentMethod, paymentMethodId, recurringSessionId, savePaymentMethod, userInfo } = body
+    const { sessionId, billingAddress, useSavedPaymentMethod, paymentMethodId, savePaymentMethod, userInfo } = body
     if (!sessionId) {
       return NextResponse.json({ error: 'Session manquante' }, { status: 400 })
     }
@@ -112,9 +112,6 @@ export async function POST(request: NextRequest) {
         duration: duration.toString(),
         courseSlug: courseSlug,
         userId: hold.userId,
-        ...(recurringSessionId && { 
-          recurringSessionId: recurringSessionId
-        }),
         ...(billingAddress && { 
           billingAddress: JSON.stringify(billingAddress)
         }),

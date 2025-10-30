@@ -3,16 +3,70 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
-import { format } from 'date-fns'
 
-/**
- * Create availability rule
- */
-export async function createAvailabilityRule(data: {
+export interface AvailabilityRule {
+  id: string
+  tutorId: string
   weekday: number
   startTime: string
   endTime: string
-}) {
+}
+
+export interface AvailabilityException {
+  id: string
+  tutorId: string
+  startDate: string
+  endDate: string
+  isUnavailable: boolean
+}
+
+export async function getTutorAvailabilityRules(tutorId: string): Promise<AvailabilityRule[]> {
+  try {
+    const rules = await prisma.availabilityRule.findMany({
+      where: { tutorId },
+      orderBy: [
+        { weekday: 'asc' },
+        { startTime: 'asc' }
+      ]
+    })
+
+    return rules.map(rule => ({
+      id: rule.id,
+      tutorId: rule.tutorId,
+      weekday: rule.weekday,
+      startTime: rule.startTime,
+      endTime: rule.endTime
+    }))
+  } catch (error) {
+    console.error('Error fetching availability rules:', error)
+    return []
+  }
+}
+
+export async function getTutorAvailabilityExceptions(tutorId: string): Promise<AvailabilityException[]> {
+  try {
+    const exceptions = await prisma.availabilityException.findMany({
+      where: { tutorId },
+      orderBy: { startDate: 'asc' }
+    })
+
+    return exceptions.map(exception => ({
+      id: exception.id,
+      tutorId: exception.tutorId,
+      startDate: exception.startDate.toISOString().split('T')[0],
+      endDate: exception.endDate.toISOString().split('T')[0],
+      isUnavailable: exception.isUnavailable
+    }))
+  } catch (error) {
+    console.error('Error fetching availability exceptions:', error)
+    return []
+  }
+}
+
+export async function saveAvailabilityRules(
+  tutorId: string, 
+  rules: Omit<AvailabilityRule, 'id'>[]
+): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -21,314 +75,257 @@ export async function createAvailabilityRule(data: {
   }
 
   try {
+    // Verify user is the tutor
+    const tutor = await prisma.tutor.findUnique({
+      where: { id: tutorId },
+      include: { user: true }
+    })
+
+    if (!tutor || tutor.user.id !== user.id) {
+      return { success: false, error: 'Non autorisé' }
+    }
+
+    // Validate rules for overlaps
+    const validationError = validateAvailabilityRules(rules)
+    if (validationError) {
+      return { success: false, error: validationError }
+    }
+
+    // Check for conflicts with existing appointments
+    const conflictError = await checkAvailabilityConflicts(tutorId, rules)
+    if (conflictError) {
+      return { success: false, error: conflictError }
+    }
+
+    // Use transaction to ensure data consistency
+    await prisma.$transaction(async (tx) => {
+      // Delete existing rules
+      await tx.availabilityRule.deleteMany({
+        where: { tutorId }
+      })
+
+      // Insert new rules
+      await tx.availabilityRule.createMany({
+        data: rules.map(rule => ({
+          tutorId: rule.tutorId,
+          weekday: rule.weekday,
+          startTime: rule.startTime,
+          endTime: rule.endTime
+        }))
+      })
+    })
+
+    revalidatePath('/tableau-de-bord')
+    return { success: true }
+  } catch (error) {
+    console.error('Error saving availability rules:', error)
+    return { success: false, error: 'Erreur lors de la sauvegarde des disponibilités' }
+  }
+}
+
+export async function saveAvailabilityExceptions(
+  tutorId: string,
+  exceptions: Omit<AvailabilityException, 'id'>[]
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'Non autorisé' }
+  }
+
+  try {
+    // Verify user is the tutor
+    const tutor = await prisma.tutor.findUnique({
+      where: { id: tutorId },
+      include: { user: true }
+    })
+
+    if (!tutor || tutor.user.id !== user.id) {
+      return { success: false, error: 'Non autorisé' }
+    }
+
+    // Validate exceptions
+    const validationError = validateAvailabilityExceptions(exceptions)
+    if (validationError) {
+      return { success: false, error: validationError }
+    }
+
+    // Check for conflicts with existing appointments
+    const conflictError = await checkExceptionConflicts(tutorId, exceptions)
+    if (conflictError) {
+      return { success: false, error: conflictError }
+    }
+
+    // Use transaction to ensure data consistency
+    await prisma.$transaction(async (tx) => {
+      // Delete existing exceptions
+      await tx.availabilityException.deleteMany({
+        where: { tutorId }
+      })
+
+      // Insert new exceptions
+      await tx.availabilityException.createMany({
+        data: exceptions.map(exception => ({
+          tutorId: exception.tutorId,
+          startDate: new Date(exception.startDate),
+          endDate: new Date(exception.endDate),
+          isUnavailable: exception.isUnavailable
+        }))
+      })
+    })
+
+    revalidatePath('/tableau-de-bord')
+    return { success: true }
+  } catch (error) {
+    console.error('Error saving availability exceptions:', error)
+    return { success: false, error: 'Erreur lors de la sauvegarde des exceptions' }
+  }
+}
+
+function validateAvailabilityRules(rules: Omit<AvailabilityRule, 'id'>[]): string | null {
+  // Group rules by weekday
+  const rulesByWeekday = rules.reduce((acc, rule) => {
+    if (!acc[rule.weekday]) {
+      acc[rule.weekday] = []
+    }
+    acc[rule.weekday].push(rule)
+    return acc
+  }, {} as Record<number, Omit<AvailabilityRule, 'id'>[]>)
+
+  // Check for overlaps within each day
+  for (const [weekday, dayRules] of Object.entries(rulesByWeekday)) {
+    // Sort by start time
+    dayRules.sort((a, b) => a.startTime.localeCompare(b.startTime))
+
+    for (let i = 0; i < dayRules.length - 1; i++) {
+      const current = dayRules[i]
+      const next = dayRules[i + 1]
+
+      if (current.endTime > next.startTime) {
+        const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+        return `Chevauchement détecté le ${dayNames[parseInt(weekday)]}: ${current.startTime}-${current.endTime} et ${next.startTime}-${next.endTime}`
+      }
+    }
+
     // Validate time format and logic
-    if (data.startTime >= data.endTime) {
-      return { success: false, error: 'L\'heure de fin doit être après l\'heure de début' }
+    for (const rule of dayRules) {
+      if (rule.startTime >= rule.endTime) {
+        const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+        return `Heure de fin doit être après l'heure de début le ${dayNames[parseInt(weekday)]}: ${rule.startTime}-${rule.endTime}`
+      }
     }
-
-    if (data.weekday < 0 || data.weekday > 6) {
-      return { success: false, error: 'Jour de la semaine invalide' }
-    }
-
-    // Check for overlapping rules
-    const overlappingRule = await prisma.availabilityRule.findFirst({
-      where: {
-        tutorId: user.id,
-        weekday: data.weekday,
-        OR: [
-          {
-            startTime: { lt: data.endTime },
-            endTime: { gt: data.startTime },
-          },
-        ],
-      },
-    })
-
-    if (overlappingRule) {
-      return { success: false, error: 'Cette plage horaire chevauche avec une règle existante' }
-    }
-
-    const rule = await prisma.availabilityRule.create({
-      data: {
-        tutorId: user.id,
-        weekday: data.weekday,
-        startTime: data.startTime,
-        endTime: data.endTime,
-      },
-    })
-
-    revalidatePath('/tableau-de-bord')
-    return { success: true, data: rule }
-  } catch (error) {
-    console.error('Error creating availability rule:', error)
-    return { success: false, error: 'Une erreur est survenue' }
   }
+
+  return null
 }
 
-/**
- * Update availability rule
- */
-export async function updateAvailabilityRule(
-  ruleId: string,
-  data: {
-    weekday?: number
-    startTime?: string
-    endTime?: string
+function validateAvailabilityExceptions(exceptions: Omit<AvailabilityException, 'id'>[]): string | null {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  for (const exception of exceptions) {
+    const startDate = new Date(exception.startDate)
+    const endDate = new Date(exception.endDate)
+
+    // Check if dates are in the past
+    if (startDate < today) {
+      return `Impossible de modifier les disponibilités pour des dates passées: ${exception.startDate}`
+    }
+
+    // Check if start date is before end date
+    if (startDate > endDate) {
+      return `La date de début doit être avant la date de fin: ${exception.startDate} - ${exception.endDate}`
+    }
   }
-) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { success: false, error: 'Non autorisé' }
-  }
+  return null
+}
 
-  try {
-    const rule = await prisma.availabilityRule.findUnique({
-      where: { id: ruleId },
-    })
-
-    if (!rule || rule.tutorId !== user.id) {
-      return { success: false, error: 'Règle introuvable ou non autorisé' }
-    }
-
-    // Validate time logic if both times are provided
-    if (data.startTime && data.endTime && data.startTime >= data.endTime) {
-      return { success: false, error: 'L\'heure de fin doit être après l\'heure de début' }
-    }
-
-    if (data.weekday !== undefined && (data.weekday < 0 || data.weekday > 6)) {
-      return { success: false, error: 'Jour de la semaine invalide' }
-    }
-
-    const updatedRule = await prisma.availabilityRule.update({
-      where: { id: ruleId },
-      data: {
-        ...(data.weekday !== undefined && { weekday: data.weekday }),
-        ...(data.startTime && { startTime: data.startTime }),
-        ...(data.endTime && { endTime: data.endTime }),
+async function checkAvailabilityConflicts(
+  tutorId: string, 
+  rules: Omit<AvailabilityRule, 'id'>[]
+): Promise<string | null> {
+  // Get future appointments for this tutor
+  const futureAppointments = await prisma.appointment.findMany({
+    where: {
+      tutorId,
+      startDatetime: {
+        gte: new Date()
       },
-    })
+      status: 'scheduled'
+    },
+    select: {
+      startDatetime: true,
+      endDatetime: true
+    }
+  })
 
-    revalidatePath('/tableau-de-bord')
-    return { success: true, data: updatedRule }
-  } catch (error) {
-    console.error('Error updating availability rule:', error)
-    return { success: false, error: 'Une erreur est survenue' }
+  // Check if any appointment falls outside the new availability rules
+  for (const appointment of futureAppointments) {
+    const appointmentDate = new Date(appointment.startDatetime)
+    const weekday = appointmentDate.getDay()
+    const startTime = appointment.startDatetime.toTimeString().slice(0, 5)
+    const endTime = appointment.endDatetime.toTimeString().slice(0, 5)
+
+    // Find rules for this weekday
+    const dayRules = rules.filter(rule => rule.weekday === weekday)
+    
+    if (dayRules.length === 0) {
+      // No availability rules for this day, but there's an appointment
+      const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+      return `Vous avez un rendez-vous le ${dayNames[weekday]} ${appointmentDate.toLocaleDateString('fr-CA')} mais aucune disponibilité définie pour ce jour`
+    }
+
+    // Check if appointment falls within any rule
+    const isWithinRules = dayRules.some(rule => 
+      startTime >= rule.startTime && endTime <= rule.endTime
+    )
+
+    if (!isWithinRules) {
+      const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+      return `Vous avez un rendez-vous le ${dayNames[weekday]} ${appointmentDate.toLocaleDateString('fr-CA')} qui ne correspond pas à vos nouvelles disponibilités`
+    }
   }
+
+  return null
 }
 
-/**
- * Delete availability rule
- */
-export async function deleteAvailabilityRule(ruleId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Non autorisé' }
-  }
-
-  try {
-    const rule = await prisma.availabilityRule.findUnique({
-      where: { id: ruleId },
-    })
-
-    if (!rule || rule.tutorId !== user.id) {
-      return { success: false, error: 'Règle introuvable ou non autorisé' }
-    }
-
-    await prisma.availabilityRule.delete({
-      where: { id: ruleId },
-    })
-
-    revalidatePath('/tableau-de-bord')
-    return { success: true }
-  } catch (error) {
-    console.error('Error deleting availability rule:', error)
-    return { success: false, error: 'Une erreur est survenue' }
-  }
-}
-
-/**
- * Create availability exception
- */
-export async function createAvailabilityException(data: {
-  date: string // YYYY-MM-DD format
-  startTime: string
-  endTime: string
-  isOpen: boolean
-}) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Non autorisé' }
-  }
-
-  try {
-    // Validate date format
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
-    if (!dateRegex.test(data.date)) {
-      return { success: false, error: 'Format de date invalide (YYYY-MM-DD requis)' }
-    }
-
-    // Validate time logic
-    if (data.startTime >= data.endTime) {
-      return { success: false, error: 'L\'heure de fin doit être après l\'heure de début' }
-    }
-
-    // Check for overlapping exceptions
-    const overlappingException = await prisma.availabilityException.findFirst({
-      where: {
-        tutorId: user.id,
-        date: data.date,
-        OR: [
-          {
-            startTime: { lt: data.endTime },
-            endTime: { gt: data.startTime },
-          },
-        ],
+async function checkExceptionConflicts(
+  tutorId: string,
+  exceptions: Omit<AvailabilityException, 'id'>[]
+): Promise<string | null> {
+  // Get future appointments for this tutor
+  const futureAppointments = await prisma.appointment.findMany({
+    where: {
+      tutorId,
+      startDatetime: {
+        gte: new Date()
       },
-    })
-
-    if (overlappingException) {
-      return { success: false, error: 'Cette plage horaire chevauche avec une exception existante' }
+      status: 'scheduled'
+    },
+    select: {
+      startDatetime: true,
+      endDatetime: true
     }
+  })
 
-    const exception = await prisma.availabilityException.create({
-      data: {
-        tutorId: user.id,
-        date: data.date,
-        startTime: data.startTime,
-        endTime: data.endTime,
-        isOpen: data.isOpen,
-      },
-    })
+  // Check if any appointment falls within unavailable exceptions
+  for (const appointment of futureAppointments) {
+    const appointmentDate = new Date(appointment.startDatetime)
+    const appointmentDateStr = appointmentDate.toISOString().split('T')[0]
 
-    revalidatePath('/tableau-de-bord')
-    return { success: true, data: exception }
-  } catch (error) {
-    console.error('Error creating availability exception:', error)
-    return { success: false, error: 'Une erreur est survenue' }
+    for (const exception of exceptions) {
+      if (exception.isUnavailable) {
+        const startDate = new Date(exception.startDate)
+        const endDate = new Date(exception.endDate)
+        
+        if (appointmentDate >= startDate && appointmentDate <= endDate) {
+          return `Vous avez un rendez-vous le ${appointmentDate.toLocaleDateString('fr-CA')} mais vous avez défini cette période comme indisponible`
+        }
+      }
+    }
   }
+
+  return null
 }
-
-/**
- * Delete availability exception
- */
-export async function deleteAvailabilityException(exceptionId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Non autorisé' }
-  }
-
-  try {
-    const exception = await prisma.availabilityException.findUnique({
-      where: { id: exceptionId },
-    })
-
-    if (!exception || exception.tutorId !== user.id) {
-      return { success: false, error: 'Exception introuvable ou non autorisé' }
-    }
-
-    await prisma.availabilityException.delete({
-      where: { id: exceptionId },
-    })
-
-    revalidatePath('/tableau-de-bord')
-    return { success: true }
-  } catch (error) {
-    console.error('Error deleting availability exception:', error)
-    return { success: false, error: 'Une erreur est survenue' }
-  }
-}
-
-/**
- * Create time off period
- */
-export async function createTimeOff(data: {
-  startDatetime: Date
-  endDatetime: Date
-  description?: string
-}) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Non autorisé' }
-  }
-
-  try {
-    // Validate date logic
-    if (data.startDatetime >= data.endDatetime) {
-      return { success: false, error: 'La date de fin doit être après la date de début' }
-    }
-
-    // Check for overlapping time off periods
-    const overlappingTimeOff = await prisma.timeOff.findFirst({
-      where: {
-        tutorId: user.id,
-        OR: [
-          {
-            startDatetime: { lt: data.endDatetime },
-            endDatetime: { gt: data.startDatetime },
-          },
-        ],
-      },
-    })
-
-    if (overlappingTimeOff) {
-      return { success: false, error: 'Cette période chevauche avec un congé existant' }
-    }
-
-    const timeOff = await prisma.timeOff.create({
-      data: {
-        tutorId: user.id,
-        startDatetime: data.startDatetime,
-        endDatetime: data.endDatetime,
-      },
-    })
-
-    revalidatePath('/tableau-de-bord')
-    return { success: true, data: timeOff }
-  } catch (error) {
-    console.error('Error creating time off:', error)
-    return { success: false, error: 'Une erreur est survenue' }
-  }
-}
-
-/**
- * Delete time off period
- */
-export async function deleteTimeOff(timeOffId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Non autorisé' }
-  }
-
-  try {
-    const timeOff = await prisma.timeOff.findUnique({
-      where: { id: timeOffId },
-    })
-
-    if (!timeOff || timeOff.tutorId !== user.id) {
-      return { success: false, error: 'Congé introuvable ou non autorisé' }
-    }
-
-    await prisma.timeOff.delete({
-      where: { id: timeOffId },
-    })
-
-    revalidatePath('/tableau-de-bord')
-    return { success: true }
-  } catch (error) {
-    console.error('Error deleting time off:', error)
-    return { success: false, error: 'Une erreur est survenue' }
-  }
-}
-

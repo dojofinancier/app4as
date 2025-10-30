@@ -10,7 +10,6 @@ interface BookingFormProps {
   selectedTutor: Tutor | null
   selectedDuration: number
   onBookingSubmit: () => void
-  onRecurringBookingSubmit?: () => void
 }
 
 interface TimeSlot {
@@ -32,7 +31,6 @@ export function BookingForm({
   selectedTutor,
   selectedDuration,
   onBookingSubmit,
-  onRecurringBookingSubmit
 }: BookingFormProps) {
   if (!selectedSlot || !selectedTutor) {
     return null
@@ -116,16 +114,6 @@ export function BookingForm({
             Session unique - Continuer vers le paiement
           </Button>
           
-          {onRecurringBookingSubmit && (
-            <Button 
-              onClick={onRecurringBookingSubmit} 
-              variant="outline" 
-              className="w-full" 
-              size="lg"
-            >
-              Sessions récurrentes - Réserver plus de séances
-            </Button>
-          )}
         </div>
 
         {/* Info */}

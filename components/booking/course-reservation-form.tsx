@@ -14,6 +14,7 @@ interface TimeSlot {
   end: Date
   available: boolean
   duration: number
+  tutorId?: string // Add tutor information
 }
 
 interface Tutor {
@@ -58,6 +59,9 @@ export function CourseReservationForm({ course, tutors, user }: CourseReservatio
     // Add all sessions to cart
     try {
       for (const session of sessions) {
+        // Use the tutor from the session, or fall back to first tutor if no specific tutor selected
+        const tutorId = session.tutorId || tutors[0].id
+        
         const response = await fetch('/api/cart/add', {
           method: 'POST',
           headers: {
@@ -65,7 +69,7 @@ export function CourseReservationForm({ course, tutors, user }: CourseReservatio
           },
           body: JSON.stringify({
             courseId: course.id,
-            tutorId: tutors[0].id, // Use first tutor for now
+            tutorId: tutorId,
             startDatetime: session.start.toISOString(),
             durationMin: session.duration
           }),

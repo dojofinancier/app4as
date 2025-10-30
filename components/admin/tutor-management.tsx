@@ -7,8 +7,12 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, Edit, Eye, UserCheck, UserX, Mail, Phone, Calendar } from 'lucide-react'
-import { createTutorAccount, getAllTutors, updateTutorProfile, deactivateTutor } from '@/lib/actions/admin'
+import { Plus, Edit, UserX, Mail, Phone, Calendar, Clock, DollarSign, Star } from 'lucide-react'
+import { createTutorAccount, getAllTutors, updateTutorProfile, deactivateTutor, getTutorUtilization, getTutorEarningsSummary, getTutorAppointmentsCountThisMonth } from '@/lib/actions/admin'
+import { getTutorRatingAverages } from '@/lib/actions/ratings'
+import { TutorAvailabilityModal } from './tutor-availability-modal'
+import { TutorPaymentsModal } from './tutor-payments-modal'
+import { TutorRatingsModal } from './tutor-ratings-modal'
 
 interface Tutor {
   id: string
@@ -41,6 +45,36 @@ interface Tutor {
   _count: {
     appointments: number
   }
+  utilization?: {
+    utilization: number
+    totalAvailableSlots: number
+    bookedSlots: number
+    period: string
+  }
+  earnings?: {
+    currentMonth: {
+      earned: number
+      paid: number
+      totalEarnings: number
+      totalHours: number
+      appointmentsCount: number
+    }
+    yearToDate: {
+      earned: number
+      paid: number
+      totalEarnings: number
+      totalHours: number
+    }
+  }
+  appointmentsCountThisMonth?: number
+  ratings?: {
+    count: number
+    avgGeneral: number
+    avgQ1: number
+    avgQ2: number
+    avgQ3: number
+    avgQ4: number
+  }
 }
 
 const WEEKDAYS = [
@@ -51,7 +85,13 @@ export function TutorManagement() {
   const [tutors, setTutors] = useState<Tutor[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [editingTutor, setEditingTutor] = useState<Tutor | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false)
+  const [showPaymentsModal, setShowPaymentsModal] = useState(false)
+  const [showRatingsModal, setShowRatingsModal] = useState(false)
+  const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null)
+  const [selectedTutorName, setSelectedTutorName] = useState<string>('')
 
   useEffect(() => {
     fetchTutors()
@@ -61,7 +101,29 @@ export function TutorManagement() {
     try {
       const result = await getAllTutors()
       if (result.success && result.data) {
-        setTutors(result.data as any)
+        const tutorsData = result.data as any[]
+        
+        // Load utilization, earnings, appointments count, and ratings for each tutor
+        const tutorsWithStats = await Promise.all(
+          tutorsData.map(async (tutor) => {
+            const [utilizationResult, earningsResult, appointmentsCountResult, ratingsResult] = await Promise.all([
+              getTutorUtilization(tutor.id),
+              getTutorEarningsSummary(tutor.id),
+              getTutorAppointmentsCountThisMonth(tutor.id),
+              getTutorRatingAverages({ tutorId: tutor.id })
+            ])
+            
+            return {
+              ...tutor,
+              utilization: utilizationResult.success ? utilizationResult.data : undefined,
+              earnings: earningsResult.success ? earningsResult.data : undefined,
+              appointmentsCountThisMonth: appointmentsCountResult.success ? appointmentsCountResult.data : 0,
+              ratings: ratingsResult.success && ratingsResult.data ? ratingsResult.data : undefined,
+            }
+          })
+        )
+        
+        setTutors(tutorsWithStats)
       } else {
         setError(result.error || 'Erreur lors du chargement des tuteurs')
       }
@@ -70,6 +132,29 @@ export function TutorManagement() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleOpenAvailability = (tutor: Tutor) => {
+    setSelectedTutorId(tutor.id)
+    setSelectedTutorName(tutor.displayName)
+    setShowAvailabilityModal(true)
+  }
+
+  const handleOpenPayments = (tutor: Tutor) => {
+    setSelectedTutorId(tutor.id)
+    setSelectedTutorName(tutor.displayName)
+    setShowPaymentsModal(true)
+  }
+
+  const handleOpenRatings = (tutor: Tutor) => {
+    setSelectedTutorId(tutor.id)
+    setSelectedTutorName(tutor.displayName)
+    setShowRatingsModal(true)
+  }
+
+  const handlePaymentMarked = () => {
+    // Refresh tutor data after payment
+    fetchTutors()
   }
 
   const handleDeactivateTutor = async (tutorId: string) => {
@@ -86,6 +171,30 @@ export function TutorManagement() {
       }
     } catch (error) {
       setError('Erreur lors de la désactivation du tuteur')
+    }
+  }
+
+  const handleEditTutor = (tutor: Tutor) => {
+    setEditingTutor(tutor)
+  }
+
+  const handleUpdateTutor = async (tutorId: string, data: {
+    displayName: string
+    bioFr: string
+    hourlyBaseRateCad: number
+    priority: number
+    active: boolean
+  }) => {
+    try {
+      const result = await updateTutorProfile(tutorId, data)
+      if (result.success) {
+        setEditingTutor(null)
+        await fetchTutors()
+      } else {
+        setError(result.error || 'Erreur lors de la mise à jour du tuteur')
+      }
+    } catch (error) {
+      setError('Erreur lors de la mise à jour du tuteur')
     }
   }
 
@@ -128,6 +237,54 @@ export function TutorManagement() {
         />
       )}
 
+      {showPaymentsModal && selectedTutorId && (
+        <TutorPaymentsModal
+          tutorId={selectedTutorId}
+          tutorName={selectedTutorName}
+          isOpen={showPaymentsModal}
+          onClose={() => {
+            setShowPaymentsModal(false)
+            setSelectedTutorId(null)
+            setSelectedTutorName('')
+          }}
+          onPaymentMarked={handlePaymentMarked}
+        />
+      )}
+
+      {showRatingsModal && selectedTutorId && (
+        <TutorRatingsModal
+          tutorId={selectedTutorId}
+          tutorName={selectedTutorName}
+          isOpen={showRatingsModal}
+          onClose={() => {
+            setShowRatingsModal(false)
+            setSelectedTutorId(null)
+            setSelectedTutorName('')
+          }}
+        />
+      )}
+
+      {showAvailabilityModal && selectedTutorId && (
+        <TutorAvailabilityModal
+          tutorId={selectedTutorId}
+          tutorName={selectedTutorName}
+          isOpen={showAvailabilityModal}
+          onClose={() => {
+            setShowAvailabilityModal(false)
+            setSelectedTutorId(null)
+            setSelectedTutorName('')
+          }}
+        />
+      )}
+
+      {editingTutor && (
+        <EditTutorModal
+          tutor={editingTutor}
+          onClose={() => setEditingTutor(null)}
+          onSave={handleUpdateTutor}
+        />
+      )}
+
       <div className="grid gap-6">
         {tutors.map((tutor) => (
           <Card key={tutor.id}>
@@ -146,12 +303,36 @@ export function TutorManagement() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm">
-                    <Eye className="h-4 w-4 mr-2" />
-                    Voir
+                <div className="flex items-center space-x-2 flex-wrap gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleOpenAvailability(tutor)}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Voir disponibilités
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleOpenPayments(tutor)}
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Honoraires
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleOpenRatings(tutor)}
+                  >
+                    <Star className="h-4 w-4 mr-2" />
+                    Évaluations
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleEditTutor(tutor)}
+                  >
                     <Edit className="h-4 w-4 mr-2" />
                     Modifier
                   </Button>
@@ -196,15 +377,51 @@ export function TutorManagement() {
                   <h4 className="font-medium mb-2">Profil professionnel</h4>
                   <div className="space-y-1 text-sm">
                     <p><strong>Tarif horaire:</strong> {formatCurrency(Number(tutor.hourlyBaseRateCad))}</p>
-                    <p><strong>Priorité:</strong> {tutor.priority}</p>
-                    <p><strong>Rendez-vous:</strong> {tutor._count.appointments}</p>
+                    <p><strong>Priorité:</strong> 
+                      <span className={`ml-1 px-2 py-1 rounded text-xs ${
+                        tutor.priority === 0 ? 'bg-red-100 text-red-800' :
+                        tutor.priority >= 80 ? 'bg-green-100 text-green-800' :
+                        tutor.priority >= 50 ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {tutor.priority === 0 ? 'Désactivé' : tutor.priority}
+                      </span>
+                    </p>
+                    <p className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      <strong>Rendez-vous ce mois:</strong> {tutor.appointmentsCountThisMonth || 0}
+                    </p>
+                    {tutor.utilization && (
+                      <p className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        <strong>Utilisation:</strong> {tutor.utilization.utilization.toFixed(1)}%
+                      </p>
+                    )}
+                    {tutor.earnings && (
+                      <>
+                        <p className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          <strong>Gains ce mois:</strong> {formatCurrency(tutor.earnings.currentMonth.totalEarnings)}
+                          <span className="text-xs text-muted-foreground ml-1">
+                            ({formatCurrency(tutor.earnings.currentMonth.earned)} non payés)
+                          </span>
+                        </p>
+                        <p className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          <strong>Gains cumulés (année):</strong> {formatCurrency(tutor.earnings.yearToDate.totalEarnings)}
+                          <span className="text-xs text-muted-foreground ml-1">
+                            ({formatCurrency(tutor.earnings.yearToDate.earned)} non payés)
+                          </span>
+                        </p>
+                      </>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
                     {tutor.bioFr}
                   </p>
                 </div>
 
-                {/* Courses & Availability */}
+                {/* Courses & Rating */}
                 <div>
                   <h4 className="font-medium mb-2">Cours enseignés</h4>
                   <div className="flex flex-wrap gap-1 mb-3">
@@ -215,19 +432,19 @@ export function TutorManagement() {
                     ))}
                   </div>
                   
-                  <h4 className="font-medium mb-2">Disponibilités</h4>
-                  <div className="text-sm space-y-1">
-                    {tutor.availabilityRules.slice(0, 3).map((rule) => (
-                      <div key={rule.id}>
-                        {WEEKDAYS[rule.weekday]}: {rule.startTime} - {rule.endTime}
-                      </div>
-                    ))}
-                    {tutor.availabilityRules.length > 3 && (
-                      <div className="text-muted-foreground">
-                        +{tutor.availabilityRules.length - 3} autres créneaux
-                      </div>
-                    )}
-                  </div>
+                  <h4 className="font-medium mb-2">Évaluation</h4>
+                  {tutor.ratings && tutor.ratings.count > 0 ? (
+                    <div className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+                      <span>{tutor.ratings.avgGeneral.toFixed(2)} / 5</span>
+                      <span className="text-xs">({tutor.ratings.count} évaluation{tutor.ratings.count > 1 ? 's' : ''})</span>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+                      <span>À venir</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -279,6 +496,8 @@ function CreateTutorForm({ onClose, onSuccess }: { onClose: () => void; onSucces
     try {
       const result = await createTutorAccount(formData)
       if (result.success) {
+        // Show success message with the message from the server
+        alert(result.message || 'Tuteur créé avec succès')
         onSuccess()
       } else {
         setError(result.error || 'Erreur')
@@ -376,8 +595,14 @@ function CreateTutorForm({ onClose, onSuccess }: { onClose: () => void; onSucces
                 id="hourlyBaseRateCad"
                 type="number"
                 step="0.01"
-                value={formData.hourlyBaseRateCad}
-                onChange={(e) => setFormData({ ...formData, hourlyBaseRateCad: parseFloat(e.target.value) })}
+                value={formData.hourlyBaseRateCad || ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setFormData({ 
+                    ...formData, 
+                    hourlyBaseRateCad: value === '' ? 0 : parseFloat(value) || 0 
+                  })
+                }}
                 required
               />
             </div>
@@ -386,8 +611,14 @@ function CreateTutorForm({ onClose, onSuccess }: { onClose: () => void; onSucces
               <Input
                 id="priority"
                 type="number"
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
+                value={formData.priority || ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setFormData({ 
+                    ...formData, 
+                    priority: value === '' ? 0 : parseInt(value) || 0 
+                  })
+                }}
                 required
               />
             </div>
@@ -404,6 +635,168 @@ function CreateTutorForm({ onClose, onSuccess }: { onClose: () => void; onSucces
         </form>
       </CardContent>
     </Card>
+  )
+}
+
+// Edit Tutor Modal Component
+function EditTutorModal({ 
+  tutor, 
+  onClose, 
+  onSave 
+}: { 
+  tutor: Tutor
+  onClose: () => void
+  onSave: (tutorId: string, data: {
+    displayName: string
+    bioFr: string
+    hourlyBaseRateCad: number
+    priority: number
+    active: boolean
+  }) => void
+}) {
+  const [formData, setFormData] = useState({
+    displayName: tutor.displayName,
+    bioFr: tutor.bioFr,
+    hourlyBaseRateCad: Number(tutor.hourlyBaseRateCad),
+    priority: tutor.priority,
+    active: tutor.active,
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Validate priority range
+      if (formData.priority < 0 || formData.priority > 100) {
+        setError('La priorité doit être entre 0 et 100')
+        setLoading(false)
+        return
+      }
+
+      // Validate hourly rate
+      if (formData.hourlyBaseRateCad <= 0) {
+        setError('Le tarif horaire doit être supérieur à 0')
+        setLoading(false)
+        return
+      }
+
+      await onSave(tutor.id, formData)
+    } catch (error) {
+      setError('Erreur lors de la mise à jour du tuteur')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">Modifier le tuteur</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <p className="text-red-800">{error}</p>
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="displayName">Nom d'affichage</Label>
+            <Input
+              id="displayName"
+              value={formData.displayName}
+              onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="bioFr">Biographie</Label>
+            <textarea
+              id="bioFr"
+              className="w-full p-2 border rounded-md"
+              rows={3}
+              value={formData.bioFr}
+              onChange={(e) => setFormData({ ...formData, bioFr: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="hourlyBaseRateCad">Tarif horaire (CAD)</Label>
+              <Input
+                id="hourlyBaseRateCad"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.hourlyBaseRateCad || ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setFormData({ 
+                    ...formData, 
+                    hourlyBaseRateCad: value === '' ? 0 : parseFloat(value) || 0 
+                  })
+                }}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="priority">Priorité (0-100)</Label>
+              <Input
+                id="priority"
+                type="number"
+                min="0"
+                max="100"
+                value={formData.priority || ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setFormData({ 
+                    ...formData, 
+                    priority: value === '' ? 0 : parseInt(value) || 0 
+                  })
+                }}
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                0 = Désactivé, 100 = Priorité maximale
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="active"
+              checked={formData.active}
+              onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+            />
+            <Label htmlFor="active">Tuteur actif</Label>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Mise à jour...' : 'Sauvegarder'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }
 

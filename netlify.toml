@@ -18,4 +18,7 @@
   name = "cleanup-holds"
   schedule = "* * * * *"  # Every minute
 
-
+# Scheduled function for auto-completing past appointments
+[[functions]]
+  name = "complete-past-appointments"
+  schedule = "0 * * * *"  # Every hour

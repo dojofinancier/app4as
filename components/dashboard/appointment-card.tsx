@@ -1,18 +1,44 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/utils'
-import { frCA } from '@/lib/i18n/fr-CA'
-import { cancelAppointment } from '@/lib/actions/appointments'
 import { MessageIndicator } from '../messaging/message-indicator'
 import type { Appointment, Course, Tutor, User } from '@prisma/client'
 
 interface AppointmentCardProps {
-  appointment: Appointment & {
-    course: Course
-    tutor: Tutor & { user: User }
+  appointment: {
+    id: string
+    userId: string
+    tutorId: string
+    courseId: string
+    startDatetime: Date
+    endDatetime: Date
+    status: string
+    meetingLink?: string | null
+    course: {
+      id: string
+      slug: string
+      titleFr: string
+      descriptionFr: string
+      active: boolean
+      createdAt: Date
+      studentRateCad: number
+    }
+    tutor: {
+      id: string
+      displayName: string
+      bioFr: string
+      hourlyBaseRateCad: number
+      priority: number
+      active: boolean
+      user: {
+        id: string
+        firstName: string
+        lastName: string
+        email: string
+        phone: string | null
+        role: string
+      }
+    }
   }
   isPast?: boolean
 }
@@ -21,28 +47,6 @@ export function AppointmentCard({
   appointment,
   isPast = false,
 }: AppointmentCardProps) {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-
-  const canCancel = !isPast && appointment.status === 'scheduled'
-  const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000)
-  const canCancelInTime = new Date(appointment.startDatetime) > twoHoursFromNow
-
-  const handleCancel = async () => {
-    if (!confirm('Êtes-vous sûr de vouloir annuler ce rendez-vous?')) {
-      return
-    }
-
-    setIsLoading(true)
-    const result = await cancelAppointment(appointment.id)
-
-    if (result.success) {
-      router.refresh()
-    } else {
-      alert(result.error || 'Une erreur est survenue')
-      setIsLoading(false)
-    }
-  }
 
 
   return (
@@ -81,29 +85,27 @@ export function AppointmentCard({
               {appointment.status}
             </span>
           </div>
+          
+          {/* Meeting Link Section */}
+          {appointment.status === 'scheduled' && appointment.meetingLink && (
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-700 mb-2">Lien de réunion</h4>
+              <a
+                href={appointment.meetingLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 underline break-all text-sm"
+              >
+                {appointment.meetingLink}
+              </a>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-2">
           <MessageIndicator 
             tutorId={appointment.tutorId}
           />
-          
-          {canCancel && canCancelInTime && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              {frCA.dashboard.student.cancelAppointment}
-            </Button>
-          )}
-
-          {canCancel && !canCancelInTime && (
-            <p className="text-xs text-muted-foreground">
-              Trop tard pour annuler (moins de 2h)
-            </p>
-          )}
         </div>
       </div>
     </div>

@@ -4,8 +4,8 @@ import { randomUUID } from 'crypto'
 const CART_SESSION_COOKIE = 'cart_session_id'
 const CART_SESSION_MAX_AGE_DAYS = 30 // persist guest carts for 30 days
 
-export function getOrCreateCartSessionId(): string {
-  const cookieStore = cookies()
+export async function getOrCreateCartSessionId(): Promise<string> {
+  const cookieStore = await cookies()
   const existing = cookieStore.get(CART_SESSION_COOKIE)?.value
   if (existing && existing.length > 0) {
     return existing
@@ -25,14 +25,14 @@ export function getOrCreateCartSessionId(): string {
   return sessionId
 }
 
-export function getCartSessionId(): string | null {
-  const cookieStore = cookies()
+export async function getCartSessionId(): Promise<string | null> {
+  const cookieStore = await cookies()
   const existing = cookieStore.get(CART_SESSION_COOKIE)?.value
   return existing || null
 }
 
-export function clearCartSessionId(): void {
-  const cookieStore = cookies()
+export async function clearCartSessionId(): Promise<void> {
+  const cookieStore = await cookies()
   cookieStore.delete(CART_SESSION_COOKIE)
 }
 

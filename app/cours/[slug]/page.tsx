@@ -4,10 +4,12 @@ import { prisma } from '@/lib/prisma'
 export default async function CourseDetailPage({
   params,
 }: {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }) {
+  const { slug } = await params
+  
   const course = await prisma.course.findUnique({
-    where: { slug: params.slug, active: true },
+    where: { slug, active: true },
   })
 
   if (!course) {

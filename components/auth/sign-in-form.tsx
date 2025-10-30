@@ -8,7 +8,7 @@ import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { signIn, signInWithOAuth } from '@/lib/actions/auth'
+import { signIn } from '@/lib/actions/auth'
 import { frCA } from '@/lib/i18n/fr-CA'
 
 const signInSchema = z.object({
@@ -44,12 +44,6 @@ export function SignInForm() {
       setError(result.error || 'Une erreur est survenue')
       setIsLoading(false)
     }
-  }
-
-  const handleOAuthSignIn = async (provider: 'google' | 'azure') => {
-    setIsLoading(true)
-    setError(null)
-    await signInWithOAuth(provider)
   }
 
   return (
@@ -93,36 +87,6 @@ export function SignInForm() {
           {isLoading ? frCA.common.loading : frCA.auth.signIn}
         </Button>
       </form>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">Ou</span>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onClick={() => handleOAuthSignIn('google')}
-          disabled={isLoading}
-        >
-          {frCA.auth.signInWithGoogle}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onClick={() => handleOAuthSignIn('azure')}
-          disabled={isLoading}
-        >
-          {frCA.auth.signInWithMicrosoft}
-        </Button>
-      </div>
     </div>
   )
 }

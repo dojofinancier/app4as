@@ -5,11 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { formatCurrency, formatDateTime } from '@/lib/utils'
-import { getStudentAppointments, getStudentCreditBalance, getStudentCreditTransactions } from '@/lib/actions/reservations'
-import { CancellationModal } from './cancellation-modal'
+import { formatDateTime } from '@/lib/utils'
+import { getStudentAppointments } from '@/lib/actions/reservations'
 import { RescheduleModal } from './reschedule-modal'
-import { CreditBankCard } from './credit-bank-card'
+import { MessageCircle } from 'lucide-react'
+import { StudentRatingDialog } from './ratings/student-rating-dialog'
 interface ReservationManagementTabProps {
   user: {
     id: string
@@ -20,29 +20,19 @@ interface ReservationManagementTabProps {
     role: string
     stripeCustomerId?: string | null
     defaultPaymentMethodId?: string | null
-    creditBalance: number
     createdAt: Date
   }
 }
 
 export function ReservationManagementTab({ user }: ReservationManagementTabProps) {
   const [appointments, setAppointments] = useState<any[]>([])
-  const [creditBalance, setCreditBalance] = useState<number>(0)
-  const [creditTransactions, setCreditTransactions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
           useEffect(() => {
             async function fetchData() {
               try {
-                const [appointmentsData, creditBalanceData, creditTransactionsData] = await Promise.all([
-                  getStudentAppointments(user.id),
-                  getStudentCreditBalance(user.id),
-                  getStudentCreditTransactions(user.id)
-                ])
-
+                const appointmentsData = await getStudentAppointments(user.id)
                 setAppointments(appointmentsData)
-                setCreditBalance(creditBalanceData)
-                setCreditTransactions(creditTransactionsData)
               } catch (error) {
                 console.error('Error fetching reservation data:', error)
               } finally {
@@ -67,12 +57,13 @@ export function ReservationManagementTab({ user }: ReservationManagementTabProps
   }
 
           const now = new Date()
-          const upcomingAppointments = appointments.filter(
-            (apt) => new Date(apt.startDatetime) > now && apt.status === 'scheduled'
-          )
-          const pastAppointments = appointments.filter(
-            (apt) => new Date(apt.startDatetime) <= now || apt.status !== 'scheduled'
-          )
+          const upcomingAppointments = appointments
+            .filter((apt) => new Date(apt.startDatetime) > now && apt.status === 'scheduled')
+            .sort((a, b) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime())
+          const pastAppointments = appointments
+            .filter((apt) => new Date(apt.startDatetime) <= now || apt.status !== 'scheduled')
+            .sort((a, b) => new Date(b.startDatetime).getTime() - new Date(a.startDatetime).getTime())
+
 
   return (
     <div className="space-y-8">
@@ -141,84 +132,6 @@ export function ReservationManagementTab({ user }: ReservationManagementTabProps
           )}
         </CardContent>
       </Card>
-
-      {/* Credit Bank - Small Secondary Card */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Banque d'heures</CardTitle>
-            <CardDescription>
-              Vos crédits de tutorat
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-primary mb-2">
-                {formatCurrency(creditBalance)}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Disponible pour de nouveaux cours
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Credit Transactions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Activité récente</CardTitle>
-            <CardDescription>
-              Dernières transactions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {creditTransactions.length === 0 ? (
-              <div className="py-4 text-center text-muted-foreground text-sm">
-                Aucune transaction
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {creditTransactions.slice(0, 3).map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    className="flex items-center justify-between p-2 rounded border"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          transaction.type === 'earned' 
-                            ? 'default' 
-                            : transaction.type === 'used' 
-                            ? 'secondary' 
-                            : 'outline'
-                        }
-                        className="text-xs"
-                      >
-                        {transaction.type === 'earned' && 'Crédit'}
-                        {transaction.type === 'used' && 'Utilisé'}
-                        {transaction.type === 'refunded' && 'Remboursé'}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDateTime(transaction.createdAt)}
-                      </span>
-                    </div>
-                    <span className={`text-sm font-medium ${
-                      transaction.type === 'earned' 
-                        ? 'text-green-600' 
-                        : transaction.type === 'used' 
-                        ? 'text-blue-600' 
-                        : 'text-gray-600'
-                    }`}>
-                      {transaction.type === 'earned' ? '+' : transaction.type === 'used' ? '-' : ''}
-                      {formatCurrency(transaction.amount)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
     </div>
   )
 }
@@ -228,20 +141,13 @@ function AppointmentManagementCard({ appointment, isUpcoming }: {
   appointment: any, 
   isUpcoming: boolean 
 }) {
-  const canCancel = isUpcoming && appointment.status === 'scheduled'
-  const canReschedule = isUpcoming && appointment.status === 'scheduled'
-  
   // Handle ISO strings (data is now serialized from server)
   const startDatetime = new Date(appointment.startDatetime)
   
-  // Check 2-hour cancellation policy
+  // Check 2-hour rescheduling policy
   const now = new Date()
   const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000)
-  const canCancelNow = startDatetime > twoHoursFromNow
-  
-  // Check 24-hour rescheduling policy
-  const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-  const canRescheduleNow = startDatetime > twentyFourHoursFromNow
+  const canRescheduleNow = startDatetime > twoHoursFromNow
 
   return (
     <div className="rounded-lg border p-4">
@@ -265,10 +171,6 @@ function AppointmentManagementCard({ appointment, isUpcoming }: {
           <p className="text-sm text-muted-foreground mb-1">
             {formatDateTime(startDatetime)}
           </p>
-          
-          <p className="text-sm font-medium">
-            {appointment.orderItem ? formatCurrency(appointment.orderItem.lineTotalCad) : 'Prix non disponible'}
-          </p>
 
           {appointment.cancellationReason && (
             <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm">
@@ -288,26 +190,31 @@ function AppointmentManagementCard({ appointment, isUpcoming }: {
         </div>
 
         {isUpcoming && appointment.status === 'scheduled' && (
-          <div className="flex gap-2 ml-4">
+          <div className="flex flex-col gap-2 ml-4">
             {canRescheduleNow ? (
               <RescheduleModal appointment={appointment} />
             ) : (
               <div className="text-xs text-muted-foreground">
                 Reprogrammation non disponible
                 <br />
-                (moins de 24h)
-              </div>
-            )}
-            
-            {canCancelNow ? (
-              <CancellationModal appointment={appointment} />
-            ) : (
-              <div className="text-xs text-muted-foreground">
-                Annulation non disponible
-                <br />
                 (moins de 2h)
               </div>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+            >
+              <Link href={`/tableau-de-bord?tab=messages&tutor=${appointment.tutorId}`}>
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Message
+              </Link>
+            </Button>
+          </div>
+        )}
+        {!isUpcoming && appointment.status === 'completed' && (
+          <div className="ml-4">
+            <StudentRatingDialog tutorId={appointment.tutorId} courseId={appointment.courseId} appointmentId={appointment.id} />
           </div>
         )}
       </div>

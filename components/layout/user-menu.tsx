@@ -3,10 +3,19 @@
 import { useState } from 'react'
 import { signOut } from '@/lib/actions/auth'
 import { Button } from '@/components/ui/button'
-import type { User } from '@prisma/client'
 
 interface UserMenuProps {
-  user: User
+  user: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+    phone: string | null
+    role: string
+    stripeCustomerId: string | null
+    defaultPaymentMethodId: string | null
+    createdAt: Date
+  }
 }
 
 export function UserMenu({ user }: UserMenuProps) {

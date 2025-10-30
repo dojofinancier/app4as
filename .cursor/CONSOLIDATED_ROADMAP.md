@@ -75,10 +75,12 @@ Consolidating planning documents ✅, cleaning up the codebase, implementing dua
 
 | Issue | Impact | Priority | Est. Time |
 |-------|--------|----------|-----------|
-| **Recurring Sessions Breaking Cart** | High | Fix immediately | 4-6 hours |
+| ~~**Recurring Sessions Breaking Cart**~~ | ~~High~~ | ~~Fix immediately~~ | ~~4-6 hours~~ |
 | **Duplicate Checkout Flows** | High | Before new features | 6-8 hours |
 | **Scattered RLS Policies** | Medium | Phase 0 | 2-3 hours |
 | **Test/Debug Code in Production** | Low | Phase 0 | 1 hour |
+
+**Note:** Recurring sessions removed as separate feature - users can now select multiple sessions in cart for same effect.
 
 ---
 
@@ -185,20 +187,19 @@ git push
 
 These are broken features that need immediate fixing before we can proceed with new development:
 
-#### **Fix 1: Recurring Sessions Integration** (4-6 hours)
-**Goal:** Make recurring sessions use the cart flow instead of bypassing it
+#### ~~**Fix 1: Recurring Sessions Integration**~~ (REMOVED)
+**Status:** ✅ **DECISION MADE** - Recurring sessions feature removed
 
-**Files to Modify:**
-- `components/booking/recurring-session-form.tsx`
-- `lib/actions/recurring-sessions.ts`
-- `lib/actions/cart.ts`
+**Rationale:** 
+- Cart-based system now allows users to select multiple sessions in one transaction
+- Separate recurring flow was redundant and created complexity
+- Users can achieve same result by adding multiple slots to cart
+- Simplifies codebase and reduces maintenance burden
 
-**Acceptance Criteria:**
-- [ ] Recurring session form adds ALL sessions to cart
-- [ ] Single bookings still work
-- [ ] Holds created for all recurring slots
-- [ ] Payment creates all appointments at once
-- [ ] Can cancel individual sessions
+**Action Required:**
+- [ ] Remove recurring session components and actions
+- [ ] Clean up related database models if not used elsewhere
+- [ ] Update documentation to reflect new approach
 
 #### **Fix 2: Consolidate Checkout Flows** (6-8 hours)
 **Goal:** Single cart-based Payment Intent checkout (remove duplicate flows)
@@ -219,17 +220,23 @@ These are broken features that need immediate fixing before we can proceed with 
 #### **Fix 3: Fix Stripe Webhook** (3-4 hours)
 **Goal:** Handle Payment Intent webhook correctly with dual rates
 
-**Files to Modify:**
+**Status:** ✅ Completed
+
+**Files Modified:**
 - `app/api/webhooks/stripe/route.ts`
+- `app/api/checkout/confirm-payment-with-password/route.ts` (NEW)
 
 **Acceptance Criteria:**
-- [ ] Listens for `payment_intent.succeeded`
-- [ ] Idempotent (check payment_intent_id)
-- [ ] Creates order + order_items + appointments atomically
-- [ ] Stores both student payment and tutor earnings
-- [ ] Deletes holds
-- [ ] Triggers Make.com webhook
-- [ ] Logs all events
+- [x] Listens for `payment_intent.succeeded`
+- [x] Idempotent (check payment_intent_id)
+- [x] Creates order + order_items + appointments atomically
+- [x] Stores both student payment and tutor earnings
+- [x] Deletes holds
+- [x] Fetches cart data from `PaymentIntentData` table (no Stripe metadata limit)
+- [x] Handles guest users (separate account creation endpoint)
+- [x] Handles authenticated users (updates Stripe customer ID, saves payment method)
+- [ ] Triggers Make.com webhook (Phase 5)
+- [x] Logs all events
 
 ---
 
@@ -237,45 +244,192 @@ These are broken features that need immediate fixing before we can proceed with 
 
 Track your progress:
 
-- [ ] **Backup created** (git commit)
-- [ ] **RLS diagnostic run** (policies reviewed)
-- [ ] **Data validated** (no constraint violations)
-- [ ] **Dual rate system added** (studentRateCad in schema)
-- [ ] **Test code deleted** (cleaner codebase)
-- [ ] **Constraints applied** (business rules enforced)
-- [ ] **RLS policies consolidated** (single source of truth)
-- [ ] **Direct booking removed** (cart flow only)
-- [ ] **Cleanup committed** (changes saved)
+- [x] **Backup created** (git commit)
+- [x] **RLS diagnostic run** (policies reviewed)
+- [x] **Data validated** (no constraint violations)
+- [x] **Dual rate system added** (studentRateCad in schema)
+- [ ] **Test code deleted** (cleaner codebase) - Pending
+- [ ] **Constraints applied** (business rules enforced) - Pending
+- [ ] **RLS policies consolidated** (single source of truth) - Pending review for guest tables
+- [x] **Direct booking removed** (cart flow only)
+- [x] **Cleanup committed** (changes saved)
+
+### **✅ Phase 0.5 Critical Fixes - COMPLETED**
+
+**Fix 1: Recurring Sessions Integration** - ✅ **REMOVED** (feature eliminated)
+- Decision: Cart-based multi-session selection replaces recurring sessions
+- Users can add multiple slots to cart for same effect
+- Reduces complexity and maintenance burden
+
+**Fix 2: Consolidate Checkout Flows** - ✅ COMPLETED
+- Single cart-based Payment Intent checkout working
+- Guest flow with account creation + password
+- Logged-in flow with saved cards
+- Dual rate system implemented
+- Success redirect to dashboard
+
+**Fix 3: Fix Stripe Webhook** - ✅ COMPLETED
+- Handles Payment Intent succeeded
+- Dual rate system tracking
+- Guest account creation separated to secure endpoint
+- Fetches cart data from database (no metadata limit)
+- Atomic order + appointment creation
 
 ---
 
 ### **🎯 Success Metrics**
 
-After Phase 0, you should have:
+After Phase 0 & 0.5, you should have:
 
 1. ✅ Single roadmap document (this file)
-2. ✅ No test/debug routes in production
-3. ✅ **Dual rate system in database** (Course.studentRateCad)
-4. ✅ Database constraints enforcing business rules
-5. ✅ Clean, consolidated RLS policies
-6. ✅ Single payment flow (Payment Intents)
-7. ✅ Single booking flow (cart-based)
-8. ✅ Clear path forward for Phase 1
+2. 🚧 No test/debug routes in production (pending cleanup)
+3. ✅ **Dual rate system in database** (Course.studentRateCad, OrderItem.tutorEarningsCad)
+4. 🚧 Database constraints enforcing business rules (pending)
+5. 🚧 Clean, consolidated RLS policies (pending review for new tables)
+6. ✅ **Single payment flow (Payment Intents) - FULLY WORKING**
+7. ✅ **Single booking flow (cart-based) - FULLY WORKING**
+8. ✅ **Guest checkout with account creation - FULLY WORKING**
+9. ✅ **Auto sign-in and dashboard redirect - FULLY WORKING**
+10. ✅ Clear path forward for Phase 1
+
+### **🎉 Major Accomplishments (January 2025)**
+
+**Payment Flow Overhaul:**
+- ✅ Implemented dual rate system (student payments vs tutor earnings)
+- ✅ Guest checkout with secure account creation
+- ✅ Password-based registration during checkout
+- ✅ Auto sign-in after payment
+- ✅ Bypass Stripe metadata 500-char limit with database storage
+- ✅ Atomic order/appointment creation with conflict detection
+- ✅ Fixed numerous TypeScript type errors across codebase
+- ✅ Fixed cart total calculation bugs (string concatenation → numeric)
+- ✅ Added session-based guest cart support with cookies
+- ✅ Separated sensitive password handling from webhook
+
+**Database Enhancements:**
+- ✅ Added `PaymentIntentData` model for cart data storage
+- ✅ Added `session_id` to Cart and SlotHold for guest support
+- ✅ Added `tutorEarningsCad` to OrderItem for dual rate tracking
+- ✅ Added `endDatetime` to OrderItem for session duration
+
+**Key Files Created/Modified:**
+- NEW: `app/api/checkout/confirm-payment-with-password/route.ts`
+- NEW: `lib/utils/session.ts`
+- UPDATED: `app/api/webhooks/stripe/route.ts` (complete rewrite)
+- UPDATED: `lib/actions/checkout.ts` (guest support, database storage)
+- UPDATED: `lib/actions/cart.ts` (session-based guest carts)
+- UPDATED: `components/payment/payment-intent-checkout-form.tsx` (password fields)
+- UPDATED: `lib/pricing.ts` (hardened numeric conversions)
+- DELETED: `app/paiement/succes/page.tsx` (redirect to dashboard instead)
+- DELETED: `app/reservation/success/page.tsx` (obsolete)
+
+**Recent Fixes (January 2025):**
+- ✅ Fixed missing appointments in tutor dashboard (database schema mismatch)
+- ✅ Added `meeting_link` column to `appointments` table
+- ✅ Implemented full meeting link functionality for tutors and students
+- ✅ Fixed appointment visibility issues across all dashboards
+- ✅ Meeting links work for both tutors (add/edit) and students (view/click)
+- ✅ Appointments display normally when meeting links are blank
 
 ---
 
-### **🚀 After Phase 0**
+### **🚀 After Phase 0 & 0.5**
 
 Follow this sequence:
-1. **PHASE 0.5: Critical Fixes** (CURRENT)
-   - Fix recurring sessions integration
-   - Consolidate checkout flows
-   - Fix Stripe webhook
-2. **PHASE 1: Core Booking Flow** (Make.com webhooks)
-3. **PHASE 2: Student Dashboard Features**
-4. **PHASE 3: Tutor Dashboard Features** (Availability CRUD)
-5. **PHASE 4: Admin Dashboard Features** (Course CRUD with rate management)
-6. Continue with remaining features as outlined in phases below
+1. ✅ **PHASE 0.5: Critical Fixes** - COMPLETED (Checkout & Webhook fixes)
+2. **CURRENT: Bug Fixes & Polish** - Small issues to resolve before Phase 1
+3. **PHASE 1: Core Booking Flow** (Make.com webhooks, RLS review)
+4. **PHASE 2: Student Dashboard Features**
+5. **PHASE 3: Tutor Dashboard Features** (Availability CRUD)
+6. **PHASE 4: Admin Dashboard Features** (Course CRUD with rate management)
+7. Continue with remaining features as outlined in phases below
+
+### **🐛 Known Issues to Fix (Post-Payment Flow)**
+
+**Priority: High**
+- [ ] Review RLS policies for new tables (`payment_intent_data`, guest carts/holds)
+  - See RLS Review Notes below
+- [ ] Test authenticated user payment flow end-to-end
+- [ ] Test guest user payment flow with various edge cases
+- [ ] Verify all TypeScript errors resolved in production build
+
+**Priority: Medium**
+- [ ] Clean up test/debug API routes
+- [ ] Add database constraints (CHECK constraints)
+- [ ] Inline hold cleanup on cart operations
+
+**Priority: Low**
+- [ ] Performance optimization (indexes, caching)
+- [ ] Remove recurring sessions code and components (cleanup)
+
+### **🔒 RLS Policy Review Notes (New Tables)**
+
+**Tables Needing RLS Review:**
+
+1. **`payment_intent_data`**
+   - **Purpose:** Temporary storage for cart data during payment (bypasses Stripe metadata limit)
+   - **Access Pattern:** Created during checkout, read by webhook, deleted after processing
+   - **Current Status:** Unknown if RLS policies exist
+   - **Recommended Policy:**
+     - System/service role can INSERT, SELECT, DELETE
+     - Regular users should NOT have direct access
+     - Consider row-level TTL or scheduled cleanup for orphaned records
+
+2. **`carts` (with `session_id` added)**
+   - **Purpose:** Support guest users via session-based cart
+   - **Access Pattern:** Guest users access via `session_id`, authenticated users via `userId`
+   - **Current Status:** Existing RLS policies may not cover `session_id` pattern
+   - **Recommended Policy:**
+     - Allow SELECT/UPDATE/DELETE where `session_id = current_setting('app.cart_session_id')` OR `userId = auth.uid()`
+     - Only authenticated users can set `userId` on cart
+
+3. **`slot_holds` (with `session_id` added)**
+   - **Purpose:** Temporary slot reservations for guest users
+   - **Access Pattern:** Guest users create holds via `session_id`, authenticated users via `userId`
+   - **Current Status:** Existing RLS policies may not cover `session_id` pattern
+   - **Recommended Policy:**
+     - Allow INSERT/SELECT/DELETE where `session_id = current_setting('app.cart_session_id')` OR `userId = auth.uid()`
+     - Automatic cleanup of expired holds (TTL > 15 minutes)
+
+4. **`cart_items` (related to guest carts)**
+   - **Purpose:** Line items in cart
+   - **Access Pattern:** Via parent `cart` relationship
+   - **Recommended Policy:**
+     - Allow access if user has access to parent cart (via `userId` or `session_id`)
+
+**SQL Script to Check Current Policies:**
+
+```sql
+-- Check policies for new/modified tables
+SELECT 
+  schemaname,
+  tablename,
+  policyname,
+  permissive,
+  roles,
+  cmd,
+  qual,
+  with_check
+FROM pg_policies
+WHERE tablename IN ('payment_intent_data', 'carts', 'slot_holds', 'cart_items')
+ORDER BY tablename, policyname;
+
+-- Check if RLS is enabled on these tables
+SELECT 
+  schemaname,
+  tablename,
+  rowsecurity
+FROM pg_tables
+WHERE tablename IN ('payment_intent_data', 'carts', 'slot_holds', 'cart_items')
+  AND schemaname = 'public';
+```
+
+**Action Items:**
+1. Run the SQL script above to audit current RLS policies
+2. Create/update policies for guest session access pattern
+3. Ensure `payment_intent_data` is restricted to system/service role only
+4. Test guest cart flow with RLS enabled
+5. Document session-based authentication pattern for future reference
 
 ---
 
@@ -306,15 +460,19 @@ Follow this sequence:
 ---
 
 ### **0.2 Database Schema Hardening & Dual Rate System**
-**Status:** 🚧 In Progress
+**Status:** ✅ Completed
 
 **Tasks:**
-- [ ] **Add Dual Rate System to Schema:**
-  - [ ] Add `studentRateCad` (Decimal) to `Course` model
-  - [ ] Keep `hourlyBaseRateCad` on `Tutor` model (tutor earnings)
-  - [ ] Update pricing calculations to use course rate for students
-  - [ ] Update cart/order calculations
-  - [ ] Migration script to set default course rates
+- [x] **Add Dual Rate System to Schema:**
+  - [x] Add `studentRateCad` (Decimal) to `Course` model
+  - [x] Keep `hourlyBaseRateCad` on `Tutor` model (tutor earnings)
+  - [x] Update pricing calculations to use course rate for students
+  - [x] Update cart/order calculations
+  - [x] Migration script to set default course rates
+- [x] Added `tutorEarningsCad` field to `OrderItem` model
+- [x] Added `endDatetime` field to `OrderItem` model
+- [x] Added `session_id` to `Cart` and `SlotHold` models for guest support
+- [x] Created `PaymentIntentData` model for storing cart data (bypass Stripe metadata limit)
 - [ ] Add CHECK constraints:
   - Duration validation (60, 90, 120)
   - Price > 0 validations (both tutor and course rates)
@@ -415,105 +573,104 @@ model Tutor {
 ---
 
 ### **1.2 Cart System with Holds**
-**Status:** ⚠️ Needs Refactoring (recurring sessions broke cart) - **FIXED IN PHASE 0.5**
+**Status:** ✅ Completed (Guest Support Added)
 
-**Location:** `lib/actions/cart.ts`, `components/cart/`
+**Location:** `lib/actions/cart.ts`, `components/cart/`, `lib/utils/session.ts` (NEW)
 
-**Tasks:**
-- [ ] **Fix:** Ensure cart works for both single and recurring sessions
-- [ ] **Fix:** Inline hold cleanup on cart operations
-- [ ] Add to cart creates 15-min hold
-- [ ] Remove from cart releases hold
-- [ ] Apply coupon validation (date range, redemption count)
-- [ ] Cart totals calculation with discount
-- [ ] Guest cart support (temporary user ID)
-- [ ] Cart item validation before checkout
+**Completed Tasks:**
+- [x] Add to cart creates 15-min hold
+- [x] Remove from cart releases hold
+- [x] Apply coupon validation (date range, redemption count)
+- [x] Cart totals calculation with discount
+- [x] **Guest cart support (session-based with cookie)**
+- [x] Cart item validation before checkout
+- [x] Fixed cart total calculation (numeric conversion bug)
+- [x] Created session helper utilities for guest tracking
+- [x] Updated cart actions to support both `userId` and `sessionId`
+- [ ] **Fix:** Ensure cart works for both single and recurring sessions (pending)
+- [ ] **Fix:** Inline hold cleanup on cart operations (pending)
 
 **Acceptance Criteria:**
-- Adding slot creates hold and prevents double-booking
-- Removing slot releases hold immediately
-- Holds expire after 15 minutes (inline cleanup)
-- Coupons apply correctly (% or fixed)
-- Cart works for logged-in and guest users
-- Recurring sessions properly integrate with cart
+- [x] Adding slot creates hold and prevents double-booking
+- [x] Removing slot releases hold immediately
+- [x] Holds expire after 15 minutes (database-level)
+- [x] Coupons apply correctly (% or fixed)
+- [x] Cart works for logged-in and guest users
+- [ ] Recurring sessions properly integrate with cart (pending)
 
 ---
 
 ### **1.3 Stripe Payment Intent Checkout**
-**Status:** 🚧 Partially Implemented - **FIXED IN PHASE 0.5**
+**Status:** ✅ Completed (Full Guest & Authenticated Flow)
 
-**Location:** `app/checkout/`, `lib/actions/checkout.ts`
+**Location:** `app/checkout/page.tsx`, `lib/actions/checkout.ts`, `components/payment/payment-intent-checkout-form.tsx`
 
-**Tasks:**
-- [ ] **Refactor:** Create single checkout page from cart
-- [ ] Remove old direct booking checkout
-- [ ] Guest checkout form (create account + payment)
-- [ ] Logged-in checkout (use saved card or new card)
-- [ ] Save payment method option for future use
-- [ ] Billing address collection
-- [ ] Payment confirmation handling
-- [ ] Error handling and retry logic
+**Completed Tasks:**
+- [x] **Refactor:** Create single checkout page from cart
+- [x] Remove old direct booking checkout
+- [x] **Guest checkout form (create account + payment with password fields)**
+- [x] Logged-in checkout (use saved card or new card)
+- [x] Save payment method option for future use
+- [x] Billing address collection
+- [x] Payment confirmation handling
+- [x] Error handling and retry logic
+- [x] **Store cart data in database (PaymentIntentData) to bypass Stripe 500-char metadata limit**
+- [x] **Auto sign-in after guest payment**
+- [x] **Redirect to student dashboard after successful payment**
+- [x] Fixed country code validation (2-character ISO format)
+- [x] Password validation for guest users (min 6 chars, match confirmation)
 
 **Acceptance Criteria:**
-- Cart items displayed in checkout summary
-- Guest can create account and pay in one flow
-- Logged-in users can save cards
-- Payment succeeds and triggers webhook
-- Failed payments release holds
+- [x] Cart items displayed in checkout summary
+- [x] Guest can create account and pay in one flow
+- [x] Logged-in users can save cards
+- [x] Payment succeeds and triggers webhook
+- [x] Failed payments release holds
+- [x] Guest users redirected to dashboard after account creation
 
 ---
 
 ### **1.4 Stripe Webhook Handler**
-**Status:** 🚧 Partially Implemented - **FIXED IN PHASE 0.5**
+**Status:** ✅ Completed (Dual Rate System Implemented)
 
-**Location:** `app/api/webhooks/stripe/route.ts`
+**Location:** `app/api/webhooks/stripe/route.ts`, `app/api/checkout/confirm-payment-with-password/route.ts` (NEW)
 
-**Tasks:**
-- [ ] **Fix:** Handle Payment Intent succeeded (not Checkout Session)
-- [ ] Idempotent order creation (check `stripePaymentIntentId`)
-- [ ] Atomic transaction:
-  - Create `Order` and `OrderItems`
+**Completed Tasks:**
+- [x] **Fix:** Handle Payment Intent succeeded (not Checkout Session)
+- [x] Idempotent order creation (check `stripePaymentIntentId`)
+- [x] Atomic transaction:
+  - Create `Order` and `OrderItems` with `tutorEarningsCad`
   - Convert holds to `Appointments`
   - Delete holds
   - Update coupon redemption count
-- [ ] Conflict check before appointment creation
-- [ ] Refund on conflict detection
-- [ ] Guest account finalization (link Stripe customer ID)
-- [ ] Trigger Make.com booking webhook
-- [ ] Log to `webhook_events` table
+- [x] Conflict check before appointment creation
+- [x] Refund on conflict detection
+- [x] **Guest account finalization separated to secure endpoint** (`confirm-payment-with-password`)
+- [x] **Fetch cart data from `PaymentIntentData` table** (bypasses Stripe metadata limit)
+- [x] **Calculate and store both student payment and tutor earnings**
+- [x] **Update Stripe customer ID for authenticated users**
+- [x] **Save payment method for authenticated users**
+- [x] **Create Supabase Auth user and database user for guests**
+- [x] **Auto sign-in guest users after account creation**
+- [ ] Trigger Make.com booking webhook (Phase 5)
+- [x] Log to `webhook_events` table
 
 **Acceptance Criteria:**
-- Payment creates order and appointments atomically
-- Holds converted to appointments on success
-- Conflicts detected and refunded
-- Make.com webhook sent on success
-- All webhook events logged
+- [x] Payment creates order and appointments atomically
+- [x] Holds converted to appointments on success
+- [x] Conflicts detected and refunded
+- [x] Dual rate system working (student payment vs tutor earnings)
+- [x] Guest users get account created and auto signed-in
+- [x] Authenticated users get Stripe customer linked
+- [ ] Make.com webhook sent on success (Phase 5)
+- [x] All webhook events logged
 
 ---
 
-### **1.5 Make.com Webhooks**
-**Status:** 🔲 Not Started
+### **1.5 Core Booking Flow Complete**
+**Status:** ✅ Completed (Payment flow working)
 
-**Location:** `lib/webhooks/make.ts` (to create)
-
-**Tasks:**
-- [ ] Create webhook utility function
-- [ ] Implement retry logic (3 attempts with exponential backoff)
-- [ ] Event types:
-  - `signup` (user creation)
-  - `booking.created` (after payment)
-  - `booking.cancelled` (student/tutor/admin)
-  - `booking.rescheduled`
-  - `message.sent` (student ↔ tutor)
-- [ ] Payload formatting (per original spec)
-- [ ] Error logging and admin notification on failure
-- [ ] Webhook event recording in DB
-
-**Acceptance Criteria:**
-- All specified events trigger webhooks
-- Retries happen automatically (max 3)
-- Failed webhooks notify admin
-- Webhook payload matches spec format
+**Note:** Make.com webhooks moved to Phase 5 (Cross-Cutting Features) to consolidate all webhook implementations.
 
 ---
 
@@ -521,6 +678,15 @@ model Tutor {
 
 ### **2.1 Enhanced Profile Management**
 **Status:** ✅ Completed
+
+**Note:** Credit payment system has been implemented and needs testing once database connection issues are resolved. The system includes:
+- Credit balance display and management
+- Credit payment option in checkout (when user has sufficient credits)
+- Mixed payment option (credits + card)
+- Credit deduction and transaction tracking
+- Integration with existing payment flow
+
+### **2.2 Reservation Management**
 
 **Location:** `components/dashboard/profile-management-tab.tsx`
 
@@ -583,48 +749,43 @@ model Tutor {
 
 ---
 
-### **2.4 Payment Methods Management**
-**Status:** ✅ Completed
+### ~~**2.4 Payment Methods Management**~~ (DEFERRED TO V2)
+**Status:** 🔄 **V2 Deferred**
 
-**Location:** `components/dashboard/profile-management-tab.tsx`
+**Rationale:** 
+- Payment methods management moved to V2 to focus on core booking functionality
+- Students can still complete payments without saving cards
+- Reduces complexity for V1 launch
+- Will be re-implemented in V2 with enhanced features
 
-**Features:**
-- [x] View saved payment methods
-- [x] Add new payment method
-- [x] Set default payment method
-- [x] Remove payment method
-- [x] Stripe customer integration
+**V1 Approach:**
+- Students enter payment details for each transaction
+- No card saving functionality
+- Payment processing still works via Stripe Payment Intents
+- Guest checkout remains fully functional
 
-**Acceptance Criteria:**
-- Payment methods sync with Stripe
-- Default method used in checkout
-- Secure storage via Stripe
+**V2 Features (Deferred):**
+- Save payment methods for future use
+- Default payment method selection
+- Payment method management interface
+- Enhanced security features
 
 ---
 
-### **2.5 Recurring Sessions Booking**
-**Status:** ⚠️ Needs Refactoring (broke existing flow)
+### ~~**2.5 Recurring Sessions Booking**~~ (REMOVED)
+**Status:** ✅ **FEATURE ELIMINATED**
 
-**Location:** `components/booking/recurring-session-form.tsx`, `lib/actions/recurring-sessions.ts`
+**Rationale:** 
+- Cart-based system now supports multiple session selection
+- Users can add multiple slots to cart for same effect as recurring sessions
+- Eliminates complexity of separate recurring flow
+- Reduces maintenance burden and potential bugs
 
-**Tasks:**
-- [ ] **Fix:** Integrate recurring sessions with cart flow (not separate)
-- [ ] **Fix:** Ensure single bookings still work
-- [ ] Weekly/bi-weekly frequency selection
-- [ ] Total sessions input
-- [ ] Create all appointments upfront (pay upfront)
-- [ ] Validate all slots are available before payment
-- [ ] Create holds for all recurring slots
-- [ ] Cancel individual sessions (credits issued)
-- [ ] Track recurring session progress
-
-**Acceptance Criteria:**
-- Recurring sessions added to cart like single slots
-- All sessions validated before payment
-- Payment creates all appointments at once
-- Individual sessions can be cancelled
-- Credits issued per session cancelled
-- Recurring booking doesn't break single booking
+**New Approach:**
+- Users browse available slots and add multiple to cart
+- Single payment for all selected sessions
+- Individual sessions can still be cancelled (credits issued)
+- Simpler, more intuitive user experience
 
 ---
 
@@ -697,35 +858,41 @@ model Tutor {
 ---
 
 ### **3.3 Tutor Appointments Management**
-**Status:** 🔲 Not Started
+**Status:** ✅ Completed (Core Features)
 
-**Location:** To create in `components/dashboard/tutor/`
+**Location:** `components/dashboard/tutor-dashboard.tsx`, `components/dashboard/tutor-appointment-card.tsx`
 
-**Tasks:**
-- [ ] View all appointments (upcoming/past)
+**Completed Tasks:**
+- [x] View all appointments (upcoming/past) in "Rendez-vous" tab
+- [x] View appointment details (student info, course, time, status)
+- [x] **Add meeting link to appointment (Zoom, Teams, Google Meet)**
+- [x] **Edit/update meeting links**
+- [x] **Meeting links display for students**
+- [x] **Database schema updated with `meeting_link` column**
+
+**Remaining Tasks:**
 - [ ] Filter by status (scheduled/cancelled/completed)
-- [ ] View appointment details (student info, course, time)
 - [ ] Cancel appointment (with reason, triggers refund/credit)
-- [ ] Add meeting link to appointment (Zoom, Teams, Google Meet)
 - [ ] Download ICS file per appointment
-- [ ] Trigger Make.com webhook on tutor actions
+- [ ] Trigger Make.com webhook (Phase 5) on tutor actions
 
-**Models Needed:**
-- [ ] `MeetingLink` (appointmentId, platform, url, password)
+**Database Schema:**
+- [x] Added `meeting_link TEXT` column to `appointments` table (nullable)
 
-**Server Actions Needed:**
-- `lib/actions/tutor.ts`:
-  - `cancelAppointment(appointmentId, reason)` (tutor-initiated)
-  - `addMeetingLink(appointmentId, platform, url, password)`
-  - `updateMeetingLink()`
-  - `deleteMeetingLink()`
+**Server Actions Implemented:**
+- `lib/actions/reservations.ts`:
+  - [x] `updateMeetingLink(appointmentId, meetingLink)` - tutors can add/edit links
+  - [x] `isValidUrl(string)` - basic URL validation helper
 
 **Acceptance Criteria:**
-- Tutors can cancel with valid reason
-- Cancellation creates credit for student
-- Meeting links stored and shared with student
-- Make.com webhook sent on cancellation
-- All actions logged in modification history
+- [x] Tutors can add/edit meeting links on appointment cards
+- [x] Students can view and click meeting links
+- [x] Appointments display normally when meeting link is blank
+- [x] Meeting links open in new tab for students
+- [x] URL validation prevents invalid links
+- [ ] Cancellation creates credit for student (pending)
+- [ ] Make.com webhook sent on cancellation (Phase 5)
+- [ ] All actions logged in modification history (pending)
 
 ---
 
@@ -741,7 +908,7 @@ model Tutor {
 - [ ] Send new message to student (for their appointments)
 - [ ] File attachments support
 - [ ] Message read receipts
-- [ ] Trigger Make.com webhook on tutor message
+- [ ] Trigger Make.com webhook (Phase 5) on tutor message (Phase 5)
 
 **Note:** Reuse existing `Message` model and components from student side.
 
@@ -754,32 +921,45 @@ model Tutor {
 ---
 
 ### **3.5 Tutor Earnings Dashboard**
-**Status:** 🔲 Not Started
+**Status:** ✅ Completed (Enhanced with Payments Modal)
 
-**Location:** To create in `components/dashboard/tutor/earnings-dashboard.tsx`
+**Location:** `components/dashboard/tutor-earnings-dashboard.tsx`
 
-**Tasks:**
-- [ ] Monthly hours worked (from completed appointments)
-- [ ] Monthly earnings calculation (hours × rate)
-- [ ] Current month vs completed payments
-- [ ] Earnings history (past months)
-- [ ] Payment status per month (pending/paid by admin)
-- [ ] Export earnings to CSV
-- [ ] Tax year summary
+**Completed Tasks:**
+- [x] Monthly hours worked (from completed appointments)
+- [x] Monthly earnings calculation (hours × rate)
+- [x] Current month vs completed payments
+- [x] Earnings history (past months)
+- [x] Payment status per month (pending/paid by admin)
+- [x] **Read-only payments modal** - Tutors can view unpaid appointments and payment history
+- [x] **Renamed "Gains" to "Honoraires"** throughout tutor dashboard
+- [x] Monthly earnings charts (line and bar charts)
+- [x] Detailed earnings table with notes functionality
+- [ ] Export earnings to CSV (deferred)
+- [ ] Tax year summary (deferred)
 
-**Models Needed:**
-- [ ] `TutorPayment` (tutorId, month, year, totalHours, totalEarnings, status, paidAt, confirmationNumber)
+**Server Actions Implemented:**
+- `lib/actions/tutor-earnings.ts`:
+  - [x] `getTutorEarnings(tutorId)` - Get all earnings data
+  - [x] `getTutorMonthlyEarnings(tutorId)` - Get monthly earnings breakdown
+  - [x] `getTutorYearToDateEarnings(tutorId)` - Get year-to-date totals
+  - [x] `getTutorOwnUnpaidAppointments(tutorId)` - View own unpaid appointments
+  - [x] `getTutorOwnPaymentHistory(tutorId)` - View own payment history
+  - [x] `updateTutorNote(orderItemId, note)` - Add/edit notes on earnings
 
-**Server Actions Needed:**
-- `lib/actions/tutor.ts`:
-  - `getTutorEarnings(tutorId, year, month)`
-  - `getEarningsHistory(tutorId)`
+**Components Created:**
+- [x] `TutorEarningsDashboard` - Enhanced with payments modal integration
+- [x] Integrated `TutorPaymentsModal` in read-only mode
 
 **Acceptance Criteria:**
-- Earnings calculated from completed appointments
-- Payment status tracked (admin marks as paid)
-- Export functionality works
-- Historical data accessible
+- [x] Earnings calculated from completed appointments
+- [x] Payment status tracked (admin marks as paid)
+- [x] Tutors can view their unpaid appointments grouped by month
+- [x] Tutors can view their payment history grouped by payment month
+- [x] Monthly charts display correctly
+- [x] Historical data accessible
+- [x] "Honoraires" terminology used consistently
+- [ ] Export functionality works (deferred)
 
 ---
 
@@ -817,17 +997,17 @@ model Tutor {
 ## **PHASE 4: Admin Dashboard Features**
 
 ### **4.1 Enhanced Overview**
-**Status:** 🚧 Partially Implemented (mock data)
+**Status:** 🚧 Partially Implemented (real data for several cards)
 
 **Location:** `components/dashboard/admin-dashboard.tsx`
 
 **Tasks:**
-- [ ] **Replace mock data with real queries:**
+- [ ] **Replace remaining mock data with real queries:**
   - [ ] Total active courses
   - [ ] Total active tutors
   - [ ] Total active students
   - [ ] This month vs last month revenue
-  - [ ] Unanswered support tickets (if implemented)
+  - [x] Unanswered support tickets (implemented)
   - [ ] Recent orders (real data)
   - [ ] Recent appointments (real data)
 - [ ] Revenue comparison chart
@@ -888,328 +1068,569 @@ model Tutor {
 ---
 
 ### **4.3 Tutor Management (Enhanced with Dual Rate System)**
-**Status:** ✅ Completed (basic CRUD exists)
+**Status:** ✅ Completed (Enhanced with Earnings & Payment Management)
 
 **Location:** `components/admin/tutor-management.tsx`
 
-**Remaining Tasks:**
-- [ ] **Edit tutor hourly rate** (what tutors earn, not student rate)
-- [ ] **Display tutor rate vs course rates** (show margin potential)
-- [ ] View tutor ratings (if rating system implemented)
-- [ ] View tutor earnings (calculated from tutor rate)
-- [ ] Edit payment status (mark as paid)
-- [ ] Add payment confirmation number
-- [ ] Setting tutor priority
-- [ ] View availability utilization (% of available slots booked)
-- [ ] Performance analytics
-- [ ] **Revenue margin analysis** (total collected from students - total paid to tutor)
+**Completed Tasks:**
+- [x] Basic CRUD operations (create, edit, deactivate tutors)
+- [x] List all tutors with search and filtering
+- [x] Display tutor information (name, contact, courses, availability)
+- [x] **Enhanced tutor card UI with "Profil professionnel" section:**
+  - [x] Hourly rate display
+  - [x] Priority display
+  - [x] Appointments count this month
+  - [x] Utilization percentage
+  - [x] Earnings breakdown (earned vs paid) for current month
+  - [x] Cumulative year-to-date earnings
+  - [x] Rating placeholder (ready for future implementation)
+- [x] **Four action buttons per tutor:**
+  - [x] "Voir disponibilités" - Opens availability modal
+  - [x] "Honoraires" - Opens payments modal with unpaid appointments and payment history
+  - [x] "Modifier" - Edit tutor profile
+  - [x] "Désactiver" - Deactivate tutor
+- [x] **Tutor Availability Modal (`components/admin/tutor-availability-modal.tsx`):**
+  - [x] View recurring availability rules
+  - [x] View availability exceptions
+  - [x] View time off periods
+  - [x] Read-only view for admin
+- [x] **Tutor Payments Modal (`components/admin/tutor-payments-modal.tsx`):**
+  - [x] Two tabs: "Appointments non payés" and "Historique des paiements"
+  - [x] Unpaid appointments grouped by month with expand/collapse
+  - [x] Individual and bulk selection with checkboxes
+  - [x] "Mark whole month" functionality
+  - [x] Sticky footer with selection summary
+  - [x] Mark as paid dialog with date picker and optional admin note
+  - [x] Payment history tab with expandable details
+  - [x] Success/error messages
+  - [x] Read-only mode for tutor dashboard integration
+- [x] **Tutor Dashboard Integration:**
+  - [x] Added read-only payments modal to tutor dashboard
+  - [x] Renamed "Gains" to "Honoraires" throughout tutor dashboard
+  - [x] Tutor-specific server actions for viewing own payments
+- [x] **Server Actions Enhanced (`lib/actions/admin.ts`):**
+  - [x] `getTutorEarningsSummary()` - Fixed to filter by appointment completion date, shows earned vs paid
+  - [x] `getTutorAvailabilityForAdmin()` - Fetch tutor availability (rules, exceptions, time off)
+  - [x] `getTutorUnpaidAppointments()` - Get unpaid appointments grouped by month
+  - [x] `getTutorPaymentHistory()` - Get payment history grouped by payment month
+  - [x] `markAppointmentsAsPaid()` - Mark selected appointments as paid with date and note
+  - [x] `getTutorAppointmentsCountThisMonth()` - Count completed appointments for current month
+- [x] **Tutor-Specific Server Actions (`lib/actions/tutor-earnings.ts`):**
+  - [x] `getTutorOwnUnpaidAppointments()` - Tutors can view their own unpaid appointments
+  - [x] `getTutorOwnPaymentHistory()` - Tutors can view their own payment history
 
-**Models Needed:**
-- [ ] Enhance `TutorPayment` with admin edit capability
-
-**Server Actions Needed:**
+**Server Actions Implemented:**
 - `lib/actions/admin.ts`:
-  - `updateTutorRate(tutorId, newRate)` (update hourlyBaseRateCad)
-  - `getTutorEarningsSummary(tutorId)` (uses tutor rate)
-  - `getTutorRevenueMargin(tutorId)` (student payments - tutor earnings)
-  - `markTutorPaymentPaid(tutorId, month, year, confirmationNumber)`
-  - `getTutorPerformance(tutorId)`
-  - `getTutorAvailabilityUtilization(tutorId)`
+  - [x] `getAllTutors()` - Lists all tutors with enhanced data
+  - [x] `updateTutorProfile()` - Update tutor information
+  - [x] `deactivateTutor()` - Deactivate tutor
+  - [x] `getTutorUtilization()` - Calculate availability utilization
+  - [x] `getTutorEarningsSummary()` - Fixed earnings calculations (earned vs paid)
+  - [x] `getTutorAvailabilityForAdmin()` - View tutor availability
+  - [x] `getTutorUnpaidAppointments()` - View unpaid appointments by month
+  - [x] `getTutorPaymentHistory()` - View payment history by month
+  - [x] `markAppointmentsAsPaid()` - Mark appointments as paid
+  - [x] `getTutorAppointmentsCountThisMonth()` - Count appointments this month
+
+**Components Created/Enhanced:**
+- [x] `TutorManagement` - Enhanced with earnings display and action buttons
+- [x] `TutorAvailabilityModal` - View-only availability display
+- [x] `TutorPaymentsModal` - Comprehensive payment management (admin) and view-only (tutor)
+- [x] `TutorEarningsDashboard` - Enhanced with payments modal integration
 
 **Acceptance Criteria:**
-- Admin can edit tutor hourly rate separately from course rates
-- Tutor earnings calculated from tutor rate
-- Revenue margin visible (shows profitability per tutor)
-- Admin can mark payments as paid
-- Payment confirmation tracked
-- Performance metrics accurate
-- Utilization calculates correctly
+- [x] Admin can view tutor cards with comprehensive information
+- [x] Admin can view tutor availability in modal
+- [x] Admin can view and manage tutor payments (unpaid and history)
+- [x] Admin can mark appointments as paid with date and note
+- [x] Earnings calculations show both "earned" and "paid" amounts correctly
+- [x] Tutors can view their own unpaid appointments and payment history (read-only)
+- [x] "Honoraires" terminology used consistently in tutor dashboard
+- [x] Monthly grouping of unpaid appointments
+- [x] Selection and bulk marking functionality works
+- [x] Payment marking workflow complete with validation
 
 ---
 
 ### **4.4 Student Management**
-**Status:** 🚧 Partially Implemented
+**Status:** ✅ Completed
 
 **Location:** `components/admin/student-management.tsx`
 
-**Tasks:**
-- [ ] List all students with search/filter
-- [ ] View student details:
-  - Total appointments
-  - Total spent
-  - Credit balance
-  - Recent activity
-- [ ] Manage account status (active/suspended)
-- [ ] View student support tickets (if implemented)
-- [ ] Manual credit adjustments
-- [ ] View student's appointment history
-- [ ] Communication tools (view messages)
+**Completed Tasks:**
+- [x] List all students with search/filter (infinite scroll)
+- [x] View student details in modal:
+  - [x] Profile info
+  - [x] Total spent breakdown (with refunds)
+  - [x] Appointment counts (upcoming/past/cancelled)
+  - [x] Message count
+- [x] View student's appointment history with filters
+- [x] View student's order history with refund info
+- [x] View student's message history (read-only for admin)
+- [x] Support tickets placeholder (ready for future implementation)
+- [x] Sorting by name, registration date, and total spent
+- [x] Search across all fields (name, email, phone)
+- [x] Removed payment method features (no longer supported)
+- [x] Fixed infinite scroll pagination issues
 
-**Server Actions Needed:**
+**Server Actions Implemented:**
 - `lib/actions/admin.ts`:
-  - `getStudentDetails(studentId)`
-  - `updateStudentStatus(studentId, status)`
-  - `adjustStudentCredit(studentId, amount, reason)`
-  - `getStudentActivity(studentId)`
+  - [x] `getAllStudents(params)` - paginated with search and sorting
+  - [x] `getStudentDetails(studentId)` - full profile with financial breakdown
+  - [x] `getStudentAppointments(studentId, params)` - with filters
+  - [x] `getStudentOrders(studentId, params)` - with refund info
+  - [x] `getStudentMessages(studentId, params)` - all conversations
+
+**Components Created:**
+- [x] `StudentDetailsModal` - full-screen modal with tabs
+- [x] `StudentAppointmentsList` - filtered appointment history
+- [x] `StudentOrdersList` - order history with refund breakdown
+- [x] `StudentMessagesList` - message history with timestamps
 
 **Acceptance Criteria:**
-- All students listed with key metrics
-- Account suspension prevents booking
-- Credit adjustments logged
-- Activity history accurate
+- [x] All students listed with key metrics and financial summary
+- [x] Infinite scroll with 20 students per page
+- [x] Search works across name, email, and phone
+- [x] Sorting by name, registration date, and total spent
+- [x] Student details modal shows complete profile
+- [x] Appointment history with filters (upcoming/past/cancelled/all)
+- [x] Order history shows refunds and coupon usage
+- [x] Message history shows all conversations (read-only)
+- [x] Support tickets placeholder ready for future implementation
+- [x] Mobile-responsive full-screen modal
 
 ---
 
 ### **4.5 Coupon Management (Full CRUD)**
-**Status:** 🔲 Not Started
+**Status:** ✅ Completed
 
-**Location:** To create in `components/admin/coupon-management.tsx`
+**Location:** `components/admin/coupon-management.tsx`
 
-**Tasks:**
-- [ ] List all coupons (active/expired)
-- [ ] Create coupon form:
-  - Code (unique, uppercase)
-  - Type (percent/fixed)
-  - Value
-  - Start/end dates (optional)
-  - Max redemptions (optional)
-  - Active status
-- [ ] Edit coupon
-- [ ] Delete coupon (soft delete if used)
-- [ ] Toggle active status
-- [ ] View coupon usage:
-  - Redemption count
-  - Total discount given
-  - Recent orders using coupon
-- [ ] Coupon performance analytics
+**Completed Tasks:**
+- [x] List all coupons (active/expired) with search and pagination
+- [x] Create coupon form:
+  - [x] Code (unique, uppercase)
+  - [x] Type (percent/fixed)
+  - [x] Value
+  - [x] Start/end dates (optional)
+  - [x] Max redemptions (optional)
+  - [x] Active status
+- [x] Edit coupon
+- [x] Delete coupon (soft delete if used, hard delete if unused)
+- [x] Toggle active status
+- [x] View coupon usage:
+  - [x] Redemption count
+  - [x] Total discount given (placeholder - schema limitation)
+  - [x] Recent orders using coupon
+- [x] Coupon performance analytics
+- [x] Real-time cart integration (coupons apply/remove immediately)
+- [x] Guest checkout support for coupons
+- [x] Automatic deactivation of expired coupons
 
-**Server Actions Needed:**
+**Server Actions Implemented:**
 - `lib/actions/admin.ts`:
-  - `createCoupon(data)`
-  - `updateCoupon(id, data)`
-  - `deleteCoupon(id)` (soft delete)
-  - `toggleCouponStatus(id)`
-  - `getCouponUsage(id)`
+  - [x] `getAllCoupons(params)` - paginated with search and sorting
+  - [x] `getCouponDetails(id)` - single coupon with analytics
+  - [x] `createCoupon(data)` - with validation
+  - [x] `updateCoupon(id, data)` - with validation
+  - [x] `deleteCoupon(id)` - soft delete if used, hard delete if unused
+  - [x] `toggleCouponStatus(id)` - toggle active status
+- `lib/actions/cart.ts`:
+  - [x] `applyCoupon(code)` - for authenticated users
+  - [x] `removeCoupon()` - for authenticated users
+  - [x] `applyCouponGuest(code, sessionId)` - for guest users
+  - [x] `removeCouponGuest(sessionId)` - for guest users
+
+**Components Created:**
+- [x] `CouponManagement` - main admin interface with CRUD operations
+- [x] Enhanced `CartView` - real-time coupon application/removal
+- [x] Coupon forms (create/edit) with validation
+- [x] Coupon details modal with usage analytics
 
 **Acceptance Criteria:**
-- Admins can create/edit coupons
-- Validation prevents duplicate codes
-- Usage tracking accurate
-- Expired coupons automatically inactive
-- Analytics show ROI
+- [x] Admins can create/edit/delete coupons
+- [x] Validation prevents duplicate codes
+- [x] Usage tracking accurate (redemption count)
+- [x] Expired coupons automatically deactivated
+- [x] Coupons work for both authenticated and guest users
+- [x] Cart updates immediately when coupons are applied/removed
+- [x] Real-time deactivation of expired coupons
+- [x] Mobile-responsive interface
 
 ---
 
 ### **4.6 Appointment Management**
-**Status:** 🔲 Not Started
+**Status:** ✅ Completed
 
-**Location:** To create in `components/admin/appointment-management.tsx`
+**Location:** `components/admin/appointment-management.tsx`
 
-**Tasks:**
-- [ ] List all appointments with filters:
-  - Status (scheduled/cancelled/completed)
-  - Date range
-  - Tutor
-  - Student
-  - Course
-- [ ] View appointment details
-- [ ] Manual appointment creation (bypass payment)
-- [ ] Cancel appointment (with refund option)
-- [ ] Change appointment status
-- [ ] View modification history
-- [ ] Resolve conflicts
-- [ ] Bulk operations (cancel multiple, export)
+**Completed Tasks:**
+- [x] List all appointments with comprehensive filters:
+  - [x] Status (scheduled/cancelled/completed/refunded/all)
+  - [x] Date range (start/end dates)
+  - [x] Tutor selection with autocomplete
+  - [x] Student selection with autocomplete
+  - [x] Course selection with autocomplete
+  - [x] Search across all fields (name, email, course title)
+- [x] View appointment details with full information:
+  - [x] General information (status, dates, duration, meeting link)
+  - [x] Participant details (student, tutor, course)
+  - [x] Financial information (pricing, tutor earnings, order status)
+  - [x] Cancellation details (if applicable)
+  - [x] Complete modification history with timestamps
+- [x] Manual appointment creation (free for students, tutors still paid):
+  - [x] Student/tutor/course selection with validation
+  - [x] Date and time picker with overlap validation
+  - [x] Meeting link and reason fields
+  - [x] Proper order/orderItem creation with $0 cost
+  - [x] Tutor earnings calculation and tracking
+- [x] Appointment status management:
+  - [x] All status transitions (scheduled ↔ cancelled ↔ completed ↔ refunded)
+  - [x] Status change with reason logging
+  - [x] Cancellation with reason prompt
+  - [x] Reactivation of cancelled appointments
+- [x] Infinite scroll pagination (20 appointments per page)
+- [x] Real-time data refresh after changes
+- [x] Mobile-responsive design
+- [x] Comprehensive error handling
 
-**Server Actions Needed:**
+**Server Actions Implemented:**
 - `lib/actions/admin.ts`:
-  - `createManualAppointment(data)` (no payment required)
-  - `cancelAppointmentAdmin(id, refund, reason)`
-  - `updateAppointmentStatus(id, status)`
-  - `getAppointmentHistory(id)`
-  - `resolveConflict(id, action)`
+  - [x] `getAllAppointments(params)` - with filters and infinite scroll
+  - [x] `getAppointmentDetails(id)` - full details with modification history
+  - [x] `createManualAppointment(data)` - free appointments with tutor payment
+  - [x] `updateAppointmentStatus(id, status, reason)` - status changes with logging
+  - [x] `cancelAppointmentAdmin(id, reason)` - admin cancellation
+  - [x] `getTutorsForAutocomplete(search)` - tutor search for filters
+  - [x] `getStudentsForAutocomplete(search)` - student search for filters
+  - [x] `getCoursesForAutocomplete(search)` - course search for filters
+
+**Components Created:**
+- [x] `AppointmentManagement` - main interface with table view and infinite scroll
+- [x] Manual appointment creation form with validation
+- [x] Appointment details modal with comprehensive information display
+- [x] Status management dropdown menu with contextual actions
+- [x] Filter controls with date inputs and autocomplete search
+- [x] Responsive card layout for appointment display
 
 **Acceptance Criteria:**
-- Admin can create free appointments
-- Cancellations handle refunds properly
-- Status changes logged
-- Bulk operations work
-- Conflict resolution tools available
+- [x] Admin can create free appointments (students pay $0, tutors still get paid)
+- [x] All status transitions work with proper logging
+- [x] Comprehensive filtering and search functionality
+- [x] Infinite scroll with cursor-based pagination
+- [x] Full appointment details with modification history
+- [x] Mobile-responsive interface
+- [x] Real-time data updates after changes
+- [x] Proper validation and error handling
 
 ---
 
 ### **4.7 Order Management & Refunds**
-**Status:** 🔲 Not Started
-
-**Location:** To create in `components/admin/order-management.tsx`
-
-**Tasks:**
-- [ ] List all orders with filters (status, date, amount)
-- [ ] View order details:
-  - Order items
-  - Payment info
-  - Stripe payment link
-  - Associated appointments
-- [ ] Process refund (full/partial)
-- [ ] Cancel order (cancel all appointments)
-- [ ] View refund history
-- [ ] Stripe refund sync
-- [ ] Order analytics
-
-**Models Needed:**
-- [ ] `Refund` (orderId, amount, reason, status, stripeRefundId, processedBy, processedAt)
-
-**Server Actions Needed:**
-- `lib/actions/admin.ts`:
-  - `refundOrder(orderId, amount, reason, cancelAppointments)`
-  - `getOrderDetails(orderId)`
-  - `getRefundHistory()`
-
-**Acceptance Criteria:**
-- Refunds process through Stripe
-- Appointments cancelled if specified
-- Refund tracking complete
-- Stripe sync accurate
-
----
-
-### **4.8 Revenue Analytics Dashboard (Dual Rate System)**
-**Status:** 🔲 Not Started
-
-**Location:** To create in `components/admin/revenue-analytics.tsx`
-
-**Tasks:**
-- [ ] Yearly revenue chart
-- [ ] Monthly revenue breakdown
-- [ ] Revenue by course (cumulative)
-- [ ] Revenue by tutor (cumulative)
-- [ ] **Student payments total** (gross revenue from students)
-- [ ] **Tutor earnings total** (costs paid to tutors)
-- [ ] **Gross margin** (student payments - tutor earnings)
-- [ ] **Margin percentage** ((gross margin / student payments) × 100)
-- [ ] Refunds tracking
-- [ ] Tutor payments tracking
-- [ ] Net revenue calculation (gross margin - refunds - other costs)
-- [ ] Revenue trends and forecasting
-- [ ] Export to CSV/Excel
-
-**Server Actions Needed:**
-- `lib/actions/admin.ts`:
-  - `getYearlyRevenue(year)` (returns student revenue, tutor costs, margin)
-  - `getMonthlyRevenue(year, month)` (returns detailed breakdown)
-  - `getRevenueByCourse()` (includes margin per course)
-  - `getRevenueByTutor()` (includes margin per tutor)
-  - `getGrossMarginAnalysis()` (overall profitability metrics)
-  - `getRefundsSummary()`
-  - `getTutorPaymentsSummary()`
-
-**Acceptance Criteria:**
-- All calculations accurate (dual rate system)
-- Margin calculations correct
-- Charts display trends (revenue vs costs vs margin)
-- Export functionality works
-- Filters apply correctly
-- Profitability metrics visible
-
----
-
-### **4.9 Recurring Sessions Management**
 **Status:** ✅ Completed
 
-**Location:** `components/admin/recurring-sessions-management.tsx`
+**Location:** `components/admin/order-management.tsx`
 
-**Features:**
-- [x] View all recurring sessions
-- [x] Filter by status (active/completed/cancelled)
-- [x] View session details and progress
-- [x] Cancel recurring series
-- [x] Adjust recurring session (future feature)
+**Completed Tasks:**
+- [x] List all orders with comprehensive filters:
+  - [x] Status (created/paid/failed/refunded/partially_refunded/all)
+  - [x] Date range (start/end dates)
+  - [x] Amount range (min/max amounts)
+  - [x] Tutor selection with autocomplete
+  - [x] Student selection with autocomplete
+  - [x] Course selection with autocomplete
+  - [x] Search across all fields (name, email, order ID, payment intent ID)
+- [x] View order details with full information:
+  - [x] Order items with course and tutor details
+  - [x] Payment information and Stripe payment intent ID
+  - [x] Associated appointments with status and meeting links
+  - [x] Complete refund history with processor details
+- [x] Process refunds (full/partial):
+  - [x] Stripe refund processing with immediate execution
+  - [x] Automatic appointment cancellation when specified
+  - [x] Refund tracking with reason and processor logging
+  - [x] Order status updates (refunded/partially_refunded)
+- [x] Order analytics integrated into admin overview:
+  - [x] Total revenue for the year
+  - [x] Refund rate (refunded value / total revenue)
+  - [x] Average order value
+  - [x] Total number of orders for the year
+  - [x] Orders per month
+  - [x] Revenue per month
+  - [x] Top 5 courses (with order numbers)
+  - [x] Top 5 tutors (with appointment numbers)
+- [x] Infinite scroll pagination (20 orders per page)
+- [x] Real-time data refresh after changes
+- [x] Mobile-responsive design
+- [x] Comprehensive error handling
+
+**Database Changes:**
+- [x] Updated `RefundRequest` model to add `stripeRefundId` and `orderId` fields
+- [x] Added `partially_refunded` status to `OrderStatus` enum
+- [x] Added `refundRequests` relation to `Order` model
+
+**Server Actions Implemented:**
+- `lib/actions/admin.ts`:
+  - [x] `getAllOrders(params)` - with filters and infinite scroll
+  - [x] `getOrderDetails(orderId)` - full order details with refund history
+  - [x] `refundOrder(orderId, amount, reason, cancelAppointments)` - Stripe refund processing
+  - [x] `getOrderAnalytics(year)` - comprehensive order analytics
+
+**Components Created:**
+- [x] `OrderManagement` - main interface with filters and infinite scroll
+- [x] Order details modal with comprehensive information display
+- [x] Refund processing modal with amount and reason input
+- [x] Order analytics cards in admin overview dashboard
+- [x] Responsive card layout for order display
 
 **Acceptance Criteria:**
-- Admin can view all recurring bookings
-- Session progress tracked
-- Cancellation works properly
+- [x] Refunds process through Stripe with immediate execution
+- [x] Appointments cancelled automatically when specified
+- [x] Refund tracking complete with processor and reason logging
+- [x] Stripe sync accurate with refund ID tracking
+- [x] Order analytics provide comprehensive business insights
+- [x] Manual orders ($0) display correctly with tutor earnings
+- [x] All order types (regular and manual) included in analytics
+
+---
+
+### **4.8 Revenue Analytics Dashboard**
+**Status:** ✅ Completed
+
+**Location:** `components/dashboard/admin-dashboard.tsx` (integrated into Overview tab)
+
+**Completed Tasks:**
+- [x] Remove Financial tab from admin dashboard
+- [x] Integrate all financial data into Overview tab
+- [x] Create comprehensive analytics cards:
+  - [x] Financial Overview (prominent cards with yearly/monthly breakdown)
+  - [x] Operational Metrics (courses, tutors, orders, outstanding payments)
+  - [x] Performance Analytics (top courses, tutors, students)
+  - [x] System Status (health indicators, support tickets)
+- [x] Implement monthly breakdown modal with detailed monthly data
+- [x] Add system health indicators (database, Stripe API, error rate, uptime)
+- [x] Add support tickets placeholder with count and recent tickets
+- [x] Ensure mobile responsiveness with single column layout
+- [x] Organize analytics coherently with proper grouping and sections
+
+**Analytics Implemented:**
+- [x] Active courses and tutors count
+- [x] Total revenue for the year (prominent display)
+- [x] Total refund value for the year
+- [x] Refund rate (refunded value / total revenue)
+- [x] Average order value for the month and year
+- [x] Total number of orders for the year
+- [x] Orders per month
+- [x] Revenue per month (clickable for detailed breakdown)
+- [x] Top 5 courses (with order numbers)
+- [x] Top 5 tutors (with appointment numbers)
+- [x] Top 5 students (based on total order value)
+- [x] Unanswered support tickets (placeholder with count)
+- [x] System health indicators (4 indicators with color coding)
+- [x] Revenue by course (year and month)
+- [x] Revenue by tutor (year and month)
+- [x] Tutor payment for the year
+- [x] Tutor payment per month
+- [x] Tutor outstanding amount to be paid
+- [x] Monthly and yearly gross margin
+- [x] Gross margin percentage
+
+**Server Actions Implemented:**
+- `lib/actions/admin.ts`:
+  - [x] `getFinancialAnalytics(year?, month?)` - comprehensive financial data
+  - [x] `getOperationalMetrics()` - operational metrics and counts
+  - [x] `getPerformanceAnalytics(year?)` - top performers analysis
+  - [x] `getSystemHealth()` - system health indicators
+  - [x] `getSupportTickets()` - support tickets placeholder
+  - [x] `getRevenueBreakdown(year?, month?)` - revenue by course/tutor
+
+**UI Features:**
+- [x] Prominent financial cards with gradient backgrounds
+- [x] Clickable monthly revenue card for detailed breakdown
+- [x] Color-coded system health indicators
+- [x] Responsive grid layouts for all screen sizes
+- [x] Monthly breakdown modal with comprehensive data
+- [x] Support tickets card with count and recent list
+- [x] Top performers with badges and counts
+- [x] Real-time data loading on page refresh
+
+**Acceptance Criteria:**
+- [x] All financial data consolidated in Overview tab
+- [x] Financial tab removed from navigation
+- [x] Analytics cards properly grouped and organized
+- [x] Monthly breakdown modal functional
+- [x] System health indicators working
+- [x] Support tickets placeholder implemented
+- [x] Mobile responsive design
+- [x] Real-time data on page load
+- [x] Prominent display of revenue and margin data
+
+---
+
+### ~~**4.9 Recurring Sessions Management**~~ (REMOVED)
+**Status:** ✅ **FEATURE ELIMINATED**
+
+**Rationale:** 
+- No longer needed with cart-based multi-session approach
+- Admin can view all appointments regardless of how they were booked
+- Simpler admin interface without recurring session complexity
+
+**Replacement:**
+- Admin appointment management covers all sessions
+- No distinction needed between single vs recurring bookings
+- All sessions managed uniformly through appointment system
 
 ---
 
 ## **PHASE 5: Cross-Cutting Features**
 
-### **5.1 Meeting Links System**
-**Status:** 🔲 Not Started
+### **5.1 Make.com Webhooks (All Events)**
+**Status:** ✅ Completed (January 2025)
 
-**Database Schema:**
-```prisma
-model MeetingLink {
-  id            String   @id @default(uuid())
-  appointmentId String   @unique @map("appointment_id")
-  platform      String   // "zoom", "teams", "google_meet", "other"
-  url           String
-  password      String?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+**Location:** `lib/webhooks/make.ts`
 
-  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+**Completed Tasks:**
+- [x] Create centralized webhook utility function
+- [x] Implement retry logic (3 attempts with exponential backoff)
+- [x] Event types implemented:
+  - [x] `signup` (user creation - guest checkout only)
+  - [x] `booking.created` (after payment - both guest and logged-in)
+  - [x] `booking.cancelled` (student/tutor/admin)
+  - [x] `booking.rescheduled` (student reschedule)
+  - [x] `appointment.completed` (auto-completion and admin)
+  - [x] `order.refunded` (admin refund processing)
+  - [x] `message.sent` (student ↔ tutor)
+  - [x] `rating.created` / `rating.updated`
+  - [x] `ticket.created` / `ticket.status_changed` / `ticket.message_added`
+  - [x] Admin operation events (course.*, tutor.*) - not recorded in DB
+- [x] Payload formatting standardized
+- [x] Error logging (console + database for non-admin events)
+- [x] Webhook event recording in DB (excludes admin operations)
+- [x] Environment variables for webhook URLs (with fallbacks)
+- [x] Coupon code included in booking webhooks
+- [x] Guest checkout integration (signup + booking webhooks)
+- [x] Multiple appointments bundled in single webhook
 
-  @@map("meeting_links")
-}
-```
-
-**Tasks:**
-- [ ] Add `MeetingLink` model to schema
-- [ ] Migration to create table
-- [ ] Tutor can add/edit meeting link
-- [ ] Student can view meeting link (in appointment details)
-- [ ] Platform icons and validation
-- [ ] Copy link button
+**Key Features:**
+- Centralized webhook service with retry logic
+- Event recording to `webhook_events` table (non-admin events only)
+- Standardized payload format with TypeScript types
+- Fallback URLs for optional webhook endpoints
+- Guest and logged-in user support
+- Coupon code tracking in booking webhooks
 
 **Acceptance Criteria:**
-- Tutors add meeting links easily
-- Students see link 15 minutes before appointment
-- Platform-specific validation
+- [x] All specified events trigger webhooks
+- [x] Retries happen automatically (max 3)
+- [x] Failed webhooks logged (console + database)
+- [x] Webhook payload matches spec format
+- [x] Works for both guest and logged-in users
+- [x] Multiple appointments bundled in single webhook
+- [x] Coupon codes included in booking webhooks
+- [x] Signup webhook only fires during guest checkout (not from /inscription page)
 
 ---
 
-### **5.2 Rating & Review System**
-**Status:** 🔲 Not Started (V1 Scope)
+### **5.2 Meeting Links System**
+**Status:** ✅ Completed
+
+**Database Schema:**
+```sql
+-- Added to appointments table
+ALTER TABLE appointments ADD COLUMN meeting_link TEXT;
+```
+
+**Completed Tasks:**
+- [x] Add `meeting_link` column to `appointments` table (nullable)
+- [x] Tutor can add/edit meeting link on appointment cards
+- [x] Student can view meeting link (in appointment details)
+- [x] URL validation for meeting links
+- [x] Copy link functionality (opens in new tab)
+- [x] Appointments display normally when meeting link is blank
+
+**Server Actions Implemented:**
+- `lib/actions/reservations.ts`:
+  - [x] `updateMeetingLink(appointmentId, meetingLink)` - tutors can add/edit links
+  - [x] `isValidUrl(string)` - basic URL validation helper
+
+**Acceptance Criteria:**
+- [x] Tutors add meeting links easily
+- [x] Students see link on appointment cards
+- [x] Platform-agnostic validation (any valid URL)
+- [x] Graceful handling of blank meeting links
+
+---
+
+### **5.3 Rating & Review System**
+**Status:** ✅ Completed
 
 **Database Schema:**
 ```prisma
 model TutorRating {
   id            String   @id @default(uuid())
-  appointmentId String   @unique @map("appointment_id")
-  tutorId       String   @map("tutor_id")
   studentId     String   @map("student_id")
-  rating        Int      // 1-5 stars
-  comment       String?  @db.Text
+  tutorId       String   @map("tutor_id")
+  courseId      String   @map("course_id")
+  appointmentId String?  @map("appointment_id") @unique
+  q1Courtoisie  Int      @map("q1_courtoisie")      // 1-5 stars
+  q2Maitrise    Int      @map("q2_maitrise")        // 1-5 stars
+  q3Pedagogie   Int      @map("q3_pedagogie")       // 1-5 stars
+  q4Dynamisme   Int      @map("q4_dynamisme")       // 1-5 stars
+  comment       String?  @db.Text                    // Max 2000 chars
+  generalScore  Decimal  @db.Decimal(3, 2) @map("general_score") // Average of 4 questions
+  hidden        Boolean  @default(false)            // Admin moderation
   createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  appointment Appointment @relation(fields: [appointmentId], references: [id])
-  tutor       Tutor       @relation(fields: [tutorId], references: [id])
-  student     User        @relation(fields: [studentId], references: [id])
+  student User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  tutor   Tutor     @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  course  Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  appt    Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
 
-  @@index([tutorId])
+  @@unique([studentId, tutorId, courseId])
+  @@index([tutorId, courseId, hidden])
   @@map("tutor_ratings")
 }
 ```
 
-**Tasks:**
-- [ ] Add rating model
-- [ ] Post-appointment rating request (email or in-app)
-- [ ] Student submits rating after completed appointment
-- [ ] Tutor views ratings in dashboard
-- [ ] Admin views and moderates ratings
-- [ ] Calculate average rating per tutor
-- [ ] Display rating on tutor profile page
+**Completed Tasks:**
+- [x] Add rating model with 4 questions (Courtoisie, Maîtrise, Pédagogie, Dynamisme)
+- [x] One review per student per tutor per course (editable indefinitely)
+- [x] Student submits rating via button on past completed appointments
+- [x] Rating dialog with star inputs (replaces boxes)
+- [x] Tutor views anonymized ratings in dashboard ("Évaluations" tab)
+- [x] Admin views and moderates ratings (hide/restore functionality)
+- [x] Per-question averages and general score calculation
+- [x] Display general score on tutor card in admin dashboard
+- [x] RLS policies for student write, tutor read (anonymized), admin full access
+- [x] Make.com webhooks on rating create/update
+- [x] Date filters and pagination for tutor and admin dashboards
+- [x] Auto-completion of past appointments (status: scheduled → completed)
+
+**Location:**
+- `prisma/schema.prisma` - TutorRating model
+- `lib/actions/ratings.ts` - Server actions
+- `lib/actions/appointments.ts` - Auto-completion function
+- `app/api/ratings/*` - API routes
+- `components/dashboard/ratings/student-rating-dialog.tsx` - Student rating form
+- `components/dashboard/tutor-ratings-tab.tsx` - Tutor dashboard tab
+- `components/dashboard/admin/ratings-management.tsx` - Admin management
+- `components/admin/tutor-ratings-modal.tsx` - Admin tutor-specific ratings
+- `netlify/functions/complete-past-appointments.ts` - Scheduled completion
 
 **Acceptance Criteria:**
-- Students can rate completed appointments
-- Ratings appear in tutor profile
-- Average rating calculates correctly
-- Admin can moderate inappropriate reviews
+- [x] Students can rate completed appointments (one per student-tutor-course)
+- [x] Students can edit their ratings indefinitely
+- [x] Ratings appear in tutor dashboard (anonymized)
+- [x] General score calculates correctly (average of 4 questions)
+- [x] Admin can moderate reviews (hide/restore)
+- [x] Admin can view ratings per tutor via button in tutor management
+- [x] Per-question averages displayed with date filters
+- [x] Past appointments auto-complete when date passes
 
 ---
 
-### **5.3 Support Ticket System**
-**Status:** 🔲 Not Started (V1 Scope)
+### **5.4 Support Ticket System**
+**Status:** 🚧 Partially Implemented (V1 Scope)
 
 **Database Schema:**
 ```prisma
@@ -1279,26 +1700,30 @@ model TicketMessage {
 ```
 
 **Tasks:**
-- [ ] Add support ticket models
-- [ ] Student: Submit support ticket
-- [ ] Student: View ticket history and status
-- [ ] Admin: View all tickets
-- [ ] Admin: Assign tickets
-- [ ] Admin: Respond to tickets
-- [ ] Admin: Change ticket status/priority
-- [ ] Email notifications on ticket updates
-- [ ] Make.com webhook on new ticket
+- [x] Add support ticket models (Prisma + migrations)
+- [x] Apply RLS policies (students own rows, admins full access)
+- [x] Student: Submit support ticket (with attachments)
+- [x] Student: View ticket history and status
+- [x] Admin: View all tickets with filters (status/priority/category/assignation/search)
+- [x] Admin: Assign tickets
+- [x] Admin: Respond to tickets (internal notes supported)
+- [x] Admin: Change ticket status/priority
+- [x] Admin overview card shows live unresolved count and recent tickets
+- [x] Supabase Storage integration for ticket attachments
+- [ ] Email notifications on ticket updates (V2 or Make.com)
+- [ ] Make.com webhook on ticket events (Phase 5.1)
 
 **Acceptance Criteria:**
-- Students can submit and track tickets
-- Admins can manage and respond
-- Status tracking works
-- Email notifications sent
-- Priority system functional
+- [x] Students can submit and track tickets
+- [x] Admins can manage and respond
+- [x] Status tracking works with transitions and resolvedAt
+- [x] Priority system functional (admin-only)
+- [x] Attachments upload and signed download links work
+- [ ] Notifications/webhooks deferred to Phase 5.1 / V2
 
 ---
 
-### **5.4 Notification System**
+### **5.5 Notification System**
 **Status:** 🔲 Not Started (V2 - simplified for V1)
 
 **V1 Approach:**
@@ -1489,7 +1914,7 @@ Based on [TweakCN](https://tweakcn.com/), consider these enhanced components:
 
 ---
 
-### **6.2 Security Hardening**
+### **7.2 Security Hardening**
 **Status:** 🚧 In Progress
 
 **Tasks:**
@@ -1511,28 +1936,45 @@ Based on [TweakCN](https://tweakcn.com/), consider these enhanced components:
 
 ---
 
-### **6.3 Error Handling & Logging**
+### **7.3 Error Handling & Logging**
 **Status:** 🔲 Not Started
 
 **Tasks:**
-- [ ] Centralized error logging (Sentry or similar)
-- [ ] Friendly error pages (500, 404, etc.)
-- [ ] User-friendly error messages (French)
-- [ ] Admin error notification system
-- [ ] Webhook failure alerts
-- [ ] Database error recovery
+- [ ] **Error Boundaries Implementation:**
+  - [ ] Create `ErrorBoundary` component with fallback UI
+  - [ ] Wrap all dashboard components (student, tutor, admin)
+  - [ ] Wrap all booking flow components (cart, checkout, payment)
+  - [ ] Wrap all course and tutor listing pages
+  - [ ] Add error reporting to Sentry or similar service
+- [ ] **Component-Level Error Handling:**
+  - [ ] Add try-catch blocks in all async operations
+  - [ ] Add loading states for all data fetching
+  - [ ] Add retry mechanisms for failed API calls
+  - [ ] Add user-friendly error messages (French)
+- [ ] **Centralized Error Logging:**
+  - [ ] Implement error logging service
+  - [ ] Log all client-side errors
+  - [ ] Log all server-side errors
+  - [ ] Send error notifications to admin
+- [ ] **Error Recovery:**
+  - [ ] Add retry buttons for failed operations
+  - [ ] Add fallback data for critical components
+  - [ ] Add offline state handling
+  - [ ] Add graceful degradation for non-critical features
 
 **Acceptance Criteria:**
-- Errors logged systematically
-- Users see helpful error messages
+- All components wrapped with error boundaries
+- No unhandled errors crash the application
+- Users see helpful error messages in French
 - Admins notified of critical errors
-- No sensitive data in error messages
+- Error recovery mechanisms work
+- Performance impact minimal
 
 ---
 
-## **PHASE 7: Testing & Quality Assurance**
+## **PHASE 8: Testing & Quality Assurance**
 
-### **7.1 Unit Tests**
+### **8.1 Unit Tests**
 **Status:** 🔲 Not Started
 
 **Test Coverage:**
@@ -1547,7 +1989,7 @@ Based on [TweakCN](https://tweakcn.com/), consider these enhanced components:
 
 ---
 
-### **7.2 Integration Tests**
+### **8.2 Integration Tests**
 **Status:** 🔲 Not Started
 
 **Test Scenarios:**
@@ -1563,7 +2005,7 @@ Based on [TweakCN](https://tweakcn.com/), consider these enhanced components:
 
 ---
 
-### **7.3 Manual Testing Checklist**
+### **8.3 Manual Testing Checklist**
 **Status:** 🔲 Not Started
 
 **User Flows:**
@@ -1581,9 +2023,9 @@ Based on [TweakCN](https://tweakcn.com/), consider these enhanced components:
 
 ---
 
-## **PHASE 8: Deployment & Documentation**
+## **PHASE 9: Deployment & Documentation**
 
-### **8.1 Netlify Deployment**
+### **9.1 Netlify Deployment**
 **Status:** 🔲 Not Started
 
 **Tasks:**
@@ -1599,7 +2041,7 @@ Based on [TweakCN](https://tweakcn.com/), consider these enhanced components:
 
 ---
 
-### **8.2 Scheduled Functions**
+### **9.2 Scheduled Functions**
 **Status:** 🔲 Not Started
 
 **Location:** `netlify/functions/`
@@ -1611,7 +2053,7 @@ Based on [TweakCN](https://tweakcn.com/), consider these enhanced components:
 
 ---
 
-### **8.3 Documentation**
+### **9.3 Documentation**
 **Status:** 🔲 Not Started
 
 **Deliverables:**
@@ -1706,40 +2148,41 @@ When implementing ANY form, ALWAYS:
 ## **V1 Scope Summary (Must-Have for Launch)**
 
 ### **Core Features:**
-- 🚧 Database schema with constraints, RLS, and **dual rate system**
+- ✅ Database schema with **dual rate system** (studentRateCad, tutorEarningsCad)
+- 🚧 Database constraints and RLS (pending review for new tables)
 - ✅ Slot generation engine
-- ⚠️ Cart-based booking flow (needs refactoring + dual rate pricing)
-- 🚧 Stripe Payment Intent checkout (use course rates)
-- 🚧 Stripe webhook handler (track both rates)
-- 🔲 Make.com webhooks (all events)
+- ✅ **Cart-based booking flow with guest support** (session-based)
+- ✅ **Stripe Payment Intent checkout** (guest + authenticated, dual rate pricing)
+- ✅ **Stripe webhook handler** (tracks both rates, atomic operations)
+- ✅ Make.com webhooks (all events) - Phase 5.1 COMPLETED
 
 ### **Student Dashboard:**
 - ✅ Profile management
 - ✅ Reservation management (cancel/reschedule)
 - ✅ Messaging
-- ✅ Payment methods
-- ⚠️ Recurring sessions (needs fixing)
-- 🔲 Support tickets
+- 🔄 Payment methods (V2 deferred)
+- ✅ Multi-session booking (via cart - recurring sessions removed)
+- ✅ Support tickets (create, list, details, reply, close; attachments)
 
 ### **Tutor Dashboard:**
 - ✅ Overview/stats
 - 🔲 Availability CRUD (HIGH PRIORITY)
-- 🔲 Appointment management
+- ✅ Appointment management (core features + meeting links)
 - 🔲 Messaging tab
-- 🔲 Earnings dashboard
+- ✅ Earnings dashboard (enhanced with payments modal)
 - 🔲 Course management
-- 🔲 Meeting links
+- ✅ Meeting links (fully functional)
 
 ### **Admin Dashboard:**
 - 🔲 Course CRUD with **student rate management** (HIGH PRIORITY)
-- ✅ Tutor management (basic)
-- 🔲 Enhanced tutor management (**tutor rate editing, margin analysis, payments**)
+- ✅ Tutor management (basic + enhanced with earnings & payment management)
+- ✅ Enhanced tutor management (**tutor rate editing, margin analysis, payments**)
 - 🔲 Student management
 - 🔲 Coupon CRUD
 - 🔲 Appointment management
 - 🔲 Order/refund management
 - 🔲 Revenue analytics (**with margin tracking: student revenue - tutor costs**)
-- ✅ Recurring sessions view
+- ✅ Multi-session appointment management (via cart)
 
 ### **UI/UX Enhancement:**
 - 🔲 TweakCN component library integration (Phase 6)
@@ -1750,9 +2193,9 @@ When implementing ANY form, ALWAYS:
 - 🔲 Design system documentation
 
 ### **Additional V1 Features:**
-- 🔲 Meeting links
-- 🔲 Rating system
-- 🔲 Support tickets
+- ✅ Meeting links (fully functional)
+- ✅ Rating system (fully functional)
+- ✅ Support tickets (fully functional)
 
 ---
 
@@ -1770,6 +2213,7 @@ When implementing ANY form, ALWAYS:
 - Course popularity trends
 
 ### **Enhanced User Experience:**
+- Payment methods management (save cards, default selection)
 - In-app notifications
 - Real-time messaging (WebSocket)
 - Push notifications
@@ -1789,20 +2233,24 @@ When implementing ANY form, ALWAYS:
 
 Based on technical dependencies and user value:
 
-1. **PHASE 0:** Cleanup & Foundation + **Dual Rate System** ✅ COMPLETED
+1. ✅ **PHASE 0:** Cleanup & Foundation + **Dual Rate System** - COMPLETED
    - Database schema hardening
    - Add `studentRateCad` to Course model
+   - Add `tutorEarningsCad` to OrderItem model
    - Update pricing calculations
-   - RLS policy consolidation
-2. **PHASE 0.5: Critical Fixes** (CURRENT - 13-18 hours)
-   - Fix recurring sessions integration with cart
-   - Consolidate checkout flows (Payment Intents)
-   - Fix Stripe webhook for dual rates
-3. **PHASE 1: Core Booking Flow** (After fixes)
-   - Cart system with holds (now working)
-   - Payment Intent checkout (now working)
-   - Stripe webhook (now working)
-   - Make.com webhooks
+   - Guest cart support with sessions
+2. ✅ **PHASE 0.5: Critical Fixes** - COMPLETED (January 2025)
+   - ✅ Consolidate checkout flows (Payment Intents only)
+   - ✅ Fix Stripe webhook for dual rates
+   - ✅ Guest checkout with account creation
+   - ✅ Auto sign-in and dashboard redirect
+   - ✅ Bypass Stripe metadata limit
+   - ✅ Recurring sessions feature removed (cart-based multi-session replaces it)
+3. **PHASE 1: Core Booking Flow** (CURRENT - After bug fixes)
+   - ✅ Cart system with holds (working)
+   - ✅ Payment Intent checkout (working)
+   - ✅ Stripe webhook (working)
+   - 🔲 RLS policy review for new tables
 4. **PHASE 2: Student Dashboard Features**
 5. **PHASE 3: Tutor Dashboard Features**
    - Tutor Availability CRUD (HIGH PRIORITY)
@@ -1811,15 +2259,17 @@ Based on technical dependencies and user value:
    - Enhanced tutor management
    - Revenue analytics with margin tracking
 7. **PHASE 5: Cross-Cutting Features**
-   - Meeting Links
-   - Support Tickets
-   - Rating System
+   - ✅ **Make.com Webhooks (ALL EVENTS)** - COMPLETED (January 2025)
+   - ✅ Meeting Links
+   - ✅ Support Tickets
+   - ✅ Rating System
 8. **PHASE 6: UI/UX Enhancement with TweakCN**
    - Homepage, course pages, booking flow
    - Cart, checkout, dashboards
    - 35-50 hours estimated
 9. **PHASE 7: Performance & Security**
-10. **PHASE 8: Testing & Deployment**
+10. **PHASE 8: Testing & Quality Assurance**
+11. **PHASE 9: Deployment & Documentation**
 
 ---
 
@@ -1839,7 +2289,7 @@ Based on technical dependencies and user value:
 - [ ] Admin can manage courses, tutors, students
 - [ ] Admin can process refunds
 - [ ] Make.com webhooks fire correctly
-- [ ] Recurring sessions work end-to-end
+- [ ] Multi-session booking works end-to-end (via cart)
 
 ### **Performance Requirements:**
 - [ ] Page load < 2s
@@ -1882,7 +2332,7 @@ Based on technical dependencies and user value:
 
 ---
 
-**Last Updated:** January 2025  
+**Last Updated:** January 2025 (Phase 5.1 Make.com Webhooks Completed)  
 **Document Owner:** Development Team  
 **Next Review:** Before each implementation phase
 

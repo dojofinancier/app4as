@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { withRetry } from '@/lib/database-connection'
 import { calculateStudentPrice } from '@/lib/pricing'
 import {
   type TimeSlot,
@@ -18,6 +19,7 @@ import {
   endOfDay,
   isBefore,
   isAfter,
+  isEqual,
   isWithinInterval,
   parseISO,
   format,
@@ -74,7 +76,7 @@ export async function getAvailableSlots(
         tutorId: tc.tutor.id,
         tutorName: tc.tutor.displayName,
         tutorPriority: tc.tutor.priority,
-        hourlyBaseRate: tc.tutor.hourlyBaseRateCad.toNumber(),
+        hourlyBaseRate: Number(tc.tutor.hourlyBaseRateCad),
         windows: availability,
       }
     })
@@ -120,37 +122,64 @@ async function getTutorAvailability(
   fromDate: Date,
   toDate: Date
 ): Promise<AvailabilityWindow[]> {
-  // Get recurring availability rules
-  const rules = await prisma.availabilityRule.findMany({
-    where: { tutorId },
+  // Get recurring availability rules with retry logic
+  const rules = await withRetry(async () => {
+    return await prisma.availabilityRule.findMany({
+      where: { tutorId },
+    })
   })
 
-  // Get exceptions
-  const exceptions = await prisma.availabilityException.findMany({
-    where: {
-      tutorId,
-      date: {
-        gte: format(fromDate, 'yyyy-MM-dd'),
-        lte: format(toDate, 'yyyy-MM-dd'),
+  // Get exceptions with retry logic - use proper Date objects
+  const exceptions = await withRetry(async () => {
+    return await prisma.availabilityException.findMany({
+      where: {
+        tutorId,
+        OR: [
+          // Exception covers the entire date range
+          {
+            startDate: {
+              lte: fromDate,
+            },
+            endDate: {
+              gte: toDate,
+            },
+          },
+          // Exception starts within the date range
+          {
+            startDate: {
+              gte: fromDate,
+              lt: toDate,
+            },
+          },
+          // Exception ends within the date range
+          {
+            endDate: {
+              gt: fromDate,
+              lte: toDate,
+            },
+          },
+        ],
       },
-    },
+    })
   })
 
-  // Get time off
-  const timeOffs = await prisma.timeOff.findMany({
-    where: {
-      tutorId,
-      OR: [
-        {
-          startDatetime: {
-            lte: toDate,
+  // Get time off with retry logic
+  const timeOffs = await withRetry(async () => {
+    return await prisma.timeOff.findMany({
+      where: {
+        tutorId,
+        OR: [
+          {
+            startDatetime: {
+              lte: toDate,
+            },
+            endDatetime: {
+              gte: fromDate,
+            },
           },
-          endDatetime: {
-            gte: fromDate,
-          },
-        },
-      ],
-    },
+        ],
+      },
+    })
   })
 
   const windows: AvailabilityWindow[] = []
@@ -162,19 +191,30 @@ async function getTutorAvailability(
   while (isBefore(currentDate, endDate)) {
     const weekday = currentDate.getDay()
 
-    // Check for exceptions first
-    const dateStr = format(currentDate, 'yyyy-MM-dd')
-    const dateExceptions = exceptions.filter((ex) => ex.date === dateStr)
+    // Check for exceptions first - use string comparison to avoid timezone issues
+    const dateExceptions = exceptions.filter((ex) => {
+      // Convert dates to YYYY-MM-DD format for comparison
+      const currentDateStr = format(currentDate, 'yyyy-MM-dd')
+      const exceptionStartStr = format(new Date(ex.startDate), 'yyyy-MM-dd')
+      const exceptionEndStr = format(new Date(ex.endDate), 'yyyy-MM-dd')
+      
+      return currentDateStr >= exceptionStartStr && currentDateStr <= exceptionEndStr
+    })
 
     if (dateExceptions.length > 0) {
-      // Use exceptions instead of regular rules
-      dateExceptions
-        .filter((ex) => ex.isOpen)
-        .forEach((ex) => {
-          const start = parseDateTimeFromParts(currentDate, ex.startTime)
-          const end = parseDateTimeFromParts(currentDate, ex.endTime)
-          windows.push({ startDatetime: start, endDatetime: end })
-        })
+      // Check if any exception makes this day unavailable
+      const unavailableExceptions = dateExceptions.filter((ex) => ex.isUnavailable)
+      if (unavailableExceptions.length > 0) {
+        // Skip this day - tutor is unavailable
+        currentDate = addDays(currentDate, 1)
+        continue
+      }
+      
+      // If there are available exceptions, use them instead of regular rules
+      // Note: The new schema doesn't have time slots in exceptions, only full-day availability
+      // So we skip days with exceptions for now (they're either unavailable or we need to implement time-specific exceptions)
+      currentDate = addDays(currentDate, 1)
+      continue
     } else {
       // Use regular rules for this weekday
       const dayRules = rules.filter((rule) => rule.weekday === weekday)
@@ -213,16 +253,18 @@ async function getBookedSlots(
 ): Promise<BookedSlot[]> {
   const slots: BookedSlot[] = []
 
-  // Get appointments
-  const appointments = await prisma.appointment.findMany({
-    where: {
-      tutorId: { in: tutorIds },
-      startDatetime: {
-        gte: fromDate,
-        lte: toDate,
+  // Get appointments with retry logic
+  const appointments = await withRetry(async () => {
+    return await prisma.appointment.findMany({
+      where: {
+        tutorId: { in: tutorIds },
+        startDatetime: {
+          gte: fromDate,
+          lte: toDate,
+        },
+        status: { in: ['scheduled', 'completed'] },
       },
-      status: { in: ['scheduled', 'completed'] },
-    },
+    })
   })
 
   slots.push(
@@ -233,19 +275,21 @@ async function getBookedSlots(
     }))
   )
 
-  // Get non-expired holds
+  // Get non-expired holds with retry logic
   const now = new Date()
-  const holds = await prisma.slotHold.findMany({
-    where: {
-      tutorId: { in: tutorIds },
-      startDatetime: {
-        gte: fromDate,
-        lte: toDate,
+  const holds = await withRetry(async () => {
+    return await prisma.slotHold.findMany({
+      where: {
+        tutorId: { in: tutorIds },
+        startDatetime: {
+          gte: fromDate,
+          lte: toDate,
+        },
+        expiresAt: {
+          gt: now,
+        },
       },
-      expiresAt: {
-        gt: now,
-      },
-    },
+    })
   })
 
   slots.push(
@@ -301,7 +345,7 @@ function generateSlotsForTutor(
       const availableDurations = VALID_DURATIONS.filter((duration) => {
         const slotEnd = addMinutes(currentSlotStart, duration)
         return (
-          !isAfter(slotEnd, window.endDatetime) &&
+          isBefore(slotEnd, window.endDatetime) || isEqual(slotEnd, window.endDatetime) &&
           !isSlotBooked(currentSlotStart, slotEnd, bookedSlots)
         )
       })

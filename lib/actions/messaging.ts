@@ -95,7 +95,7 @@ export async function sendMessage(data: {
       content: message.content,
       appointmentId: message.appointmentId || undefined,
       appointmentTitle: message.appointment?.course.titleFr,
-      timestamp: message.createdAt.toISOString()
+      timestamp: message.createdAt?.toISOString() || new Date().toISOString()
     })
 
     revalidatePath('/tableau-de-bord')
@@ -181,14 +181,14 @@ export async function getConversation(participantId: string) {
     // Serialize the data
     const serializedMessages = messages.map(msg => ({
       ...msg,
-      createdAt: msg.createdAt.toISOString(),
+      createdAt: msg.createdAt?.toISOString() || new Date().toISOString(),
       appointment: msg.appointment ? {
         ...msg.appointment,
         startDatetime: msg.appointment.startDatetime.toISOString()
       } : null,
       attachments: msg.attachments.map(attachment => ({
         ...attachment,
-        createdAt: attachment.createdAt.toISOString()
+        createdAt: attachment.createdAt?.toISOString() || new Date().toISOString()
       }))
     }))
 
@@ -286,7 +286,7 @@ export async function getConversations() {
           participant,
           latestMessage: latestMessage ? {
             ...latestMessage,
-            createdAt: latestMessage.createdAt.toISOString(),
+            createdAt: latestMessage.createdAt?.toISOString() || new Date().toISOString(),
             sender: {
               ...latestMessage.sender,
               isCurrentUser: latestMessage.sender.id === currentUser.id
@@ -353,6 +353,81 @@ export async function getUnreadMessageCount() {
     return { success: true, count: unreadCount }
   } catch (error) {
     console.error('Error fetching unread message count:', error)
+    return { success: false, error: 'Une erreur est survenue' }
+  }
+}
+
+export async function getUnreadMessageCountForStudent(studentId: string) {
+  try {
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      return { success: false, error: 'Non autorisé' }
+    }
+
+    // For tutors, count unread messages from this specific student
+    const unreadCount = await prisma.message.count({
+      where: {
+        senderId: studentId,
+        receiverId: currentUser.id,
+        isRead: false
+      }
+    })
+
+    return { success: true, count: unreadCount }
+  } catch (error) {
+    console.error('Error fetching unread message count for student:', error)
+    return { success: false, error: 'Une erreur est survenue' }
+  }
+}
+
+export async function getTutorStudents() {
+  try {
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      return { success: false, error: 'Non autorisé' }
+    }
+
+    // Get all students who have appointments with this tutor
+    const students = await prisma.appointment.findMany({
+      where: {
+        tutorId: currentUser.id,
+        status: { in: ['scheduled', 'completed'] }
+      },
+      select: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true
+          }
+        }
+      },
+      distinct: ['userId']
+    })
+
+    // Count appointments for each student
+    const studentsWithCounts = await Promise.all(
+      students.map(async (appointment) => {
+        const appointmentCount = await prisma.appointment.count({
+          where: {
+            tutorId: currentUser.id,
+            userId: appointment.user.id,
+            status: { in: ['scheduled', 'completed'] }
+          }
+        })
+
+        return {
+          ...appointment.user,
+          appointmentCount
+        }
+      })
+    )
+
+    return { success: true, students: studentsWithCounts }
+  } catch (error) {
+    console.error('Error fetching tutor students:', error)
     return { success: false, error: 'Une erreur est survenue' }
   }
 }

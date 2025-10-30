@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/actions/auth'
 import { prisma } from '@/lib/prisma'
 import { getStudentAppointments } from '@/lib/actions/reservations'
+import { autoCompletePastAppointments } from '@/lib/actions/appointments'
 import { StudentDashboard } from '@/components/dashboard/student-dashboard'
 import { TutorDashboard } from '@/components/dashboard/tutor-dashboard'
 import { AdminDashboard } from '@/components/dashboard/admin-dashboard'
@@ -18,7 +19,15 @@ export default async function DashboardPage() {
   // Render different dashboards based on role
   switch (user.role) {
     case 'admin':
-      return <AdminDashboard user={user} />
+      // Serialize user for client components (admin case)
+      const serializedAdminUser = {
+        ...user,
+        tutor: user.tutor ? {
+          ...user.tutor,
+          hourlyBaseRateCad: Number(user.tutor.hourlyBaseRateCad),
+        } : null,
+      }
+      return <AdminDashboard user={serializedAdminUser} />
     case 'tutor':
       // Check if user has a tutor profile first
       const tutorProfile = await prisma.tutor.findUnique({
@@ -71,6 +80,9 @@ export default async function DashboardPage() {
       let tutorAvailability: { rules: any[]; exceptions: any[]; timeOffs: any[] } = { rules: [], exceptions: [], timeOffs: [] }
 
       try {
+        // Auto-complete past appointments first
+        await autoCompletePastAppointments()
+
         const [appointments, availabilityData] = await Promise.all([
           // Get tutor appointments
           prisma.appointment.findMany({
@@ -90,6 +102,10 @@ export default async function DashboardPage() {
                   id: true,
                   titleFr: true,
                   slug: true,
+                  descriptionFr: true,
+                  active: true,
+                  createdAt: true,
+                  studentRateCad: true,
                 },
               },
               orderItem: {
@@ -109,7 +125,7 @@ export default async function DashboardPage() {
             }),
             prisma.availabilityException.findMany({
               where: { tutorId: user.id },
-              orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+              orderBy: { startDate: 'asc' },
             }),
             prisma.timeOff.findMany({
               where: { tutorId: user.id },
@@ -129,12 +145,46 @@ export default async function DashboardPage() {
         // Continue with empty data rather than crashing
       }
 
+      // Serialize user for client components (tutor case)
+      const serializedTutorUser = {
+        ...user,
+      }
+
+      // Serialize tutor profile for client components
+      const serializedTutorProfile = {
+        ...tutorProfile,
+        hourlyBaseRateCad: Number(tutorProfile.hourlyBaseRateCad),
+        tutorCourses: tutorProfile.tutorCourses.map(tc => ({
+          ...tc,
+          course: {
+            ...tc.course,
+            studentRateCad: Number(tc.course.studentRateCad),
+          }
+        }))
+      }
+
+      // Serialize appointments for client components
+      const serializedTutorAppointments = tutorAppointments.map(apt => ({
+        ...apt,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        course: {
+          ...apt.course,
+          studentRateCad: Number(apt.course.studentRateCad),
+        },
+        orderItem: apt.orderItem ? {
+          ...apt.orderItem,
+          unitPriceCad: Number(apt.orderItem.unitPriceCad),
+          lineTotalCad: Number(apt.orderItem.lineTotalCad),
+        } : null
+      }))
+
       return (
         <TutorDashboard
-          user={user}
-          tutorProfile={tutorProfile}
-          appointments={tutorAppointments}
-          availability={tutorAvailability}
+          tutorId={user.id}
+          tutorName={tutorProfile.displayName}
+          tutorProfile={serializedTutorProfile}
+          appointments={serializedTutorAppointments}
         />
       )
     default:
@@ -148,12 +198,46 @@ export default async function DashboardPage() {
         }),
       ])
 
+      // Serialize orders for client components
+      const serializedOrders = orders.map(order => ({
+        ...order,
+        totalCad: Number(order.totalCad),
+        subtotalCad: Number(order.subtotalCad),
+        discountCad: Number(order.discountCad),
+      }))
+
+      // Serialize appointments (convert Prisma Decimal and ensure plain objects)
+      const serializedAppointments = appointments.map(apt => ({
+        ...apt,
+        course: apt.course ? {
+          ...apt.course,
+          studentRateCad: Number((apt.course as any).studentRateCad ?? 0),
+        } : null,
+        tutor: apt.tutor ? {
+          ...apt.tutor,
+          hourlyBaseRateCad: Number((apt.tutor as any).hourlyBaseRateCad ?? 0),
+        } : null,
+        orderItem: apt.orderItem ? {
+          ...apt.orderItem,
+          unitPriceCad: Number((apt.orderItem as any).unitPriceCad ?? 0),
+          lineTotalCad: Number((apt.orderItem as any).lineTotalCad ?? 0),
+          tutorEarningsCad: apt.orderItem && (apt.orderItem as any).tutorEarningsCad != null ? Number((apt.orderItem as any).tutorEarningsCad) : null,
+          hoursWorked: apt.orderItem && (apt.orderItem as any).hoursWorked != null ? Number((apt.orderItem as any).hoursWorked) : null,
+          rateAtTime: apt.orderItem && (apt.orderItem as any).rateAtTime != null ? Number((apt.orderItem as any).rateAtTime) : null,
+        } : null,
+      }))
+
+      // Serialize user for client components
+      const serializedUser = {
+        ...user,
+      }
+
       return (
         <StripeProvider>
           <StudentDashboard
-            user={user}
-            appointments={appointments as any}
-            orders={orders}
+            user={serializedUser}
+            appointments={serializedAppointments as any}
+            orders={serializedOrders}
           />
         </StripeProvider>
       )

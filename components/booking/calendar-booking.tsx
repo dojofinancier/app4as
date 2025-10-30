@@ -18,10 +18,10 @@ interface TimeSlot {
 
 interface CalendarBookingProps {
   courseId: string
-  tutorId: string
   onSlotSelect: (slot: TimeSlot) => void
   selectedDuration: number
   selectedSessions?: TimeSlot[]
+  selectedTutorId?: string
 }
 
 const TIME_SLOTS = [
@@ -32,10 +32,10 @@ const TIME_SLOTS = [
 
 export function CalendarBooking({ 
   courseId, 
-  tutorId, 
   onSlotSelect, 
   selectedDuration,
-  selectedSessions = []
+  selectedSessions = [],
+  selectedTutorId = 'all'
 }: CalendarBookingProps) {
   const [currentMonth, setCurrentMonth] = useState<Date | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -54,7 +54,14 @@ export function CalendarBooking({
   const fetchAvailableSlots = async (date: Date): Promise<TimeSlot[]> => {
     try {
       const dateStr = format(date, 'yyyy-MM-dd')
-      const response = await fetch(`/api/course-availability?courseId=${courseId}&date=${dateStr}&duration=${selectedDuration}`)
+      let url = `/api/course-availability?courseId=${courseId}&date=${dateStr}&duration=${selectedDuration}`
+      
+      // Add tutorId parameter if a specific tutor is selected
+      if (selectedTutorId !== 'all') {
+        url += `&tutorId=${selectedTutorId}`
+      }
+      
+      const response = await fetch(url)
       
       if (!response.ok) {
         throw new Error('Failed to fetch availability')
@@ -78,7 +85,14 @@ export function CalendarBooking({
   const hasAvailability = async (date: Date): Promise<boolean> => {
     try {
       const dateStr = format(date, 'yyyy-MM-dd')
-      const response = await fetch(`/api/course-availability?courseId=${courseId}&date=${dateStr}&duration=${selectedDuration}`)
+      let url = `/api/course-availability?courseId=${courseId}&date=${dateStr}&duration=${selectedDuration}`
+      
+      // Add tutorId parameter if a specific tutor is selected
+      if (selectedTutorId !== 'all') {
+        url += `&tutorId=${selectedTutorId}`
+      }
+      
+      const response = await fetch(url)
       
       if (!response.ok) {
         return false
@@ -96,7 +110,14 @@ export function CalendarBooking({
     setLoading(true)
     try {
       const slots = await fetchAvailableSlots(date)
-      setAvailableSlots(slots)
+      
+      // Filter slots by selected tutor if not "all"
+      let filteredSlots = slots
+      if (selectedTutorId !== 'all') {
+        filteredSlots = slots.filter(slot => (slot as any).tutorId === selectedTutorId)
+      }
+      
+      setAvailableSlots(filteredSlots)
     } catch (error) {
       console.error('Error loading available slots:', error)
       setAvailableSlots([])
@@ -139,11 +160,34 @@ export function CalendarBooking({
     onSlotSelect(slot)
   }
 
+  // Helper function to check if two time slots overlap
+  const slotsOverlap = (slot1: TimeSlot, slot2: TimeSlot): boolean => {
+    // Two slots overlap if one starts before the other ends
+    return slot1.start < slot2.end && slot2.start < slot1.end
+  }
+
   const isSlotSelected = (slot: TimeSlot) => {
-    return selectedSessions.some(session => 
-      session.start.getTime() === slot.start.getTime() &&
-      session.end.getTime() === slot.end.getTime()
-    )
+    return selectedSessions.some(session => {
+      const timeMatch = session.start.getTime() === slot.start.getTime() &&
+                       session.end.getTime() === slot.end.getTime()
+      
+      if (selectedTutorId === 'all') {
+        return timeMatch
+      } else {
+        return timeMatch && (session as any).tutorId === (slot as any).tutorId
+      }
+    })
+  }
+
+  const isSlotConflicting = (slot: TimeSlot) => {
+    return selectedSessions.some(session => {
+      if (selectedTutorId === 'all') {
+        return slotsOverlap(slot, session)
+      } else {
+        // For specific tutor mode, only check overlap if it's the same tutor
+        return (session as any).tutorId === (slot as any).tutorId && slotsOverlap(slot, session)
+      }
+    })
   }
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -172,7 +216,7 @@ export function CalendarBooking({
     if (selectedDate) {
       loadAvailableSlots(selectedDate)
     }
-  }, [selectedDate, selectedDuration])
+  }, [selectedDate, selectedDuration, selectedTutorId])
 
   // Don't render until currentMonth is initialized
   if (!currentMonth) {
@@ -297,13 +341,18 @@ export function CalendarBooking({
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {availableSlots.map((slot, index) => {
                 const isSelected = isSlotSelected(slot)
+                const isConflicting = isSlotConflicting(slot)
+                const isDisabled = isSelected || isConflicting
+                
                 return (
                   <Button
                     key={index}
                     variant={isSelected ? "default" : "outline"}
-                    className="w-full h-12 flex items-center justify-center gap-2"
+                    className={`w-full h-12 flex items-center justify-center gap-2 ${
+                      isConflicting ? "opacity-50 bg-gray-100 border-gray-300 text-gray-500" : ""
+                    }`}
                     onClick={() => handleSlotSelect(slot)}
-                    disabled={isSelected}
+                    disabled={isDisabled}
                   >
                     <span className="text-sm font-medium">
                       {format(slot.start, 'HH:mm')} - {format(slot.end, 'HH:mm')}

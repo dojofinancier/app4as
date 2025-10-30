@@ -10,6 +10,7 @@ async function main() {
     where: { slug: 'mathematiques-secondaire' },
     update: {},
     create: {
+      code: 'MATH-SEC',
       slug: 'mathematiques-secondaire',
       titleFr: 'Mathématiques - Secondaire',
       descriptionFr:
@@ -22,6 +23,7 @@ async function main() {
     where: { slug: 'francais-secondaire' },
     update: {},
     create: {
+      code: 'FR-SEC',
       slug: 'francais-secondaire',
       titleFr: 'Français - Secondaire',
       descriptionFr:
@@ -34,6 +36,7 @@ async function main() {
     where: { slug: 'sciences-secondaire' },
     update: {},
     create: {
+      code: 'SCI-SEC',
       slug: 'sciences-secondaire',
       titleFr: 'Sciences - Secondaire',
       descriptionFr:

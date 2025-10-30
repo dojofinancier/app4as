@@ -7,6 +7,19 @@ import { frCA } from '@/lib/i18n/fr-CA'
 export async function Navbar() {
   const user = await getCurrentUser()
 
+  // Serialize user object for client components
+  const serializedUser = user ? {
+    id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    stripeCustomerId: user.stripeCustomerId,
+    defaultPaymentMethodId: user.defaultPaymentMethodId,
+    createdAt: user.createdAt,
+  } : null
+
   return (
     <nav className="border-b">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -32,19 +45,21 @@ export async function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
-          {user ? (
+          {serializedUser ? (
             <>
-              <Link href="/panier">
-                <Button variant="ghost" size="sm">
-                  Panier
-                </Button>
-              </Link>
+              {serializedUser.role === 'student' && (
+                <Link href="/panier">
+                  <Button variant="ghost" size="sm">
+                    Panier
+                  </Button>
+                </Link>
+              )}
               <Link href="/tableau-de-bord">
                 <Button variant="ghost" size="sm">
                   {frCA.nav.dashboard}
                 </Button>
               </Link>
-              <UserMenu user={user} />
+              <UserMenu user={serializedUser} />
             </>
           ) : (
             <>

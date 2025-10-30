@@ -1,72 +1,108 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { createClient } from '@/lib/supabase/server'
-import { CANCELLATION_CUTOFF_HOURS } from '@/lib/slots/types'
+import { sendAppointmentCompletedWebhook } from '@/lib/webhooks/make'
 
 /**
- * Cancel an appointment (if within allowed time window)
+ * Auto-complete past appointments that are still scheduled
+ * Updates appointments where endDatetime < now AND status = 'scheduled' to 'completed'
+ * Also updates related orderItem earningsStatus to 'earned'
  */
-export async function cancelAppointment(appointmentId: string) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Non autorisé' }
-  }
-
+export async function autoCompletePastAppointments() {
   try {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId },
-    })
-
-    if (!appointment) {
-      return { success: false, error: 'Rendez-vous introuvable' }
-    }
-
-    if (appointment.userId !== user.id) {
-      return { success: false, error: 'Non autorisé' }
-    }
-
-    if (appointment.status !== 'scheduled') {
-      return {
-        success: false,
-        error: 'Ce rendez-vous ne peut pas être annulé',
-      }
-    }
-
-    // Check if within cancellation window
     const now = new Date()
-    const cutoffTime = new Date(
-      appointment.startDatetime.getTime() -
-        CANCELLATION_CUTOFF_HOURS * 60 * 60 * 1000
-    )
 
-    if (now > cutoffTime) {
-      return {
-        success: false,
-        error: frCA.errors.cannotCancelLate,
+    // Find all scheduled appointments that have passed
+    const pastAppointments = await prisma.appointment.findMany({
+      where: {
+        status: 'scheduled',
+        endDatetime: {
+          lt: now
+        }
+      },
+      include: {
+        orderItem: {
+          select: {
+            id: true
+          }
+        }
       }
-    }
-
-    // Update appointment status
-    await prisma.appointment.update({
-      where: { id: appointmentId },
-      data: { status: 'cancelled' },
     })
 
-    revalidatePath('/tableau-de-bord')
-    return { success: true }
+    if (pastAppointments.length === 0) {
+      return { success: true, count: 0 }
+    }
+
+    // Update appointments and orderItems in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const appointmentIds = pastAppointments.map(apt => apt.id)
+      const orderItemIds = pastAppointments
+        .map(apt => apt.orderItem?.id)
+        .filter((id): id is string => !!id)
+
+      // Update appointments to completed
+      const updatedAppointments = await tx.appointment.updateMany({
+        where: {
+          id: { in: appointmentIds }
+        },
+        data: {
+          status: 'completed'
+        }
+      })
+
+      // Update orderItems earningsStatus to 'earned'
+      if (orderItemIds.length > 0) {
+        await tx.orderItem.updateMany({
+          where: {
+            id: { in: orderItemIds }
+          },
+          data: {
+            earningsStatus: 'earned'
+          }
+        })
+      }
+
+      return updatedAppointments.count
+    })
+
+    // Send completion webhooks for each completed appointment
+    try {
+      for (const appointment of pastAppointments) {
+        const appointmentWithDetails = await prisma.appointment.findUnique({
+          where: { id: appointment.id },
+          include: {
+            user: true,
+            tutor: {
+              include: { user: true }
+            },
+            course: true,
+            orderItem: true
+          }
+        })
+
+        if (appointmentWithDetails && appointmentWithDetails.orderItem) {
+          await sendAppointmentCompletedWebhook({
+            appointmentId: appointmentWithDetails.id,
+            userId: appointmentWithDetails.userId,
+            tutorId: appointmentWithDetails.tutorId,
+            courseId: appointmentWithDetails.courseId,
+            courseTitleFr: appointmentWithDetails.course.titleFr,
+            startDatetime: appointmentWithDetails.startDatetime.toISOString(),
+            endDatetime: appointmentWithDetails.endDatetime.toISOString(),
+            durationMin: Math.round((appointmentWithDetails.endDatetime.getTime() - appointmentWithDetails.startDatetime.getTime()) / 60000),
+            tutorEarningsCad: Number(appointmentWithDetails.orderItem.tutorEarningsCad),
+            completedAt: new Date().toISOString()
+          })
+        }
+      }
+    } catch (webhookError) {
+      // Don't fail auto-completion if webhooks fail
+      console.error('Error sending completion webhooks:', webhookError)
+    }
+
+    return { success: true, count: result }
   } catch (error) {
-    console.error('Error cancelling appointment:', error)
-    return { success: false, error: 'Une erreur est survenue' }
+    console.error('Error auto-completing past appointments:', error)
+    return { success: false, error: 'Une erreur est survenue', count: 0 }
   }
 }
-
-// Import frCA for error message
-import { frCA } from '@/lib/i18n/fr-CA'
-
-

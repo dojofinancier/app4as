@@ -342,6 +342,21 @@ export function validateCoupon(coupon: {
   return { valid: true }
 }
 
+/**
+ * Check if coupon is expired and should be deactivated
+ * @param coupon - Coupon object from database
+ * @returns true if coupon should be deactivated
+ */
+export function isCouponExpired(coupon: {
+  active: boolean
+  endsAt: Date | null
+}): boolean {
+  if (!coupon.active) return false
+  
+  const now = new Date()
+  return coupon.endsAt ? now > coupon.endsAt : false
+}
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================

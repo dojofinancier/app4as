@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Calendar, Repeat, Clock, DollarSign } from 'lucide-react'
+import { Calendar, Clock, DollarSign } from 'lucide-react'
 
 interface BookingTypeSelectorProps {
   tutor: {
@@ -21,7 +21,6 @@ interface BookingTypeSelectorProps {
   }
   duration: number
   onSelectOneOff: () => void
-  onSelectRecurring: () => void
 }
 
 export function BookingTypeSelector({
@@ -30,7 +29,6 @@ export function BookingTypeSelector({
   selectedSlot,
   duration,
   onSelectOneOff,
-  onSelectRecurring
 }: BookingTypeSelectorProps) {
   const calculateOneOffPrice = () => {
     const multiplier = duration === 60 ? 1 : duration === 90 ? 1.5 : 2
@@ -101,29 +99,6 @@ export function BookingTypeSelector({
               </div>
             </button>
 
-            {/* Recurring Sessions */}
-            <button
-              onClick={onSelectRecurring}
-              className="p-4 border rounded-lg text-left hover:border-primary hover:bg-primary/5 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Repeat className="h-6 w-6 text-muted-foreground" />
-                  <div>
-                    <h3 className="font-medium">Sessions récurrentes</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Sessions régulières (hebdomadaires ou bi-hebdomadaires)
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">À partir de</div>
-                  <div className="text-sm text-muted-foreground">
-                    {(calculateOneOffPrice() * 3).toFixed(2)} $ CAD
-                  </div>
-                </div>
-              </div>
-            </button>
           </div>
 
           {/* Info */}

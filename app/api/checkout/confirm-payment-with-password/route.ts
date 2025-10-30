@@ -29,25 +29,53 @@ export async function POST(request: NextRequest) {
     // Parse cart data
     const cartData = JSON.parse(paymentIntentData.cartData)
     
-    // Create user account with Supabase Auth
+    // Check if user already exists
     const supabase = await createClient()
     
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // First, try to sign in to see if user exists
+    const { data: existingUser, error: signInError } = await supabase.auth.signInWithPassword({
       email: billingAddress.email,
-      password: password,
-      options: {
-        data: {
-          first_name: billingAddress.firstName,
-          last_name: billingAddress.lastName,
-          phone: billingAddress.phone,
-        }
-      }
+      password: password
     })
 
+    let authData: any = existingUser
+    let authError = signInError
+
+    // If sign in failed, try to create new account
+    if (signInError) {
+      const { data: newUserData, error: signUpError } = await supabase.auth.signUp({
+        email: billingAddress.email,
+        password: password,
+        options: {
+          data: {
+            first_name: billingAddress.firstName,
+            last_name: billingAddress.lastName,
+            phone: billingAddress.phone,
+          }
+        }
+      })
+
+      authData = newUserData
+      authError = signUpError
+
+      // If sign up failed because user already exists, return specific error
+      if (signUpError && signUpError.code === 'user_already_exists') {
+        return NextResponse.json(
+          { 
+            error: 'Un compte existe déjà avec cette adresse email',
+            code: 'USER_ALREADY_EXISTS',
+            message: 'Veuillez vous connecter avec votre compte existant'
+          },
+          { status: 409 }
+        )
+      }
+
+    }
+
     if (authError) {
-      console.error('Error creating user account:', authError)
+      console.error('Error with user authentication:', authError)
       return NextResponse.json(
-        { error: 'Erreur lors de la création du compte' },
+        { error: 'Erreur lors de l\'authentification' },
         { status: 400 }
       )
     }
@@ -59,17 +87,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create the user record in our database
-    await prisma.user.create({
-      data: {
-        id: authData.user.id,
-        email: billingAddress.email,
-        firstName: billingAddress.firstName,
-        lastName: billingAddress.lastName,
-        phone: billingAddress.phone,
-        role: 'student'
+    // Create the user record in our database (only if it doesn't exist)
+    let isNewUser = false
+    try {
+      await prisma.user.create({
+        data: {
+          id: authData.user.id,
+          email: billingAddress.email,
+          firstName: billingAddress.firstName,
+          lastName: billingAddress.lastName,
+          phone: billingAddress.phone,
+          role: 'student'
+        }
+      })
+      isNewUser = true // User was created (new signup)
+    } catch (error: any) {
+      // If user already exists in database, that's fine - continue with the order
+      if (error.code !== 'P2002') { // P2002 is unique constraint violation
+        throw error
       }
-    })
+    }
 
     // Create orders and appointments for the new user
     const result = await prisma.$transaction(async (tx) => {
@@ -131,16 +168,88 @@ export async function POST(request: NextRequest) {
       return { order, orderItems, appointments }
     })
 
-    // Sign in the user
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: billingAddress.email,
-      password: password
-    })
+    // Send Make.com webhook for booking confirmation
+    try {
+      const orderWithDetails = await prisma.order.findUnique({
+        where: { id: result.order.id },
+        include: {
+          items: {
+            include: {
+              course: true,
+              tutor: {
+                include: {
+                  user: true
+                }
+              },
+              appointment: true
+            }
+          }
+        }
+      })
 
-    if (signInError) {
-      console.error('Error signing in user:', signInError)
-      // Don't fail the request, user account was created successfully
+      if (orderWithDetails) {
+        const { sendBookingCreatedWebhook, sendSignupWebhook } = await import('@/lib/webhooks/make')
+        
+        // Send signup webhook if this is a new user (guest checkout account creation)
+        if (isNewUser) {
+          try {
+            const newUser = await prisma.user.findUnique({
+              where: { id: orderWithDetails.userId },
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                role: true,
+                createdAt: true
+              }
+            })
+            
+            if (newUser) {
+              await sendSignupWebhook({
+                userId: newUser.id,
+                role: newUser.role,
+                email: newUser.email,
+                firstName: newUser.firstName,
+                lastName: newUser.lastName,
+                createdAt: newUser.createdAt.toISOString()
+              })
+            }
+          } catch (signupWebhookError) {
+            // Don't fail if signup webhook fails
+            console.error('Error sending signup webhook:', signupWebhookError)
+          }
+        }
+        
+        // Send booking created webhook
+        await sendBookingCreatedWebhook({
+          orderId: orderWithDetails.id,
+          userId: orderWithDetails.userId,
+          currency: orderWithDetails.currency || 'CAD',
+          subtotalCad: Number(orderWithDetails.subtotalCad),
+          discountCad: Number(orderWithDetails.discountCad),
+          totalCad: Number(orderWithDetails.totalCad),
+          couponCode: cartData.couponCode || undefined,
+          items: orderWithDetails.items.map(item => ({
+            appointmentId: item.appointment?.id || '',
+            courseId: item.courseId,
+            courseTitleFr: item.course.titleFr,
+            tutorId: item.tutorId,
+            tutorName: item.tutor.displayName,
+            startDatetime: item.startDatetime.toISOString(),
+            durationMin: item.durationMin,
+            priceCad: Number(item.lineTotalCad),
+            tutorEarningsCad: Number(item.tutorEarningsCad)
+          })),
+          createdAt: orderWithDetails.createdAt.toISOString()
+        })
+      }
+    } catch (webhookError) {
+      // Don't fail the request if webhook fails
+      console.error('Error sending booking.created webhook:', webhookError)
     }
+
+    // User is already signed in from the authentication step above
 
     return NextResponse.json({ 
       success: true, 

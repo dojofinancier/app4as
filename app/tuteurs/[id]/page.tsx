@@ -8,10 +8,12 @@ import { Button } from '@/components/ui/button'
 export default async function TutorProfilePage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
+  const { id } = await params
+  
   const tutor = await prisma.tutor.findUnique({
-    where: { id: params.id, active: true },
+    where: { id, active: true },
     include: {
       user: true,
       tutorCourses: {

@@ -1,104 +1,169 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { getAdminUserPaymentMethod } from '@/lib/actions/payment-methods'
-import { CreditCard, Search, User, Mail, Phone, Calendar } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { 
+  Search, 
+  User, 
+  Mail, 
+  Phone, 
+  Calendar, 
+  DollarSign,
+  Loader2,
+  Eye,
+  SortAsc,
+  SortDesc
+} from 'lucide-react'
+import { getAllStudents } from '@/lib/actions/admin'
+import { StudentDetailsModal } from './student-details-modal'
 
 interface Student {
   id: string
   firstName: string
   lastName: string
   email: string
-  phone?: string
-  role: string
-  stripeCustomerId?: string
-  defaultPaymentMethodId?: string
+  phone?: string | null
   createdAt: Date
+  totalSpent: number
+  totalRefunded: number
+  netSpent: number
 }
+
+type SortBy = 'name' | 'createdAt' | 'totalSpent'
+type SortOrder = 'asc' | 'desc'
 
 export function StudentManagement() {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<any>(null)
-  const [loadingPaymentMethod, setLoadingPaymentMethod] = useState(false)
+  const [sortBy, setSortBy] = useState<SortBy>('createdAt')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+  const [hasMore, setHasMore] = useState(true)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    fetchStudents()
-  }, [])
+  const fetchStudents = useCallback(async (cursor?: string, append = false) => {
+    const loadingState = append ? setLoadingMore : setLoading
+    loadingState(true)
+    setError(null)
 
-  const fetchStudents = async () => {
     try {
-      // TODO: Replace with actual API call
-      // Mock data for now
-      const mockStudents: Student[] = [
-        {
-          id: '1',
-          firstName: 'Jean',
-          lastName: 'Dupont',
-          email: 'jean.dupont@email.com',
-          phone: '+1-514-123-4567',
-          role: 'student',
-          stripeCustomerId: 'cus_1234567890',
-          defaultPaymentMethodId: 'pm_1234567890',
-          createdAt: new Date('2024-01-15')
-        },
-        {
-          id: '2',
-          firstName: 'Marie',
-          lastName: 'Martin',
-          email: 'marie.martin@email.com',
-          phone: '+1-514-987-6543',
-          role: 'student',
-          stripeCustomerId: 'cus_0987654321',
-          defaultPaymentMethodId: undefined,
-          createdAt: new Date('2024-02-20')
+      const result = await getAllStudents({
+        cursor,
+        limit: 20,
+        sortBy,
+        sortOrder,
+        search: searchTerm || undefined
+      })
+
+      if (result.success && result.data) {
+        const newStudents = result.data.students.map(student => ({
+          ...student,
+          createdAt: new Date(student.createdAt)
+        }))
+
+        if (append) {
+          setStudents(prev => [...prev, ...newStudents])
+        } else {
+          setStudents(newStudents)
         }
-      ]
-      setStudents(mockStudents)
-    } catch (error) {
-      console.error('Error fetching students:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
-  const handleViewPaymentMethod = async (student: Student) => {
-    setSelectedStudent(student)
-    setLoadingPaymentMethod(true)
-    
-    try {
-      const result = await getAdminUserPaymentMethod(student.id)
-      if (result.success) {
-        setPaymentMethod(result.paymentMethod)
+        setHasMore(result.data.hasMore)
+        setNextCursor(result.data.nextCursor)
       } else {
-        console.error('Error fetching payment method:', result.error)
-        setPaymentMethod(null)
+        setError(result.error || 'Erreur lors du chargement des étudiants')
       }
     } catch (error) {
-      console.error('Error fetching payment method:', error)
-      setPaymentMethod(null)
+      console.error('Error fetching students:', error)
+      setError('Une erreur est survenue')
     } finally {
-      setLoadingPaymentMethod(false)
+      loadingState(false)
+    }
+  }, [sortBy, sortOrder, searchTerm])
+
+  const loadMore = () => {
+    if (hasMore && nextCursor && !loadingMore) {
+      fetchStudents(nextCursor, true)
     }
   }
 
-  const filteredStudents = students.filter(student =>
-    student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Debounced search
+  useEffect(() => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
 
-  if (loading) {
+    const timeout = setTimeout(() => {
+      setStudents([])
+      setNextCursor(null)
+      setHasMore(true)
+      fetchStudents()
+    }, 500)
+
+    setSearchTimeout(timeout)
+
+    return () => {
+      if (timeout) clearTimeout(timeout)
+    }
+  }, [searchTerm, fetchStudents])
+
+  // Load students on mount and when sort changes
+  useEffect(() => {
+    setStudents([])
+    setNextCursor(null)
+    setHasMore(true)
+    fetchStudents()
+  }, [sortBy, sortOrder])
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore, nextCursor])
+
+  const handleSortChange = (newSortBy: SortBy) => {
+    if (sortBy === newSortBy) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(newSortBy)
+      setSortOrder('desc')
+    }
+  }
+
+  const getSortIcon = (field: SortBy) => {
+    if (sortBy !== field) return null
+    return sortOrder === 'asc' ? 
+      <SortAsc className="h-4 w-4" /> : 
+      <SortDesc className="h-4 w-4" />
+  }
+
+  if (loading && students.length === 0) {
     return (
       <Card>
         <CardContent className="p-6">
           <div className="text-center text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
             Chargement des étudiants...
           </div>
         </CardContent>
@@ -108,111 +173,169 @@ export function StudentManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Search */}
-      <div className="flex items-center space-x-2">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Rechercher un étudiant..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
+      {/* Search and Sort Controls */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex items-center space-x-2 flex-1">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par nom, email ou téléphone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-1"
+          />
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Trier par:</span>
+          <Button
+            variant={sortBy === 'name' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleSortChange('name')}
+            className="flex items-center gap-2"
+          >
+            Nom {getSortIcon('name')}
+          </Button>
+          <Button
+            variant={sortBy === 'createdAt' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleSortChange('createdAt')}
+            className="flex items-center gap-2"
+          >
+            Date d'inscription {getSortIcon('createdAt')}
+          </Button>
+          <Button
+            variant={sortBy === 'totalSpent' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleSortChange('totalSpent')}
+            className="flex items-center gap-2"
+          >
+            Montant dépensé {getSortIcon('totalSpent')}
+          </Button>
+        </div>
       </div>
 
       {/* Students List */}
-      <div className="grid gap-4">
-        {filteredStudents.map((student) => (
-          <Card key={student.id}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <User className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">
-                        {student.firstName} {student.lastName}
-                      </p>
-                      <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                        <div className="flex items-center space-x-1">
-                          <Mail className="h-3 w-3" />
-                          <span>{student.email}</span>
-                        </div>
-                        {student.phone && (
-                          <div className="flex items-center space-x-1">
-                            <Phone className="h-3 w-3" />
-                            <span>{student.phone}</span>
+      {error ? (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center text-destructive">
+              {error}
+            </div>
+          </CardContent>
+        </Card>
+      ) : students.length === 0 ? (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center text-muted-foreground">
+              <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Aucun étudiant trouvé</p>
+              <p className="text-sm">
+                {searchTerm ? 'Aucun étudiant ne correspond à votre recherche.' : 'Aucun étudiant enregistré.'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {students.map((student) => (
+            <Card key={student.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4 flex-1">
+                    <div className="flex items-center space-x-3">
+                      <User className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">
+                          {student.firstName} {student.lastName}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mt-1">
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            <span>{student.email}</span>
                           </div>
-                        )}
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="h-3 w-3" />
-                          <span>
-                            Membre depuis {student.createdAt.toLocaleDateString('fr-CA')}
-                          </span>
+                          {student.phone && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              <span>{student.phone}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>Inscrit le {formatDate(student.createdAt)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Badge variant={student.defaultPaymentMethodId ? "default" : "secondary"}>
-                    {student.defaultPaymentMethodId ? "Carte enregistrée" : "Aucune carte"}
-                  </Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleViewPaymentMethod(student)}
-                  >
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Voir la carte
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                  
+                  <div className="flex items-center space-x-4">
+                    {/* Financial Summary */}
+                    <div className="text-right">
+                      <div className="flex items-center gap-2 mb-1">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Total dépensé:</span>
+                      </div>
+                      <div className="text-lg font-bold">
+                        {formatCurrency(student.netSpent)}
+                      </div>
+                      {student.totalRefunded > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          (Remboursé: {formatCurrency(student.totalRefunded)})
+                        </div>
+                      )}
+                    </div>
 
-      {/* Payment Method Modal */}
-      {selectedStudent && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Méthode de paiement - {selectedStudent.firstName} {selectedStudent.lastName}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loadingPaymentMethod ? (
-              <div className="text-center text-muted-foreground">
-                Chargement de la méthode de paiement...
-              </div>
-            ) : paymentMethod ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 p-4 border rounded-lg">
-                  <CreditCard className="h-8 w-8 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">
-                      •••• •••• •••• {paymentMethod.card.last4}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {paymentMethod.card.brand.toUpperCase()} • Expire {paymentMethod.card.exp_month}/{paymentMethod.card.exp_year}
-                    </p>
+
+                    {/* View Details Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedStudentId(student.id)}
+                      className="flex items-center gap-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Voir détails
+                    </Button>
                   </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  <p><strong>ID Stripe:</strong> {paymentMethod.id}</p>
-                  <p><strong>Type:</strong> {paymentMethod.type}</p>
-                  <p><strong>Client Stripe:</strong> {selectedStudent.stripeCustomerId}</p>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Load More Trigger */}
+          {hasMore && (
+            <div ref={loadMoreRef} className="py-4">
+              {loadingMore ? (
+                <div className="text-center text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                  Chargement...
                 </div>
-              </div>
-            ) : (
-              <div className="text-center text-muted-foreground">
-                Aucune méthode de paiement enregistrée
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={loadMore}
+                  className="w-full"
+                >
+                  Charger plus d'étudiants
+                </Button>
+              )}
+            </div>
+          )}
+
+          {!hasMore && students.length > 0 && (
+            <div className="text-center text-muted-foreground py-4 text-sm">
+              Tous les étudiants ont été chargés
+            </div>
+          )}
+        </div>
       )}
+
+      {/* Student Details Modal */}
+      <StudentDetailsModal
+        studentId={selectedStudentId}
+        isOpen={!!selectedStudentId}
+        onClose={() => setSelectedStudentId(null)}
+      />
     </div>
   )
 }

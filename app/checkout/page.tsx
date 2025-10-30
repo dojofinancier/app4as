@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements } from '@stripe/react-stripe-js'
@@ -38,7 +38,7 @@ interface Cart {
   items: CartItem[]
   coupon?: {
     code: string
-    type: 'percentage' | 'fixed'
+    type: 'percent' | 'fixed'
     value: number
   }
 }
@@ -50,6 +50,38 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState<Cart | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [initializationComplete, setInitializationComplete] = useState(false)
+  const paymentIntentCreatedRef = useRef(false)
+
+  // Function to create payment intent when needed
+  const createPaymentIntent = async () => {
+    if (paymentIntentCreatedRef.current) {
+      console.log('Payment intent already created, skipping...')
+      return
+    }
+
+    try {
+      console.log('Creating payment intent...')
+      const paymentResponse = await fetch('/api/checkout/create-payment-intent', {
+        method: 'POST',
+      })
+
+      if (!paymentResponse.ok) {
+        throw new Error('Failed to create payment intent')
+      }
+
+      const { clientSecret: secret, paymentIntentId: piId } = await paymentResponse.json()
+      console.log('Payment intent created successfully:', piId)
+      setClientSecret(secret)
+      setPaymentIntentId(piId)
+      paymentIntentCreatedRef.current = true
+    } catch (error) {
+      console.error('Error creating payment intent:', error)
+      setError('Erreur lors de la création du paiement')
+    }
+  }
+
 
   useEffect(() => {
     const initializeCheckout = async () => {
@@ -72,23 +104,14 @@ export default function CheckoutPage() {
 
         setCart(cartData)
 
-        // Create Payment Intent (now supports guest users)
-        const paymentResponse = await fetch('/api/checkout/create-payment-intent', {
-          method: 'POST',
-        })
-
-        if (!paymentResponse.ok) {
-          throw new Error('Failed to create payment intent')
-        }
-
-        const { clientSecret: secret, paymentIntentId: piId } = await paymentResponse.json()
-        setClientSecret(secret)
-        setPaymentIntentId(piId)
+        // Always create payment intent (simplified - no credit system)
+        await createPaymentIntent()
       } catch (error) {
         console.error('Error initializing checkout:', error)
         router.push('/panier')
       } finally {
         setLoading(false)
+        setInitializationComplete(true)
       }
     }
 
@@ -106,7 +129,10 @@ export default function CheckoutPage() {
     )
   }
 
-  if (!cart || !clientSecret) {
+  // Only check clientSecret requirements after initialization is complete
+  const requiresClientSecret = initializationComplete
+  
+  if (!cart || (requiresClientSecret && !clientSecret)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -124,7 +150,7 @@ export default function CheckoutPage() {
     return sum + lineTotal
   }, 0)
   const discount = cart.coupon ? 
-    (cart.coupon.type === 'percentage' ? 
+    (cart.coupon.type === 'percent' ? 
       totalPrice * (cart.coupon.value / 100) : 
       cart.coupon.value) : 0
   const finalTotal = totalPrice - discount
@@ -230,31 +256,81 @@ export default function CheckoutPage() {
             </Card>
           </div>
 
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6">
+              <Card className="border-red-200 bg-red-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <div className="h-5 w-5 rounded-full bg-red-100 flex items-center justify-center">
+                        <span className="text-red-600 text-sm">!</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-red-800 text-sm">{error}</p>
+                      {error.includes('compte existant') && (
+                        <div className="mt-3">
+                          <Link href="/connexion">
+                            <Button variant="outline" size="sm" className="text-red-700 border-red-300 hover:bg-red-100">
+                              Se connecter
+                            </Button>
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setError(null)}
+                      className="flex-shrink-0 text-red-400 hover:text-red-600"
+                    >
+                      <span className="sr-only">Fermer</span>
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+
           {/* Payment Form */}
           <div>
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Lock className="h-5 w-5" />
-                  Paiement sécurisé
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Elements stripe={stripePromise} options={{ clientSecret }}>
-                  <PaymentIntentCheckoutForm
-                    cart={cart}
-                    user={currentUser}
-                    clientSecret={clientSecret}
-                    onSuccess={(paymentIntentId) => {
-                      router.push('/tableau-de-bord')
-                    }}
-                    onError={(error) => {
-                      console.error('Payment error:', error)
-                    }}
-                  />
-                </Elements>
-              </CardContent>
-            </Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Lock className="h-5 w-5" />
+                    Paiement sécurisé
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {clientSecret ? (
+                    <Elements 
+                      key={paymentIntentId} 
+                      stripe={stripePromise} 
+                      options={{ clientSecret }}
+                    >
+                      <PaymentIntentCheckoutForm
+                        cart={cart}
+                        user={currentUser}
+                        clientSecret={clientSecret}
+                        onSuccess={(paymentIntentId) => {
+                          router.push('/tableau-de-bord')
+                        }}
+                        onError={(errorMessage) => {
+                          console.error('Payment error:', errorMessage)
+                          setError(errorMessage)
+                        }}
+                      />
+                    </Elements>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">Chargement du formulaire de paiement...</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
           </div>
         </div>
       </div>

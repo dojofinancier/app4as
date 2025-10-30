@@ -33,7 +33,7 @@ interface Cart {
   items: CartItem[]
   coupon?: {
     code: string
-    type: 'percentage' | 'fixed'
+    type: 'percent' | 'fixed'
     value: number
   }
 }
@@ -56,7 +56,6 @@ export function PaymentIntentCheckoutForm({
   const stripe = useStripe()
   const elements = useElements()
   const [loading, setLoading] = useState(false)
-  const [saveCard, setSaveCard] = useState(false)
   const [billingAddress, setBillingAddress] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -75,7 +74,7 @@ export function PaymentIntentCheckoutForm({
     return sum + lineTotal
   }, 0)
   const discount = cart.coupon ? 
-    (cart.coupon.type === 'percentage' ? 
+    (cart.coupon.type === 'percent' ? 
       totalPrice * (cart.coupon.value / 100) : 
       cart.coupon.value) : 0
   const finalTotal = totalPrice - discount
@@ -162,6 +161,13 @@ export function PaymentIntentCheckoutForm({
 
             if (!response.ok) {
               const errorData = await response.json()
+              
+              // Handle specific error for existing user
+              if (errorData.code === 'USER_ALREADY_EXISTS') {
+                onError(`Un compte existe déjà avec l'adresse email ${billingAddress.email}. Veuillez vous connecter avec votre compte existant.`)
+                return
+              }
+              
               throw new Error(errorData.error || 'Erreur lors de la création du compte')
             }
 
@@ -344,17 +350,6 @@ export function PaymentIntentCheckoutForm({
           </CardContent>
         </Card>
 
-        {/* Save Card Option */}
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="saveCard"
-            checked={saveCard}
-            onCheckedChange={(checked) => setSaveCard(checked as boolean)}
-          />
-          <Label htmlFor="saveCard" className="text-sm">
-            Sauvegarder cette carte pour les prochains achats
-          </Label>
-        </div>
       </div>
 
       {/* Order Total */}

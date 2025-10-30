@@ -11,27 +11,99 @@ import { AppointmentCard } from './appointment-card'
 import { ProfileManagementTab } from './profile-management-tab'
 import { ReservationManagementTab } from './reservation-management-tab'
 import { MessagingTab } from '../messaging/messaging-tab'
-import { Calendar, User as UserIcon, Settings, BookOpen, MessageCircle } from 'lucide-react'
+import { SupportTicketsTab } from './support-tickets-tab'
+import { Calendar, User as UserIcon, Settings, BookOpen, MessageCircle, HelpCircle } from 'lucide-react'
 import type { Appointment, Course, Tutor, User, Order } from '@prisma/client'
 
 interface StudentDashboardProps {
-  user: User
-  appointments: (Appointment & {
-    course: Course
-    tutor: Tutor & { user: User }
-  })[]
-  orders: Order[]
+  user: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+    phone: string | null
+    role: string
+    stripeCustomerId: string | null
+    defaultPaymentMethodId: string | null
+    createdAt: Date
+  }
+  appointments: Array<{
+    id: string
+    userId: string
+    tutorId: string
+    courseId: string
+    startDatetime: Date
+    endDatetime: Date
+    status: string
+    createdAt: Date
+    updatedAt: Date
+    course: {
+      id: string
+      slug: string
+      titleFr: string
+      descriptionFr: string
+      active: boolean
+      createdAt: Date
+      studentRateCad: number
+    }
+    tutor: {
+      id: string
+      displayName: string
+      bioFr: string
+      hourlyBaseRateCad: number
+      priority: number
+      active: boolean
+      user: {
+        id: string
+        firstName: string
+        lastName: string
+        email: string
+        phone: string | null
+        role: string
+      }
+    }
+  }>
+  orders: Array<{
+    id: string
+    userId: string
+    subtotalCad: number
+    discountCad: number
+    totalCad: number
+    currency: string
+    stripePaymentIntentId: string | null
+    stripeCheckoutSessionId: string | null
+    status: string
+    createdAt: Date
+  }>
 }
 
 export function StudentDashboard({
   user,
-  appointments,
+  appointments: initialAppointments,
   orders,
 }: StudentDashboardProps) {
   const searchParams = useSearchParams()
-  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'reservations' | 'messages'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'reservations' | 'messages' | 'tickets'>('overview')
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null)
   const [selectedTutorInfo, setSelectedTutorInfo] = useState<any>(null)
+  const [appointments, setAppointments] = useState(initialAppointments)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Function to refresh appointments
+  const refreshAppointments = async () => {
+    setIsRefreshing(true)
+    try {
+      const response = await fetch('/api/debug/appointments-detailed?email=' + encodeURIComponent(user.email))
+      if (response.ok) {
+        const data = await response.json()
+        setAppointments(data.appointments)
+      }
+    } catch (error) {
+      console.error('Error refreshing appointments:', error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   // Handle URL parameters
   useEffect(() => {
@@ -58,12 +130,13 @@ export function StudentDashboard({
   }, [searchParams])
   
   const now = new Date()
-  const upcomingAppointments = appointments.filter(
-    (apt) => new Date(apt.startDatetime) > now && apt.status === 'scheduled'
-  )
-  const pastAppointments = appointments.filter(
-    (apt) => new Date(apt.startDatetime) <= now || apt.status !== 'scheduled'
-  )
+  const upcomingAppointments = appointments
+    .filter((apt) => new Date(apt.startDatetime) > now && apt.status === 'scheduled')
+    .sort((a, b) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime())
+  const pastAppointments = appointments
+    .filter((apt) => new Date(apt.startDatetime) <= now || apt.status !== 'scheduled')
+    .sort((a, b) => new Date(b.startDatetime).getTime() - new Date(a.startDatetime).getTime())
+
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -106,6 +179,13 @@ export function StudentDashboard({
           <MessageCircle className="h-4 w-4 mr-2" />
           Messages
         </Button>
+        <Button
+          variant={activeTab === 'tickets' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('tickets')}
+        >
+          <HelpCircle className="h-4 w-4 mr-2" />
+          Support
+        </Button>
       </div>
 
       {/* Overview Tab */}
@@ -115,10 +195,22 @@ export function StudentDashboard({
           {/* Upcoming Appointments */}
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>{frCA.dashboard.student.upcomingAppointments}</CardTitle>
-              <CardDescription>
-                {upcomingAppointments.length} rendez-vous à venir
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>{frCA.dashboard.student.upcomingAppointments}</CardTitle>
+                  <CardDescription>
+                    {upcomingAppointments.length} rendez-vous à venir
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshAppointments}
+                  disabled={isRefreshing}
+                >
+                  {isRefreshing ? 'Actualisation...' : 'Actualiser'}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {upcomingAppointments.length === 0 ? (
@@ -141,7 +233,17 @@ export function StudentDashboard({
           {/* Past Appointments */}
           <Card>
             <CardHeader>
-              <CardTitle>{frCA.dashboard.student.pastAppointments}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>{frCA.dashboard.student.pastAppointments}</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshAppointments}
+                  disabled={isRefreshing}
+                >
+                  {isRefreshing ? 'Actualisation...' : 'Actualiser'}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {pastAppointments.length === 0 ? (
@@ -241,7 +343,6 @@ export function StudentDashboard({
           role: user.role,
           stripeCustomerId: user.stripeCustomerId,
           defaultPaymentMethodId: user.defaultPaymentMethodId,
-          creditBalance: Number(user.creditBalance),
           createdAt: user.createdAt
         }} />
       )}
@@ -254,6 +355,11 @@ export function StudentDashboard({
       {/* Messages Tab */}
       {activeTab === 'messages' && (
         <MessagingTab selectedTutorInfo={selectedTutorInfo} />
+      )}
+
+      {/* Support Tickets Tab */}
+      {activeTab === 'tickets' && (
+        <SupportTicketsTab userId={user.id} />
       )}
     </div>
   )

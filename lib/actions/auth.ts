@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
-import { sendSignupWebhook } from '@/lib/webhooks/make'
+// Signup webhook removed - signups only happen via guest checkout
 
 export async function signUp(data: {
   email: string
@@ -27,29 +27,22 @@ export async function signUp(data: {
     return { success: false, error: 'Échec de la création du compte' }
   }
 
-  // Create user in database
-  try {
-    const user = await prisma.user.create({
-      data: {
-        id: authData.user.id,
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        role: 'student', // Default role
-      },
-    })
+    // Create user in database
+    try {
+      const user = await prisma.user.create({
+        data: {
+          id: authData.user.id,
+          email: data.email,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          role: 'student', // Default role
+        },
+      })
 
-    // Send signup webhook
-    await sendSignupWebhook({
-      userId: user.id,
-      role: user.role,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      createdAt: user.createdAt.toISOString(),
-    })
+      // Note: Signup webhook removed - signups only happen via guest checkout
+      // The signup webhook will fire when they complete their first booking
 
-    return { success: true }
+      return { success: true }
   } catch (error) {
     console.error('Error creating user:', error)
     return { success: false, error: 'Erreur lors de la création du profil' }

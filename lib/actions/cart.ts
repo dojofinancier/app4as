@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
 import { addMinutes } from 'date-fns'
-import { calculateStudentPrice, validateCoupon } from '@/lib/pricing'
+import { calculateStudentPrice, validateCoupon, isCouponExpired } from '@/lib/pricing'
 import type { Duration } from '@/lib/slots/types'
 import { getCartSessionId, getOrCreateCartSessionId } from '@/lib/utils/session'
 
@@ -60,7 +60,7 @@ export async function addToCart(data: {
   if (user) {
     identity = { userId: user.id }
   } else {
-    const existing = getCartSessionId() || getOrCreateCartSessionId()
+    const existing = await getCartSessionId() || await getOrCreateCartSessionId()
     identity = { sessionId: existing }
     // Set session id for RLS policies (if configured)
     try {
@@ -195,14 +195,29 @@ export async function addToCart(data: {
 /**
  * Remove item from cart and release slot hold
  */
-export async function removeFromCart(cartItemId: string) {
+export async function removeFromCart(cartItemId: string, sessionId?: string) {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { success: false, error: 'Non autorisé' }
+  // Determine identity (user or guest session)
+  let identity: { userId?: string; sessionId?: string }
+  if (user) {
+    identity = { userId: user.id }
+  } else {
+    // Use provided sessionId or try to get from server-side cookies as fallback
+    const existing = sessionId || await getCartSessionId()
+    if (!existing) {
+      return { success: false, error: 'Session de panier introuvable' }
+    }
+    identity = { sessionId: existing }
+    // Set session id for RLS policies (if configured)
+    try {
+      await prisma.$executeRaw`select set_config('app.cart_session_id', ${existing}, true)`
+    } catch (e) {
+      // ignore if not configured
+    }
   }
 
   try {
@@ -213,7 +228,16 @@ export async function removeFromCart(cartItemId: string) {
       },
     })
 
-    if (!cartItem || cartItem.cart.userId !== user.id) {
+    if (!cartItem) {
+      return { success: false, error: 'Élément introuvable' }
+    }
+
+    // Check if the cart belongs to the current user/session
+    const cartBelongsToUser = identity.userId 
+      ? cartItem.cart.userId === identity.userId
+      : cartItem.cart.sessionId === identity.sessionId
+
+    if (!cartBelongsToUser) {
       return { success: false, error: 'Élément introuvable' }
     }
 
@@ -223,9 +247,10 @@ export async function removeFromCart(cartItemId: string) {
         where: { id: cartItemId },
       })
 
+      // Delete slot hold - use the appropriate identity
       await tx.slotHold.deleteMany({
         where: {
-          userId: user.id,
+          ...(identity.userId ? { userId: identity.userId } : { sessionId: identity.sessionId }),
           tutorId: cartItem.tutorId,
           startDatetime: cartItem.startDatetime,
         },
@@ -268,7 +293,60 @@ export async function applyCoupon(code: string) {
       return { success: false, error: validation.reason }
     }
 
+    // Check if coupon is expired and deactivate it
+    if (isCouponExpired(coupon)) {
+      // Deactivate expired coupon
+      await prisma.coupon.update({
+        where: { id: coupon.id },
+        data: { active: false }
+      })
+      return { success: false, error: 'Ce code promo a expiré' }
+    }
+
     const cart = await getOrCreateCartByIdentity({ userId: user.id })
+
+    await prisma.cart.update({
+      where: { id: cart.id },
+      data: { couponId: coupon.id },
+    })
+
+    revalidatePath('/panier')
+    return { success: true }
+  } catch (error) {
+    console.error('Error applying coupon:', error)
+    return { success: false, error: 'Une erreur est survenue' }
+  }
+}
+
+/**
+ * Apply coupon to guest cart
+ */
+export async function applyCouponGuest(code: string, sessionId: string) {
+  try {
+    const coupon = await prisma.coupon.findUnique({
+      where: { code: code.toUpperCase() },
+    })
+
+    if (!coupon) {
+      return { success: false, error: 'Code promo invalide' }
+    }
+
+    const validation = validateCoupon(coupon)
+    if (!validation.valid) {
+      return { success: false, error: validation.reason }
+    }
+
+    // Check if coupon is expired and deactivate it
+    if (isCouponExpired(coupon)) {
+      // Deactivate expired coupon
+      await prisma.coupon.update({
+        where: { id: coupon.id },
+        data: { active: false }
+      })
+      return { success: false, error: 'Ce code promo a expiré' }
+    }
+
+    const cart = await getOrCreateCartByIdentity({ sessionId })
 
     await prisma.cart.update({
       where: { id: cart.id },
@@ -298,6 +376,26 @@ export async function removeCoupon() {
 
   try {
     const cart = await getOrCreateCartByIdentity({ userId: user.id })
+
+    await prisma.cart.update({
+      where: { id: cart.id },
+      data: { couponId: null },
+    })
+
+    revalidatePath('/panier')
+    return { success: true }
+  } catch (error) {
+    console.error('Error removing coupon:', error)
+    return { success: false, error: 'Une erreur est survenue' }
+  }
+}
+
+/**
+ * Remove coupon from guest cart
+ */
+export async function removeCouponGuest(sessionId: string) {
+  try {
+    const cart = await getOrCreateCartByIdentity({ sessionId })
 
     await prisma.cart.update({
       where: { id: cart.id },

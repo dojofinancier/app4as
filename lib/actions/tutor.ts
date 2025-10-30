@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { createClient } from '@/lib/supabase/server'
+import { sendBookingCancelledWebhook } from '@/lib/webhooks/make'
 import { CANCELLATION_CUTOFF_HOURS } from '@/lib/slots/types'
 import { addMinutes } from 'date-fns'
 import type { AppointmentStatus } from '@prisma/client'
@@ -209,8 +209,35 @@ export async function cancelTutorAppointment(
     // Update appointment status
     await prisma.appointment.update({
       where: { id: appointmentId },
-      data: { status: 'cancelled' },
+      data: { 
+        status: 'cancelled',
+        cancellationReason: reason || 'Annulé par tuteur',
+        cancelledBy: user.id,
+        cancelledAt: new Date()
+      }
     })
+
+    // Send cancellation webhook
+    try {
+      await sendBookingCancelledWebhook({
+        appointmentId: appointment.id,
+        userId: appointment.userId,
+        tutorId: appointment.tutorId,
+        courseId: appointment.courseId,
+        courseTitleFr: appointment.course.titleFr,
+        cancelledBy: 'tutor',
+        cancelledById: user.id,
+        cancellationReason: reason || 'Annulé par tuteur',
+        startDatetime: appointment.startDatetime.toISOString(),
+        endDatetime: appointment.endDatetime.toISOString(),
+        durationMin: Math.round((appointment.endDatetime.getTime() - appointment.startDatetime.getTime()) / 60000),
+        priceCad: 0, // Will need to fetch from orderItem if needed
+        timestamp: new Date().toISOString()
+      })
+    } catch (webhookError) {
+      // Don't fail cancellation if webhook fails
+      console.error('Error sending cancellation webhook:', webhookError)
+    }
 
     // TODO: Send notification to student
     // TODO: Process refund if applicable
@@ -335,7 +362,7 @@ export async function getTutorAvailability(tutorId: string) {
       }),
       prisma.availabilityException.findMany({
         where: { tutorId },
-        orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+        orderBy: { startDate: 'asc' },
       }),
       prisma.timeOff.findMany({
         where: { tutorId },
