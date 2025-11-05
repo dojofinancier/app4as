@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
+import { createClient } from '@/lib/supabase/server'
 import { sendBookingCancelledWebhook } from '@/lib/webhooks/make'
 import { CANCELLATION_CUTOFF_HOURS } from '@/lib/slots/types'
 import { addMinutes } from 'date-fns'
@@ -239,8 +240,10 @@ export async function cancelTutorAppointment(
       console.error('Error sending cancellation webhook:', webhookError)
     }
 
-    // TODO: Send notification to student
-    // TODO: Process refund if applicable
+    // Future enhancements:
+    // - Send email notification to student about cancellation
+    // - Process refund if cancellation is within refund policy window
+    // - Update order status if needed
 
     revalidatePath('/tableau-de-bord')
     return { success: true }
@@ -332,8 +335,9 @@ export async function rescheduleTutorAppointment(
       },
     })
 
-    // TODO: Send notification to student
-    // TODO: Update order item if duration changed
+    // Future enhancements:
+    // - Send email notification to student about reschedule
+    // - Update order item pricing if duration changed (recalculate tutor earnings)
 
     revalidatePath('/tableau-de-bord')
     return { success: true }

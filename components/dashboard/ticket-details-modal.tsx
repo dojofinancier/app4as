@@ -23,7 +23,7 @@ interface TicketDetailsModalProps {
 
 export function TicketDetailsModal({ ticketId, isOpen, onClose, onUpdate }: TicketDetailsModalProps) {
   const [ticket, setTicket] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [closing, setClosing] = useState(false)
   const [message, setMessage] = useState('')
@@ -32,7 +32,17 @@ export function TicketDetailsModal({ ticketId, isOpen, onClose, onUpdate }: Tick
 
   useEffect(() => {
     if (isOpen && ticketId) {
+      // Reset state before loading
+      setTicket(null)
+      setError(null)
+      setMessage('')
       loadTicket()
+    } else if (!isOpen) {
+      // Reset state when modal closes
+      setTicket(null)
+      setError(null)
+      setMessage('')
+      setLoading(false)
     }
   }, [isOpen, ticketId])
 
@@ -42,18 +52,35 @@ export function TicketDetailsModal({ ticketId, isOpen, onClose, onUpdate }: Tick
   }, [ticket?.messages])
 
   const loadTicket = async () => {
+    if (!ticketId || ticketId.trim() === '') {
+      setError('Aucun ID de ticket fourni')
+      setLoading(false)
+      setTicket(null)
+      return
+    }
+
     setLoading(true)
     setError(null)
+    setTicket(null)
+    
     try {
+      console.log('Loading ticket with ID:', ticketId)
       const result = await getTicketDetails(ticketId)
+      console.log('Ticket details result:', result)
+      
       if (result.success && result.data) {
         setTicket(result.data)
+        setError(null)
       } else {
-        setError(result.error || 'Erreur lors du chargement du ticket')
+        const errorMsg = result.error || 'Erreur lors du chargement du ticket'
+        console.error('Failed to load ticket:', errorMsg)
+        setError(errorMsg)
+        setTicket(null)
       }
     } catch (error) {
       console.error('Error loading ticket:', error)
-      setError('Une erreur est survenue')
+      setError('Une erreur est survenue lors du chargement du ticket')
+      setTicket(null)
     } finally {
       setLoading(false)
     }
@@ -132,11 +159,11 @@ export function TicketDetailsModal({ ticketId, isOpen, onClose, onUpdate }: Tick
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open':
-        return <Badge variant="default" className="bg-blue-500">Ouvert</Badge>
+        return <Badge variant="default" className="bg-info">Ouvert</Badge>
       case 'in_progress':
-        return <Badge variant="default" className="bg-yellow-500">En cours</Badge>
+        return <Badge variant="default" className="bg-warning">En cours</Badge>
       case 'resolved':
-        return <Badge variant="default" className="bg-green-500">Résolu</Badge>
+        return <Badge variant="default" className="bg-success">Résolu</Badge>
       case 'closed':
         return <Badge variant="outline">Fermé</Badge>
       default:
@@ -150,6 +177,12 @@ export function TicketDetailsModal({ ticketId, isOpen, onClose, onUpdate }: Tick
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Chargement du ticket</DialogTitle>
+            <DialogDescription>
+              Veuillez patienter pendant le chargement des détails du ticket.
+            </DialogDescription>
+          </DialogHeader>
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
@@ -162,8 +195,16 @@ export function TicketDetailsModal({ ticketId, isOpen, onClose, onUpdate }: Tick
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent>
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">Ticket non trouvé</p>
+          <DialogHeader>
+            <DialogTitle>Ticket non trouvé</DialogTitle>
+            <DialogDescription>
+              {error || 'Le ticket demandé est introuvable ou vous n\'avez pas l\'autorisation d\'y accéder.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-center py-4">
+            <Button onClick={onClose} variant="outline">
+              Fermer
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -180,8 +221,8 @@ export function TicketDetailsModal({ ticketId, isOpen, onClose, onUpdate }: Tick
                 {ticket.subject}
                 {getStatusBadge(ticket.status)}
               </DialogTitle>
-              <DialogDescription className="mt-2">
-                <div className="text-sm space-y-1">
+              <DialogDescription asChild>
+                <div className="mt-2 text-sm space-y-1">
                   <div>Catégorie: {ticket.category}</div>
                   <div>Créé le: {formatDateTime(ticket.createdAt)}</div>
                   {ticket.resolvedAt && (
@@ -218,7 +259,7 @@ export function TicketDetailsModal({ ticketId, isOpen, onClose, onUpdate }: Tick
 
         <div className="flex-1 overflow-y-auto space-y-4 py-4">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+            <div className="p-3 bg-error-light border border-error-border rounded-md text-error text-sm">
               {error}
             </div>
           )}
@@ -268,7 +309,7 @@ export function TicketDetailsModal({ ticketId, isOpen, onClose, onUpdate }: Tick
                   <div
                     key={msg.id}
                     className={`border rounded-lg p-4 ${
-                      msg.user.role === 'admin' ? 'bg-blue-50' : 'bg-gray-50'
+                      msg.user.role === 'admin' ? 'bg-info-light' : 'bg-muted'
                     }`}
                   >
                     <div className="flex items-start justify-between mb-2">

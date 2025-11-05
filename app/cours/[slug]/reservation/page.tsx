@@ -9,10 +9,18 @@ import { CourseReservationForm } from '@/components/booking/course-reservation-f
 
 interface CourseReservationPageProps {
   params: Promise<{ slug: string }>
+  searchParams: Promise<{ tutorId?: string; source?: string; code?: string }>
 }
 
-export default async function CourseReservationPage({ params }: CourseReservationPageProps) {
+export default async function CourseReservationPage({ params, searchParams }: CourseReservationPageProps) {
   const { slug } = await params
+  const { tutorId, source, code } = await searchParams
+  
+  // Track landing page source if present (for future analytics)
+  if (source === 'lp') {
+    // Optional: Log for analytics
+    console.log('User arrived from landing page', { courseCode: code })
+  }
   
   // Allow both logged-in and guest users
   const user = await getCurrentUser() // This will be null for guests, which is fine
@@ -105,6 +113,7 @@ export default async function CourseReservationPage({ params }: CourseReservatio
                  course={serializedCourse}
                  tutors={serializedTutors}
                  user={user}
+                 initialTutorId={tutorId || undefined}
                />
       </div>
     </div>

@@ -389,7 +389,7 @@ export function CourseManagement() {
 
           {/* Bulk Actions */}
           {selectedCourses.length > 0 && (
-            <div className="flex items-center space-x-4 mb-4 p-4 bg-blue-50 rounded-lg">
+            <div className="flex items-center space-x-4 mb-4 p-4 bg-info-light rounded-lg">
               <span className="text-sm font-medium">
                 {selectedCourses.length} cours sélectionné(s)
               </span>

@@ -7,14 +7,15 @@ import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { rescheduleAppointment, getAvailableRescheduleSlots } from '@/lib/actions/reservations'
+import { CardDescription } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { rescheduleAppointment } from '@/lib/actions/reservations'
 import { formatDateTime } from '@/lib/utils'
 import { Calendar, Clock } from 'lucide-react'
+import { CalendarBooking } from '@/components/booking/calendar-booking'
 
 const rescheduleSchema = z.object({
-  reason: z.string().min(10, 'Veuillez expliquer la raison du changement (minimum 10 caractères)'),
-  selectedSlot: z.string().min(1, 'Veuillez sélectionner un créneau disponible')
+  reason: z.string().min(10, 'Veuillez expliquer la raison du changement (minimum 10 caractères)')
 })
 
 type RescheduleFormData = z.infer<typeof rescheduleSchema>
@@ -27,56 +28,47 @@ export function RescheduleModal({ appointment }: RescheduleModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [availableSlots, setAvailableSlots] = useState<any[]>([])
-  const [loadingSlots, setLoadingSlots] = useState(false)
+  const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null)
+
+  // Calculate duration from appointment
+  const startDatetime = new Date(appointment.startDatetime)
+  const endDatetime = new Date(appointment.endDatetime)
+  const durationMinutes = Math.round((endDatetime.getTime() - startDatetime.getTime()) / (1000 * 60))
+  // Ensure duration is one of the valid values (60, 90, or 120)
+  const selectedDuration = (durationMinutes === 60 || durationMinutes === 90 || durationMinutes === 120) 
+    ? durationMinutes as 60 | 90 | 120 
+    : 60 // Default to 60 if invalid
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    reset,
-    watch
+    reset
   } = useForm<RescheduleFormData>({
     resolver: zodResolver(rescheduleSchema)
   })
 
-  const selectedSlot = watch('selectedSlot')
-
-  const loadAvailableSlots = async () => {
-    setLoadingSlots(true)
-    try {
-      const slots = await getAvailableRescheduleSlots(appointment.id)
-      setAvailableSlots(slots)
-    } catch (error) {
-      console.error('Error loading available slots:', error)
-    } finally {
-      setLoadingSlots(false)
-    }
+  const handleSlotSelect = (slot: { start: Date; end: Date; duration: number; tutorId?: string }) => {
+    setSelectedSlot({
+      start: slot.start,
+      end: slot.end
+    })
   }
 
   const onSubmit = async (data: RescheduleFormData) => {
+    if (!selectedSlot) {
+      setMessage({ type: 'error', text: 'Veuillez sélectionner un créneau disponible' })
+      return
+    }
+
     setIsSubmitting(true)
     setMessage(null)
 
     try {
-      // Find the selected slot
-      const slot = availableSlots.find(s => s.startDatetime === data.selectedSlot)
-      if (!slot) {
-        setMessage({ type: 'error', text: 'Créneau sélectionné non trouvé' })
-        return
-      }
-
-      // Calculate new start and end datetime
-      const newStartDatetime = new Date(slot.startDatetime)
-      const endDatetime = new Date(appointment.endDatetime)
-      const startDatetime = new Date(appointment.startDatetime)
-      const duration = endDatetime.getTime() - startDatetime.getTime()
-      const newEndDatetime = new Date(newStartDatetime.getTime() + duration)
-
       const result = await rescheduleAppointment({
         appointmentId: appointment.id,
-        newStartDatetime,
-        newEndDatetime,
+        newStartDatetime: selectedSlot.start,
+        newEndDatetime: selectedSlot.end,
         reason: data.reason
       })
 
@@ -86,6 +78,7 @@ export function RescheduleModal({ appointment }: RescheduleModalProps) {
           text: 'Rendez-vous reprogrammé avec succès'
         })
         reset()
+        setSelectedSlot(null)
         setTimeout(() => {
           setIsOpen(false)
           window.location.reload() // Refresh to show updated data
@@ -101,158 +94,132 @@ export function RescheduleModal({ appointment }: RescheduleModalProps) {
     }
   }
 
-  if (!isOpen) {
-    return (
-      <Button 
-        variant="outline" 
-        size="sm"
-        onClick={() => {
-          setIsOpen(true)
-          loadAvailableSlots()
-        }}
-      >
-        Reprogrammer
-      </Button>
-    )
-  }
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-600">
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => setIsOpen(true)}
+        >
+          Reprogrammer
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-6xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-info">
             <Calendar className="h-5 w-5" />
             Reprogrammer le rendez-vous
-          </CardTitle>
+          </DialogTitle>
           <CardDescription>
             Choisissez une nouvelle date et heure
           </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Current Appointment Details */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-medium mb-2">{appointment.course.titleFr}</h3>
-            <p className="text-sm text-muted-foreground mb-1">
-              Tuteur: {appointment.tutor.user.firstName} {appointment.tutor.user.lastName}
-            </p>
-            <p className="text-sm text-muted-foreground mb-1">
-              <strong>Actuel:</strong> {formatDateTime(new Date(appointment.startDatetime))}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Durée: {Math.round((new Date(appointment.endDatetime).getTime() - new Date(appointment.startDatetime).getTime()) / (1000 * 60))} minutes
-            </p>
-          </div>
+        </DialogHeader>
+        
+        {/* Current Appointment Details */}
+        <div className="p-4 bg-muted rounded-lg mb-6">
+          <h3 className="font-medium mb-2">{appointment.course.titleFr}</h3>
+          <p className="text-sm text-muted-foreground mb-1">
+            Tuteur: {appointment.tutor.user.firstName} {appointment.tutor.user.lastName}
+          </p>
+          <p className="text-sm text-muted-foreground mb-1">
+            <strong>Actuel:</strong> {formatDateTime(new Date(appointment.startDatetime))}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Durée: {durationMinutes} minutes
+          </p>
+        </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Available Slots */}
-            <div className="space-y-2">
-              <Label>Créneaux disponibles *</Label>
-              {loadingSlots ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  Chargement des créneaux disponibles...
-                </div>
-              ) : availableSlots.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  Aucun créneau disponible pour la reprogrammation
-                </div>
-              ) : (
-                <div className="max-h-60 overflow-y-auto space-y-2">
-                  {availableSlots.map((slot) => (
-                    <label
-                      key={slot.startDatetime}
-                      className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                    >
-                      <input
-                        type="radio"
-                        value={slot.startDatetime}
-                        {...register('selectedSlot')}
-                        className="mt-1"
-                        disabled={isSubmitting}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">
-                          {new Date(slot.startDatetime).toLocaleDateString('fr-CA', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {slot.displayTime}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              )}
-              {errors.selectedSlot && (
-                <p className="text-sm text-red-600">{errors.selectedSlot.message}</p>
-              )}
-            </div>
-
-            {/* Reason */}
-            <div className="space-y-2">
-              <Label htmlFor="reason">Raison du changement *</Label>
-              <Input
-                id="reason"
-                {...register('reason')}
-                placeholder="Expliquez pourquoi vous reprogrammez ce rendez-vous..."
-                disabled={isSubmitting}
-              />
-              {errors.reason && (
-                <p className="text-sm text-red-600">{errors.reason.message}</p>
-              )}
-            </div>
-
-            {/* Info Box */}
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Clock className="h-4 w-4 text-blue-600 mt-0.5" />
-                <div className="text-sm text-blue-800">
-                  <p className="font-medium mb-1">Important :</p>
-                  <ul className="space-y-1 text-xs">
-                    <li>• Seuls les créneaux disponibles sont affichés</li>
-                    <li>• Même tuteur et même cours</li>
-                    <li>• Même durée que le rendez-vous original</li>
-                    <li>• Le tuteur sera notifié du changement</li>
-                    <li>• Reprogrammation possible jusqu'à 2h avant le rendez-vous</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {message && (
-              <div className={`p-3 rounded-md ${
-                message.type === 'success' 
-                  ? 'bg-green-50 text-green-800 border border-green-200' 
-                  : 'bg-red-50 text-red-800 border border-red-200'
-              }`}>
-                {message.text}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Calendar Component */}
+          <div className="space-y-2">
+            <Label>Créneaux disponibles *</Label>
+            <CalendarBooking
+              courseId={appointment.courseId}
+              selectedDuration={selectedDuration}
+              onSlotSelect={handleSlotSelect}
+              selectedTutorId={appointment.tutorId}
+            />
+            {!selectedSlot && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Veuillez sélectionner un créneau dans le calendrier
+              </p>
+            )}
+            {selectedSlot && (
+              <div className="mt-4 p-3 bg-info-light border border-info-border rounded-lg">
+                <p className="text-sm font-medium text-info mb-1">Créneau sélectionné:</p>
+                <p className="text-sm text-info">
+                  {formatDateTime(selectedSlot.start)}
+                </p>
               </div>
             )}
+          </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsOpen(false)}
-                disabled={isSubmitting}
-                className="flex-1"
-              >
-                Annuler
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting}
-                className="flex-1"
-              >
-                {isSubmitting ? 'Reprogrammation...' : 'Confirmer'}
-              </Button>
+          {/* Reason */}
+          <div className="space-y-2">
+            <Label htmlFor="reason">Raison du changement *</Label>
+            <Input
+              id="reason"
+              {...register('reason')}
+              placeholder="Expliquez pourquoi vous reprogrammez ce rendez-vous..."
+              disabled={isSubmitting}
+            />
+            {errors.reason && (
+              <p className="text-sm text-error">{errors.reason.message}</p>
+            )}
+          </div>
+
+          {/* Info Box */}
+          <div className="p-3 bg-info-light border border-info-border rounded-lg">
+            <div className="flex items-start gap-2">
+              <Clock className="h-4 w-4 text-info mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-info">
+                <p className="font-medium mb-1">Important :</p>
+                <ul className="space-y-1 text-xs">
+                  <li>• Seuls les créneaux disponibles sont affichés</li>
+                  <li>• Même tuteur et même cours</li>
+                  <li>• Même durée que le rendez-vous original ({durationMinutes} minutes)</li>
+                  <li>• Le tuteur sera notifié du changement</li>
+                  <li>• Reprogrammation possible jusqu'à 2h avant le rendez-vous</li>
+                </ul>
+              </div>
             </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+          </div>
+
+          {message && (
+            <div className={`p-3 rounded-md ${
+              message.type === 'success' 
+                ? 'bg-success-light text-success border border-success-border' 
+                : 'bg-error-light text-error border border-error-border'
+            }`}>
+              {message.text}
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setIsOpen(false)
+                setSelectedSlot(null)
+                reset()
+              }}
+              disabled={isSubmitting}
+              className="flex-1"
+            >
+              Annuler
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || !selectedSlot}
+              className="flex-1"
+            >
+              {isSubmitting ? 'Reprogrammation...' : 'Confirmer'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

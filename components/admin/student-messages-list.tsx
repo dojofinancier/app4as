@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime } from '@/lib/utils'
 import { 
   MessageSquare, 
@@ -129,11 +130,11 @@ export function StudentMessagesList({ studentId }: StudentMessagesListProps) {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'student':
-        return <Badge variant="default" className="bg-blue-100 text-blue-800">Étudiant</Badge>
+        return <Badge variant="default" className="bg-info-light text-info">Étudiant</Badge>
       case 'tutor':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Tuteur</Badge>
+        return <Badge variant="default" className="bg-success-light text-success">Tuteur</Badge>
       case 'admin':
-        return <Badge variant="default" className="bg-purple-100 text-purple-800">Admin</Badge>
+        return <Badge variant="default" className="bg-primary/10 text-primary">Admin</Badge>
       default:
         return <Badge variant="secondary">{role}</Badge>
     }
@@ -145,10 +146,29 @@ export function StudentMessagesList({ studentId }: StudentMessagesListProps) {
 
   if (initialLoad && loading) {
     return (
-      <div className="p-6">
-        <div className="text-center text-muted-foreground">
-          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-          Chargement des messages...
+      <div className="h-full flex flex-col">
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i} className={i % 2 === 0 ? 'ml-8 bg-info-light' : 'mr-8 bg-muted'}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Skeleton className="h-4 w-4 rounded-full mt-1" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Skeleton className="h-4 w-4 rounded-full" />
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -171,15 +191,15 @@ export function StudentMessagesList({ studentId }: StudentMessagesListProps) {
         ) : (
           <div className="space-y-4">
             {messages.map((message) => (
-              <Card key={message.id} className={`${isStudentMessage(message) ? 'ml-8 bg-blue-50' : 'mr-8 bg-gray-50'}`}>
+              <Card key={message.id} className={`${isStudentMessage(message) ? 'ml-8 bg-info-light' : 'mr-8 bg-muted'}`}>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     {/* Message Direction Indicator */}
                     <div className="flex-shrink-0 mt-1">
                       {isStudentMessage(message) ? (
-                        <ArrowRight className="h-4 w-4 text-blue-500" />
+                        <ArrowRight className="h-4 w-4 text-info" />
                       ) : (
-                        <ArrowLeft className="h-4 w-4 text-gray-500" />
+                        <ArrowLeft className="h-4 w-4 text-muted-foreground" />
                       )}
                     </div>
 

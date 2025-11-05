@@ -154,11 +154,11 @@ export function CourseRequests() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
-        return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Approuvé</Badge>
+        return <Badge variant="default" className="bg-success-light text-success"><CheckCircle className="h-3 w-3 mr-1" />Approuvé</Badge>
       case 'pending':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800"><Clock className="h-3 w-3 mr-1" />En attente</Badge>
+        return <Badge variant="secondary" className="bg-warning-light text-warning"><Clock className="h-3 w-3 mr-1" />En attente</Badge>
       case 'rejected':
-        return <Badge variant="destructive" className="bg-red-100 text-red-800"><XCircle className="h-3 w-3 mr-1" />Rejeté</Badge>
+        return <Badge variant="destructive" className="bg-error-light text-error"><XCircle className="h-3 w-3 mr-1" />Rejeté</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -314,7 +314,7 @@ export function CourseRequests() {
                             <Button
                               size="sm"
                               onClick={() => handleApproveRequest(request.id)}
-                              className="bg-green-600 hover:bg-green-700"
+                              className="bg-success hover:bg-success/90"
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
                               Approuver
@@ -333,7 +333,7 @@ export function CourseRequests() {
                           </>
                         )}
                         {request.status === 'rejected' && request.adminNote && (
-                          <div className="text-xs text-red-600 max-w-xs">
+                          <div className="text-xs text-error max-w-xs">
                             <AlertCircle className="h-3 w-3 inline mr-1" />
                             {request.adminNote}
                           </div>

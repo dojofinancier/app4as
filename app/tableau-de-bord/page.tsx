@@ -52,9 +52,9 @@ export default async function DashboardPage() {
                 Votre compte tuteur a été créé mais le profil professionnel n'est pas encore configuré. 
                 L'administrateur doit finaliser la configuration de votre profil.
               </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <h3 className="font-medium text-blue-900 mb-2">Prochaines étapes :</h3>
-                <ul className="text-sm text-blue-800 text-left space-y-1">
+              <div className="bg-info-light border border-info-border rounded-lg p-4 mb-6">
+                <h3 className="font-medium text-info mb-2">Prochaines étapes :</h3>
+                <ul className="text-sm text-info text-left space-y-1">
                   <li>• L'administrateur va créer votre profil tuteur</li>
                   <li>• Vos disponibilités seront configurées</li>
                   <li>• Vous serez assigné aux cours appropriés</li>

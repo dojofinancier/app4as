@@ -101,7 +101,7 @@ export function ProfileInfoForm({ user }: ProfileInfoFormProps) {
                 disabled={isSubmitting}
               />
               {errors.firstName && (
-                <p className="text-sm text-red-600">{errors.firstName.message}</p>
+                <p className="text-sm text-error">{errors.firstName.message}</p>
               )}
             </div>
 
@@ -114,7 +114,7 @@ export function ProfileInfoForm({ user }: ProfileInfoFormProps) {
                 disabled={isSubmitting}
               />
               {errors.lastName && (
-                <p className="text-sm text-red-600">{errors.lastName.message}</p>
+                <p className="text-sm text-error">{errors.lastName.message}</p>
               )}
             </div>
           </div>
@@ -126,9 +126,9 @@ export function ProfileInfoForm({ user }: ProfileInfoFormProps) {
               type="email"
               value={user.email}
               disabled
-              className="bg-gray-50"
+              className="bg-muted"
             />
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Le courriel ne peut pas être modifié
             </p>
           </div>
@@ -143,15 +143,15 @@ export function ProfileInfoForm({ user }: ProfileInfoFormProps) {
               disabled={isSubmitting}
             />
             {errors.phone && (
-              <p className="text-sm text-red-600">{errors.phone.message}</p>
+                <p className="text-sm text-error">{errors.phone.message}</p>
             )}
           </div>
 
           {message && (
             <div className={`p-3 rounded-md ${
               message.type === 'success' 
-                ? 'bg-green-50 text-green-800 border border-green-200' 
-                : 'bg-red-50 text-red-800 border border-red-200'
+                ? 'bg-success-light text-success border border-success-border' 
+                : 'bg-error-light text-error border border-error-border'
             }`}>
               {message.text}
             </div>

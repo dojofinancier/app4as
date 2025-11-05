@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { 
   ShoppingCart, 
@@ -141,13 +142,13 @@ export function StudentOrdersList({ studentId }: StudentOrdersListProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'paid':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Payé</Badge>
+        return <Badge variant="default" className="bg-success-light text-success">Payé</Badge>
       case 'created':
-        return <Badge variant="outline" className="border-yellow-200 text-yellow-800">Créé</Badge>
+        return <Badge variant="outline" className="border-warning-border text-warning">Créé</Badge>
       case 'failed':
         return <Badge variant="destructive">Échoué</Badge>
       case 'refunded':
-        return <Badge variant="outline" className="border-orange-200 text-orange-800">Remboursé</Badge>
+        return <Badge variant="outline" className="border-warning-border text-warning">Remboursé</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
@@ -156,24 +157,24 @@ export function StudentOrdersList({ studentId }: StudentOrdersListProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'paid':
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return <CheckCircle className="h-4 w-4 text-success" />
       case 'created':
-        return <Clock className="h-4 w-4 text-yellow-500" />
+        return <Clock className="h-4 w-4 text-warning" />
       case 'failed':
-        return <XCircle className="h-4 w-4 text-red-500" />
+        return <XCircle className="h-4 w-4 text-error" />
       case 'refunded':
-        return <RefreshCw className="h-4 w-4 text-orange-500" />
+        return <RefreshCw className="h-4 w-4 text-warning" />
       default:
-        return <ShoppingCart className="h-4 w-4 text-gray-500" />
+        return <ShoppingCart className="h-4 w-4 text-muted-foreground" />
     }
   }
 
   const getRefundStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Approuvé</Badge>
+        return <Badge variant="default" className="bg-success-light text-success">Approuvé</Badge>
       case 'pending':
-        return <Badge variant="outline" className="border-yellow-200 text-yellow-800">En attente</Badge>
+        return <Badge variant="outline" className="border-warning-border text-warning">En attente</Badge>
       case 'rejected':
         return <Badge variant="destructive">Rejeté</Badge>
       default:
@@ -183,10 +184,35 @@ export function StudentOrdersList({ studentId }: StudentOrdersListProps) {
 
   if (initialLoad && loading) {
     return (
-      <div className="p-6">
-        <div className="text-center text-muted-foreground">
-          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-          Chargement des commandes...
+      <div className="h-full flex flex-col">
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-5 w-5 rounded-full" />
+                      <div>
+                        <Skeleton className="h-5 w-32 mb-2" />
+                        <Skeleton className="h-4 w-40" />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Skeleton className="h-7 w-24 mb-2" />
+                      <Skeleton className="h-6 w-16 rounded-full" />
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <Skeleton className="h-4 w-32 mb-2" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-16 w-full rounded" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -236,7 +262,7 @@ export function StudentOrdersList({ studentId }: StudentOrdersListProps) {
                     <h4 className="font-medium mb-2">Articles commandés:</h4>
                     <div className="space-y-2">
                       {order.items.map((item, index) => (
-                        <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
                           <div>
                             <p className="font-medium">{item.course.titleFr}</p>
                             <p className="text-sm text-muted-foreground">
@@ -253,13 +279,13 @@ export function StudentOrdersList({ studentId }: StudentOrdersListProps) {
 
                   {/* Coupon Information */}
                   {order.coupon && (
-                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="mb-4 p-3 bg-info-light border border-info-border rounded-lg">
                       <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-blue-500" />
-                        <span className="text-sm font-medium text-blue-800">
+                        <Tag className="h-4 w-4 text-info" />
+                        <span className="text-sm font-medium text-info">
                           Coupon utilisé: {order.coupon.code}
                         </span>
-                        <span className="text-sm text-blue-600">
+                        <span className="text-sm text-info">
                           ({order.coupon.type === 'percent' ? `${order.coupon.value}%` : formatCurrency(order.coupon.value)} de réduction)
                         </span>
                       </div>
@@ -268,9 +294,9 @@ export function StudentOrdersList({ studentId }: StudentOrdersListProps) {
 
                   {/* Payment Information */}
                   {order.stripePaymentIntentId && (
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="mb-4 p-3 bg-muted rounded-lg">
                       <div className="flex items-center gap-2">
-                        <CreditCard className="h-4 w-4 text-gray-500" />
+                        <CreditCard className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium">ID de paiement Stripe:</span>
                         <code className="text-xs bg-white px-2 py-1 rounded border">
                           {order.stripePaymentIntentId}
@@ -301,21 +327,21 @@ export function StudentOrdersList({ studentId }: StudentOrdersListProps) {
                         </h4>
                         <div className="space-y-2">
                           {allRefunds.map((refund) => (
-                            <div key={refund.id} className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                            <div key={refund.id} className="p-3 bg-warning-light border border-warning-border rounded-lg">
                               <div className="flex justify-between items-start">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <DollarSign className="h-4 w-4 text-orange-500" />
+                                    <DollarSign className="h-4 w-4 text-warning" />
                                     <span className="font-medium">
                                       {formatCurrency(refund.amount)}
                                     </span>
                                     {getRefundStatusBadge(refund.status)}
                                   </div>
-                                  <p className="text-sm text-orange-700 mb-1">
+                                  <p className="text-sm text-warning mb-1">
                                     <span className="font-medium">Raison:</span> {refund.reason}
                                   </p>
                                   {refund.processedAt && (
-                                    <p className="text-xs text-orange-600">
+                                    <p className="text-xs text-warning">
                                       Traité le {formatDateTime(refund.processedAt)}
                                     </p>
                                   )}

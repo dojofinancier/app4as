@@ -38,9 +38,9 @@ export function ProfileManagementTab({ user }: ProfileManagementTabProps) {
       </div>
 
 
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h3 className="font-medium text-gray-900 mb-2">Informations de compte</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+      <div className="bg-muted border border-border rounded-lg p-4">
+        <h3 className="font-medium text-foreground mb-2">Informations de compte</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
           <div>
             <span className="font-medium">Membre depuis :</span>
             <br />

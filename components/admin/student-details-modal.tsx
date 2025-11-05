@@ -96,13 +96,13 @@ export function StudentDetailsModal({ studentId, isOpen, onClose }: StudentDetai
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'scheduled':
-        return <Badge variant="default" className="bg-blue-100 text-blue-800">Programmé</Badge>
+        return <Badge variant="default" className="bg-info-light text-info">Programmé</Badge>
       case 'completed':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Terminé</Badge>
+        return <Badge variant="default" className="bg-success-light text-success">Terminé</Badge>
       case 'cancelled':
         return <Badge variant="destructive">Annulé</Badge>
       case 'refunded':
-        return <Badge variant="outline" className="border-orange-200 text-orange-800">Remboursé</Badge>
+        return <Badge variant="outline" className="border-warning-border text-warning">Remboursé</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
@@ -203,21 +203,21 @@ export function StudentDetailsModal({ studentId, isOpen, onClose }: StudentDetai
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="text-center p-4 bg-green-50 rounded-lg">
+                        <div className="text-center p-4 bg-success-light rounded-lg">
                           <p className="text-sm text-muted-foreground">Total dépensé</p>
-                          <p className="text-2xl font-bold text-green-600">
+                          <p className="text-2xl font-bold text-success">
                             {formatCurrency(student.financialBreakdown.totalSpent)}
                           </p>
                         </div>
-                        <div className="text-center p-4 bg-red-50 rounded-lg">
+                        <div className="text-center p-4 bg-error-light rounded-lg">
                           <p className="text-sm text-muted-foreground">Total remboursé</p>
-                          <p className="text-2xl font-bold text-red-600">
+                          <p className="text-2xl font-bold text-error">
                             -{formatCurrency(student.financialBreakdown.totalRefunded)}
                           </p>
                         </div>
-                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                        <div className="text-center p-4 bg-muted rounded-lg">
                           <p className="text-sm text-muted-foreground">Net dépensé</p>
-                          <p className="text-2xl font-bold text-gray-600">
+                          <p className="text-2xl font-bold text-foreground">
                             {formatCurrency(student.financialBreakdown.netSpent)}
                           </p>
                         </div>
@@ -238,28 +238,28 @@ export function StudentDetailsModal({ studentId, isOpen, onClose }: StudentDetai
                         <div className="grid grid-cols-2 gap-4">
                           <div className="text-center">
                             <div className="flex items-center justify-center gap-2 mb-2">
-                              <Clock className="h-4 w-4 text-blue-500" />
+                              <Clock className="h-4 w-4 text-info" />
                               <span className="text-sm text-muted-foreground">À venir</span>
                             </div>
                             <p className="text-2xl font-bold">{student.appointmentCounts.upcoming}</p>
                           </div>
                           <div className="text-center">
                             <div className="flex items-center justify-center gap-2 mb-2">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
+                              <CheckCircle className="h-4 w-4 text-success" />
                               <span className="text-sm text-muted-foreground">Terminés</span>
                             </div>
                             <p className="text-2xl font-bold">{student.appointmentCounts.past}</p>
                           </div>
                           <div className="text-center">
                             <div className="flex items-center justify-center gap-2 mb-2">
-                              <XCircle className="h-4 w-4 text-red-500" />
+                              <XCircle className="h-4 w-4 text-error" />
                               <span className="text-sm text-muted-foreground">Annulés</span>
                             </div>
                             <p className="text-2xl font-bold">{student.appointmentCounts.cancelled}</p>
                           </div>
                           <div className="text-center">
                             <div className="flex items-center justify-center gap-2 mb-2">
-                              <AlertCircle className="h-4 w-4 text-gray-500" />
+                              <AlertCircle className="h-4 w-4 text-muted-foreground" />
                               <span className="text-sm text-muted-foreground">Total</span>
                             </div>
                             <p className="text-2xl font-bold">{student.appointmentCounts.total}</p>

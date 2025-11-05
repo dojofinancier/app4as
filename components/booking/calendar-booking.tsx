@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { format, startOfWeek, endOfWeek, isSameDay, isToday, isPast, addMinutes, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths } from 'date-fns'
+import { format, startOfWeek, endOfWeek, isSameDay, isToday, isPast, addMinutes, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, isAfter, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { MAX_ADVANCE_DAYS } from '@/lib/slots/types'
 
 interface TimeSlot {
   start: Date
@@ -132,14 +134,21 @@ export function CalendarBooking({
     
     try {
       const dates = calendarDays.map(date => format(date, 'yyyy-MM-dd'))
+      const requestBody: any = {
+        courseId,
+        dates,
+        duration: selectedDuration
+      }
+      
+      // Add tutorId if a specific tutor is selected
+      if (selectedTutorId !== 'all') {
+        requestBody.tutorId = selectedTutorId
+      }
+      
       const response = await fetch('/api/course-availability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          courseId,
-          dates,
-          duration: selectedDuration
-        })
+        body: JSON.stringify(requestBody)
       })
       
       if (response.ok) {
@@ -193,7 +202,17 @@ export function CalendarBooking({
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentMonth(prev => {
       const baseDate = prev || new Date()
-      return direction === 'next' ? addMonths(baseDate, 1) : subMonths(baseDate, 1)
+      const nextMonth = direction === 'next' ? addMonths(baseDate, 1) : subMonths(baseDate, 1)
+      
+      // Prevent navigating beyond MAX_ADVANCE_DAYS from today
+      const maxDate = addDays(new Date(), MAX_ADVANCE_DAYS)
+      const maxMonth = startOfMonth(maxDate)
+      
+      if (direction === 'next' && isAfter(startOfMonth(nextMonth), maxMonth)) {
+        return baseDate // Don't navigate beyond max
+      }
+      
+      return nextMonth
     })
   }
 
@@ -204,12 +223,14 @@ export function CalendarBooking({
     }
   }, [currentMonth])
 
-  // Load month availability when currentMonth or selectedDuration changes
+  // Load month availability when currentMonth, selectedDuration, selectedTutorId, or courseId changes
   useEffect(() => {
     if (currentMonth) {
+      // Clear availability map when tutor selection changes to avoid showing stale data
+      setAvailabilityMap({})
       loadMonthAvailability()
     }
-  }, [currentMonth, selectedDuration, courseId])
+  }, [currentMonth, selectedDuration, courseId, selectedTutorId])
 
   // Load slots for selected date on mount
   useEffect(() => {
@@ -249,6 +270,10 @@ export function CalendarBooking({
                 variant="outline"
                 size="sm"
                 onClick={() => navigateMonth('next')}
+                disabled={
+                  currentMonth &&
+                  isAfter(startOfMonth(addMonths(currentMonth, 1)), startOfMonth(addDays(new Date(), MAX_ADVANCE_DAYS)))
+                }
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -273,6 +298,7 @@ export function CalendarBooking({
               const isPastDate = isPast(date) && !isTodayDate
               const dateStr = format(date, 'yyyy-MM-dd')
               const hasSlots = availabilityMap[dateStr] || false
+              const isAvailable = hasSlots && !isPastDate && isCurrentMonth
               
               return (
                 <Button
@@ -284,15 +310,16 @@ export function CalendarBooking({
                     !isCurrentMonth && "text-muted-foreground/50",
                     isPastDate && "opacity-50 cursor-not-allowed",
                     isTodayDate && !isSelected && "ring-2 ring-primary ring-offset-1",
-                    hasSlots && !isSelected && !isPastDate && "bg-green-50 hover:bg-green-100 border-green-200"
+                    // Only apply green tint for available dates that aren't selected
+                    isAvailable && !isSelected && "bg-success-light hover:bg-success/20"
                   )}
                   onClick={() => !isPastDate && isCurrentMonth && handleDateSelect(date)}
                   disabled={isPastDate || !isCurrentMonth}
                 >
                   <span className="text-sm font-medium">{format(date, 'd')}</span>
-                  {/* Availability indicator */}
-                  {hasSlots && !isPastDate && (
-                    <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-green-500 rounded-full" />
+                  {/* Green dot indicator - only for available dates */}
+                  {isAvailable && (
+                    <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-success rounded-full" />
                   )}
                 </Button>
               )
@@ -302,12 +329,8 @@ export function CalendarBooking({
           {/* Legend */}
           <div className="flex items-center justify-center gap-4 mt-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-green-500 rounded-full" />
+              <div className="w-2 h-2 bg-success rounded-full" />
               <span>Disponible</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-gray-300 rounded-full" />
-              <span>Indisponible</span>
             </div>
           </div>
         </CardContent>
@@ -328,9 +351,10 @@ export function CalendarBooking({
               <p className="text-muted-foreground">Sélectionnez une date dans le calendrier pour voir les créneaux disponibles</p>
             </div>
           ) : loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="text-sm text-muted-foreground mt-2">Chargement des créneaux...</p>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
             </div>
           ) : availableSlots.length === 0 ? (
             <div className="text-center py-8">
@@ -349,7 +373,7 @@ export function CalendarBooking({
                     key={index}
                     variant={isSelected ? "default" : "outline"}
                     className={`w-full h-12 flex items-center justify-center gap-2 ${
-                      isConflicting ? "opacity-50 bg-gray-100 border-gray-300 text-gray-500" : ""
+                      isConflicting ? "opacity-50 bg-muted border-border text-muted-foreground" : ""
                     }`}
                     onClick={() => handleSlotSelect(slot)}
                     disabled={isDisabled}

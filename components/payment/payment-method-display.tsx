@@ -62,7 +62,7 @@ export function PaymentMethodDisplay({ onEdit }: PaymentMethodDisplayProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2 text-red-600">
+          <div className="flex items-center gap-2 text-error">
             <AlertCircle className="h-4 w-4" />
             <span className="text-sm">{error}</span>
           </div>
@@ -94,7 +94,7 @@ export function PaymentMethodDisplay({ onEdit }: PaymentMethodDisplayProps) {
                   </p>
                 </div>
               </div>
-              <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+              <div className="text-xs bg-success-light text-success px-2 py-1 rounded">
                 Par défaut
               </div>
             </div>

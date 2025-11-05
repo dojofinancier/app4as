@@ -2,50 +2,156 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * TweakCN Styles - HSL Format (Ready for Production)
+ * 
+ * This file integrates your TweakCN HSL styles with Tailwind CSS.
+ * HSL values are stored without the hsl() wrapper so Tailwind can use them.
+ * 
+ * ADDITIONAL SEMANTIC COLORS: Added status colors for common UI patterns
+ */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* TweakCN Color Variables - HSL values (without hsl() wrapper) */
+    --background: 80.0000 33.3333% 96.4706%;
+    --foreground: 0 0% 0%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 0%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --popover-foreground: 0 0% 0%;
+    --primary: 175.3448 100.0000% 22.7451%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 354.8718 100.0000% 22.9412%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 94.1176%;
+    --muted-foreground: 0 0% 20%;
+    --accent: 37.6923 92.1260% 50.1961%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 84.2365% 60.1961%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 0%;
+    --input: 0 0% 45.0980%;
+    --ring: 229.6552 93.5484% 81.7647%;
+    
+    /* Chart colors */
+    --chart-1: 243.3962 75.3555% 58.6275%;
+    --chart-2: 173.4146 80.3922% 40%;
+    --chart-3: 37.6923 92.1260% 50.1961%;
+    --chart-4: 330.3659 81.1881% 60.3922%;
+    --chart-5: 142.0859 70.5628% 45.2941%;
+    
+    /* Sidebar colors */
+    --sidebar: 80.0000 33.3333% 96.4706%;
+    --sidebar-foreground: 0 0% 0%;
+    --sidebar-primary: 243.3962 75.3555% 58.6275%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 37.6923 92.1260% 50.1961%;
+    --sidebar-accent-foreground: 0 0% 0%;
+    --sidebar-border: 0 0% 0%;
+    --sidebar-ring: 229.6552 93.5484% 81.7647%;
+    
+    /* Semantic Status Colors - For replacing hardcoded colors */
+    /* These use your TweakCN palette but adapted for common UI patterns */
+    --success: 142.0859 70.5628% 45.2941%;        /* Green - from chart-5 */
+    --success-foreground: 0 0% 100%;
+    --success-light: 142.0859 40% 95%;            /* Light green background */
+    --success-border: 142.0859 60% 85%;
+    
+    --error: 0 84.2365% 60.1961%;                 /* Red - matches destructive */
+    --error-foreground: 0 0% 100%;
+    --error-light: 0 40% 96%;                     /* Light red background */
+    --error-border: 0 60% 90%;
+    
+    --warning: 37.6923 92.1260% 50.1961%;         /* Yellow - matches accent */
+    --warning-foreground: 0 0% 0%;
+    --warning-light: 37.6923 40% 96%;             /* Light yellow background */
+    --warning-border: 37.6923 60% 90%;
+    
+    --info: 243.3962 75.3555% 58.6275%;           /* Blue - from chart-1 */
+    --info-foreground: 0 0% 100%;
+    --info-light: 243.3962 40% 96%;                /* Light blue background */
+    --info-border: 243.3962 60% 85%;
+    
+    /* Typography */
+    --font-sans: DM Sans, sans-serif;
+    --font-serif: DM Sans, sans-serif;
+    --font-mono: Space Mono, monospace;
+    
+    /* Border radius - TweakCN uses 1rem (larger, more modern) */
+    --radius: 1rem;
+    
+    /* Shadows */
+    --shadow-2xs: 0px 0px 0px 0px hsl(0 0% 10.1961% / 0.03);
+    --shadow-xs: 0px 0px 0px 0px hsl(0 0% 10.1961% / 0.03);
+    --shadow-sm: 0px 0px 0px 0px hsl(0 0% 10.1961% / 0.05), 0px 1px 2px -1px hsl(0 0% 10.1961% / 0.05);
+    --shadow: 0px 0px 0px 0px hsl(0 0% 10.1961% / 0.05), 0px 1px 2px -1px hsl(0 0% 10.1961% / 0.05);
+    --shadow-md: 0px 0px 0px 0px hsl(0 0% 10.1961% / 0.05), 0px 2px 4px -1px hsl(0 0% 10.1961% / 0.05);
+    --shadow-lg: 0px 0px 0px 0px hsl(0 0% 10.1961% / 0.05), 0px 4px 6px -1px hsl(0 0% 10.1961% / 0.05);
+    --shadow-xl: 0px 0px 0px 0px hsl(0 0% 10.1961% / 0.05), 0px 8px 10px -1px hsl(0 0% 10.1961% / 0.05);
+    --shadow-2xl: 0px 0px 0px 0px hsl(0 0% 10.1961% / 0.13);
+    
+    /* Letter spacing */
+    --tracking-normal: normal;
+    --spacing: 0.25rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 215.2941 24.6377% 13.5294%;
+    --card-foreground: 0 0% 100%;
+    --popover: 215.2941 24.6377% 13.5294%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 234.2857 89.7436% 77.0588%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 172.4551 66.0079% 50.3922%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 80%;
+    --accent: 45.9429 96.6851% 64.5098%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 90.6040% 70.7843%;
+    --destructive-foreground: 0 0% 0%;
+    --border: 0 0% 32.9412%;
+    --input: 0 0% 100%;
+    --ring: 234.4538 89.4737% 73.9216%;
+    
+    --chart-1: 234.4538 89.4737% 73.9216%;
+    --chart-2: 172.4551 66.0079% 50.3922%;
+    --chart-3: 45.9429 96.6851% 64.5098%;
+    --chart-4: 328.6154 85.5263% 70.1961%;
+    --chart-5: 141.8919 69.1589% 58.0392%;
+    
+    --sidebar: 0 0% 0%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 234.4538 89.4737% 73.9216%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 45.9429 96.6851% 64.5098%;
+    --sidebar-accent-foreground: 0 0% 0%;
+    --sidebar-border: 0 0% 100%;
+    --sidebar-ring: 234.4538 89.4737% 73.9216%;
+    
+    /* Dark mode semantic colors */
+    --success: 141.8919 69.1589% 58.0392%;
+    --success-foreground: 0 0% 0%;
+    --success-light: 141.8919 30% 15%;
+    --success-border: 141.8919 40% 25%;
+    
+    --error: 0 90.6040% 70.7843%;
+    --error-foreground: 0 0% 0%;
+    --error-light: 0 30% 15%;
+    --error-border: 0 40% 25%;
+    
+    --warning: 45.9429 96.6851% 64.5098%;
+    --warning-foreground: 0 0% 0%;
+    --warning-light: 45.9429 30% 15%;
+    --warning-border: 45.9429 40% 25%;
+    
+    --info: 234.4538 89.4737% 73.9216%;
+    --info-foreground: 0 0% 0%;
+    --info-light: 234.4538 30% 15%;
+    --info-border: 234.4538 40% 25%;
   }
 }
 
@@ -55,7 +161,22 @@
   }
   body {
     @apply bg-background text-foreground;
+    letter-spacing: var(--tracking-normal);
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+  }
+  html {
+    overflow-x: hidden;
   }
 }
 
-
+@layer utilities {
+  /* Hide scrollbar but allow scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
+}

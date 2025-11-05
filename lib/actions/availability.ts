@@ -1,8 +1,9 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, unstable_cache } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
+import { CACHE_TTL, CACHE_TAGS } from '@/lib/utils/cache'
 
 export interface AvailabilityRule {
   id: string
@@ -22,14 +23,32 @@ export interface AvailabilityException {
 
 export async function getTutorAvailabilityRules(tutorId: string): Promise<AvailabilityRule[]> {
   try {
-    const rules = await prisma.availabilityRule.findMany({
-      where: { tutorId },
-      orderBy: [
-        { weekday: 'asc' },
-        { startTime: 'asc' }
-      ]
-    })
-
+    // Cached function to fetch availability rules (5 minutes TTL)
+    const getCachedRules = unstable_cache(
+      async () => {
+        return await prisma.availabilityRule.findMany({
+          where: { tutorId },
+          orderBy: [
+            { weekday: 'asc' },
+            { startTime: 'asc' }
+          ],
+          select: {
+            id: true,
+            tutorId: true,
+            weekday: true,
+            startTime: true,
+            endTime: true,
+          },
+        })
+      },
+      [`availability-rules-${tutorId}`],
+      {
+        revalidate: CACHE_TTL.AVAILABILITY_RULES,
+        tags: [CACHE_TAGS.AVAILABILITY_RULES(tutorId)],
+      }
+    )
+    
+    const rules = await getCachedRules()
     return rules.map(rule => ({
       id: rule.id,
       tutorId: rule.tutorId,

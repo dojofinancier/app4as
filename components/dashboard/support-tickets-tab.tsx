@@ -81,11 +81,11 @@ export function SupportTicketsTab({ userId }: SupportTicketsTabProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open':
-        return <Badge variant="default" className="bg-blue-500">Ouvert</Badge>
+        return <Badge variant="default" className="bg-info">Ouvert</Badge>
       case 'in_progress':
-        return <Badge variant="default" className="bg-yellow-500">En cours</Badge>
+        return <Badge variant="default" className="bg-warning">En cours</Badge>
       case 'resolved':
-        return <Badge variant="default" className="bg-green-500">Résolu</Badge>
+        return <Badge variant="default" className="bg-success">Résolu</Badge>
       case 'closed':
         return <Badge variant="outline">Fermé</Badge>
       default:
@@ -212,15 +212,24 @@ export function SupportTicketsTab({ userId }: SupportTicketsTabProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              {tickets.map((ticket) => (
-                <TicketCard
-                  key={ticket.id}
-                  ticket={ticket}
-                  onSelect={() => setSelectedTicketId(ticket.id)}
-                  getStatusBadge={getStatusBadge}
-                  getCategoryLabel={getCategoryLabel}
-                />
-              ))}
+              {tickets.map((ticket) => {
+                if (!ticket.id) {
+                  console.error('Ticket without ID:', ticket)
+                  return null
+                }
+                return (
+                  <TicketCard
+                    key={ticket.id}
+                    ticket={ticket}
+                    onSelect={() => {
+                      console.log('Selecting ticket with ID:', ticket.id)
+                      setSelectedTicketId(ticket.id)
+                    }}
+                    getStatusBadge={getStatusBadge}
+                    getCategoryLabel={getCategoryLabel}
+                  />
+                )
+              })}
               {nextCursor && (
                 <Button
                   variant="outline"
@@ -249,7 +258,10 @@ export function SupportTicketsTab({ userId }: SupportTicketsTabProps) {
         <TicketDetailsModal
           ticketId={selectedTicketId}
           isOpen={!!selectedTicketId}
-          onClose={() => setSelectedTicketId(null)}
+          onClose={() => {
+            console.log('Closing modal, ticketId was:', selectedTicketId)
+            setSelectedTicketId(null)
+          }}
           onUpdate={handleTicketUpdated}
         />
       )}

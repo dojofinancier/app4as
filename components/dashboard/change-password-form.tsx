@@ -77,7 +77,7 @@ export function ChangePasswordForm() {
               disabled={isSubmitting}
             />
             {errors.newPassword && (
-              <p className="text-sm text-red-600">{errors.newPassword.message}</p>
+              <p className="text-sm text-error">{errors.newPassword.message}</p>
             )}
           </div>
 
@@ -91,13 +91,13 @@ export function ChangePasswordForm() {
               disabled={isSubmitting}
             />
             {errors.confirmPassword && (
-              <p className="text-sm text-red-600">{errors.confirmPassword.message}</p>
+              <p className="text-sm text-error">{errors.confirmPassword.message}</p>
             )}
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-            <h4 className="text-sm font-medium text-blue-900 mb-1">Exigences du mot de passe :</h4>
-            <ul className="text-sm text-blue-800 space-y-1">
+          <div className="bg-info-light border border-info-border rounded-md p-3">
+            <h4 className="text-sm font-medium text-info mb-1">Exigences du mot de passe :</h4>
+            <ul className="text-sm text-info space-y-1">
               <li>• Au moins 6 caractères</li>
               <li>• Les deux mots de passe doivent correspondre</li>
             </ul>
@@ -106,8 +106,8 @@ export function ChangePasswordForm() {
           {message && (
             <div className={`p-3 rounded-md ${
               message.type === 'success' 
-                ? 'bg-green-50 text-green-800 border border-green-200' 
-                : 'bg-red-50 text-red-800 border border-red-200'
+                ? 'bg-success-light text-success border border-success-border' 
+                : 'bg-error-light text-error border border-error-border'
             }`}>
               {message.text}
             </div>

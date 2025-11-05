@@ -28,8 +28,8 @@ function StarInput({ label, value, onChange }: { label: string; value: number; o
             <Star
               className={`h-8 w-8 transition-colors ${
                 (hoverValue >= v || (!hoverValue && value >= v))
-                  ? 'text-yellow-400 fill-yellow-400'
-                  : 'text-gray-300 fill-gray-100'
+                  ? 'text-warning fill-warning'
+                  : 'text-muted-foreground fill-muted'
               }`}
             />
           </button>
@@ -98,8 +98,10 @@ export function StudentRatingDialog({ tutorId, courseId, appointmentId }: { tuto
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          {hasExisting ? 'Modifier votre évaluation' : 'Évaluer le tuteur'}
+        <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm whitespace-nowrap">
+          <Star className="h-4 w-4 mr-2" />
+          <span className="hidden sm:inline">{hasExisting ? 'Modifier votre évaluation' : 'Évaluer le tuteur'}</span>
+          <span className="sm:hidden">{hasExisting ? 'Modifier' : 'Évaluer'}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
@@ -125,8 +127,8 @@ export function StudentRatingDialog({ tutorId, courseId, appointmentId }: { tuto
             <div className="text-xs text-muted-foreground text-right">{comment.length}/2000</div>
           </div>
 
-          {error && <div className="text-sm text-red-600">{error}</div>}
-          {success && <div className="text-sm text-green-600">{success}</div>}
+          {error && <div className="text-sm text-error">{error}</div>}
+          {success && <div className="text-sm text-success">{success}</div>}
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>Fermer</Button>

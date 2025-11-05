@@ -271,8 +271,10 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
         setRevenueBreakdown(revenueBreakdownResult.data)
       }
 
-      // TODO: Replace with actual API calls for other data
-      // Mock data for now
+      // Note: Overview tab uses analytics data from API calls above.
+      // Individual tabs (courses, tutors, etc.) use their own management components
+      // that fetch real data from the database.
+      // Mock data below is legacy - not actively displayed in current UI.
       const mockCourses: Course[] = [
         {
           id: '1',
@@ -504,40 +506,40 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
               
               {/* Yearly Financial Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
+                <Card className="bg-gradient-to-r from-success-light to-success-light border-success-border">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Revenus totaux (Année)</CardTitle>
-                    <DollarSign className="h-4 w-4 text-green-600" />
+                    <DollarSign className="h-4 w-4 text-success" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-green-700">{formatCurrency(financialAnalytics.yearly.revenue)}</div>
-                    <p className="text-xs text-green-600">
+                    <div className="text-3xl font-bold text-success">{formatCurrency(financialAnalytics.yearly.revenue)}</div>
+                    <p className="text-xs text-success">
                       {financialAnalytics.yearly.orders} commandes
                     </p>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-r from-red-50 to-red-100 border-red-200">
+                <Card className="bg-gradient-to-r from-error-light to-error-light border-error-border">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Remboursements (Année)</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-red-600" />
+                    <TrendingUp className="h-4 w-4 text-error" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-red-700">{formatCurrency(financialAnalytics.yearly.refunds)}</div>
-                    <p className="text-xs text-red-600">
+                    <div className="text-3xl font-bold text-error">{formatCurrency(financialAnalytics.yearly.refunds)}</div>
+                    <p className="text-xs text-error">
                       {financialAnalytics.yearly.refundRate.toFixed(1)}% du total
                     </p>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                <Card className="bg-gradient-to-r from-info-light to-info-light border-info-border">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Marge brute (Année)</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-blue-600" />
+                    <TrendingUp className="h-4 w-4 text-info" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-blue-700">{formatCurrency(financialAnalytics.yearly.grossMargin)}</div>
-                    <p className="text-xs text-blue-600">
+                    <div className="text-3xl font-bold text-info">{formatCurrency(financialAnalytics.yearly.grossMargin)}</div>
+                    <p className="text-xs text-info">
                       {financialAnalytics.yearly.grossMarginPercent.toFixed(1)}% de marge
                     </p>
                   </CardContent>
@@ -717,7 +719,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Base de données</CardTitle>
-                      <div className={`h-2 w-2 rounded-full ${systemHealth.database.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <div className={`h-2 w-2 rounded-full ${systemHealth.database.status === 'healthy' ? 'bg-success' : 'bg-error'}`} />
                     </CardHeader>
                     <CardContent>
                       <div className="text-sm font-medium">{systemHealth.database.message}</div>
@@ -727,7 +729,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Stripe API</CardTitle>
-                      <div className={`h-2 w-2 rounded-full ${systemHealth.stripe.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <div className={`h-2 w-2 rounded-full ${systemHealth.stripe.status === 'healthy' ? 'bg-success' : 'bg-error'}`} />
                     </CardHeader>
                     <CardContent>
                       <div className="text-sm font-medium">{systemHealth.stripe.message}</div>
@@ -737,7 +739,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Taux d'erreur</CardTitle>
-                      <div className={`h-2 w-2 rounded-full ${systemHealth.errors.status === 'healthy' ? 'bg-green-500' : systemHealth.errors.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`} />
+                      <div className={`h-2 w-2 rounded-full ${systemHealth.errors.status === 'healthy' ? 'bg-success' : systemHealth.errors.status === 'warning' ? 'bg-warning' : 'bg-error'}`} />
                     </CardHeader>
                     <CardContent>
                       <div className="text-sm font-medium">{systemHealth.errors.message}</div>
@@ -747,7 +749,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Activité</CardTitle>
-                      <div className={`h-2 w-2 rounded-full ${systemHealth.uptime.status === 'healthy' ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                      <div className={`h-2 w-2 rounded-full ${systemHealth.uptime.status === 'healthy' ? 'bg-success' : 'bg-warning'}`} />
                     </CardHeader>
                     <CardContent>
                       <div className="text-sm font-medium">{systemHealth.uptime.message}</div>
@@ -837,19 +839,19 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between">
                             <span>Revenus:</span>
-                            <span className="font-medium text-green-600">{formatCurrency(monthData.revenue)}</span>
+                            <span className="font-medium text-success">{formatCurrency(monthData.revenue)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Remboursements:</span>
-                            <span className="font-medium text-red-600">{formatCurrency(monthData.refunds)}</span>
+                            <span className="font-medium text-error">{formatCurrency(monthData.refunds)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Paiements tuteurs:</span>
-                            <span className="font-medium text-blue-600">{formatCurrency(monthData.tutorPayments)}</span>
+                            <span className="font-medium text-info">{formatCurrency(monthData.tutorPayments)}</span>
                           </div>
                           <div className="flex justify-between border-t pt-1">
                             <span className="font-semibold">Marge brute:</span>
-                            <span className="font-bold text-purple-600">{formatCurrency(monthData.grossMargin)}</span>
+                            <span className="font-bold text-primary">{formatCurrency(monthData.grossMargin)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Commandes:</span>

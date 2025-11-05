@@ -450,7 +450,7 @@ export function AppointmentManagement() {
             
             <div className="space-y-6">
               {createError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+                <div className="p-3 bg-error-light border border-error-border rounded-md text-error text-sm">
                   {createError}
                 </div>
               )}
@@ -693,7 +693,7 @@ export function AppointmentManagement() {
         </CardHeader>
         <CardContent>
           {error && (
-            <div className="text-red-600 text-center p-4">
+            <div className="text-error text-center p-4">
               {error}
             </div>
           )}
@@ -758,7 +758,7 @@ export function AppointmentManagement() {
                       </div>
 
                       {appointment.cancellationReason && (
-                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                        <div className="mt-2 p-2 bg-error-light border border-error-border rounded text-sm text-error">
                           <strong>Raison d'annulation:</strong> {appointment.cancellationReason}
                         </div>
                       )}
@@ -878,7 +878,7 @@ export function AppointmentManagement() {
                             href={appointmentDetails.meetingLink} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
+                            className="text-info hover:underline"
                           >
                             {appointmentDetails.meetingLink}
                           </a>
@@ -947,7 +947,7 @@ export function AppointmentManagement() {
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Gains du tuteur</Label>
-                      <p className="text-lg font-semibold text-green-600">
+                      <p className="text-lg font-semibold text-success">
                         {formatCurrency(Number(appointmentDetails.orderItem.tutorEarningsCad))}
                       </p>
                     </div>
@@ -973,7 +973,7 @@ export function AppointmentManagement() {
               {appointmentDetails.status === 'cancelled' && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg text-red-600">Informations d'annulation</CardTitle>
+                    <CardTitle className="text-lg text-error">Informations d'annulation</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
@@ -1001,7 +1001,7 @@ export function AppointmentManagement() {
                   <CardContent>
                     <div className="space-y-4">
                       {appointmentDetails.modifications.map((modification: any) => (
-                        <div key={modification.id} className="border-l-4 border-blue-200 pl-4 py-2">
+                        <div key={modification.id} className="border-l-4 border-info-border pl-4 py-2">
                           <div className="flex justify-between items-start">
                             <div>
                               <p className="font-medium text-sm">

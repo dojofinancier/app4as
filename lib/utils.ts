@@ -1,8 +1,47 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { frCA } from "./i18n/fr-CA"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+/**
+ * Translate appointment status to French
+ */
+export function translateAppointmentStatus(status: string): string {
+  switch (status) {
+    case 'scheduled':
+      return frCA.dashboard.appointmentStatus.scheduled
+    case 'completed':
+      return frCA.dashboard.appointmentStatus.completed
+    case 'cancelled':
+      return frCA.dashboard.appointmentStatus.cancelled
+    case 'refunded':
+      return frCA.dashboard.appointmentStatus.refunded
+    default:
+      return status
+  }
+}
+
+/**
+ * Translate order status to French
+ */
+export function translateOrderStatus(status: string): string {
+  switch (status) {
+    case 'created':
+      return frCA.dashboard.orderStatus.created
+    case 'paid':
+      return frCA.dashboard.orderStatus.paid
+    case 'failed':
+      return frCA.dashboard.orderStatus.failed
+    case 'refunded':
+      return frCA.dashboard.orderStatus.refunded
+    case 'partially_refunded':
+      return frCA.dashboard.orderStatus.partially_refunded
+    default:
+      return status
+  }
 }
 
 export function formatCurrency(amount: number | string | any): string {

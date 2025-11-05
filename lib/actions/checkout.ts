@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
 import { getOrCreateCartByIdentity } from './cart'
 import { calculateOrderPricing, calculateTutorEarnings } from '@/lib/pricing'
-import { formatDateTime } from '@/lib/utils'
+import { logger } from '@/lib/utils/logger'
 
 /**
  * Create Stripe Payment Intent from cart
@@ -17,7 +17,7 @@ export async function createPaymentIntent() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  console.log('createPaymentIntent: Starting, user:', user ? 'authenticated' : 'guest')
+  logger.debug('createPaymentIntent: Starting, user:', user ? 'authenticated' : 'guest')
 
   try {
     let cart
@@ -33,17 +33,17 @@ export async function createPaymentIntent() {
       userId = user.id
     } else {
       // Guest user - get cart by session
-      console.log('createPaymentIntent: Guest user flow - importing session utils')
+      logger.debug('createPaymentIntent: Guest user flow - importing session utils')
       const { getCartSessionId } = await import('@/lib/utils/session')
-      console.log('createPaymentIntent: Session utils imported, calling getCartSessionId')
+      logger.debug('createPaymentIntent: Session utils imported, calling getCartSessionId')
       const sessionId = await getCartSessionId()
       
-      console.log('createPaymentIntent: Guest user, sessionId:', sessionId)
-      console.log('createPaymentIntent: Session ID type:', typeof sessionId)
-      console.log('createPaymentIntent: Session ID length:', sessionId?.length)
+      logger.debug('createPaymentIntent: Guest user, sessionId:', sessionId)
+      logger.debug('createPaymentIntent: Session ID type:', typeof sessionId)
+      logger.debug('createPaymentIntent: Session ID length:', sessionId?.length)
       
       if (!sessionId) {
-        console.log('createPaymentIntent: No session ID found - returning error')
+        logger.debug('createPaymentIntent: No session ID found - returning error')
         return { success: false, error: 'Session de panier introuvable' }
       }
       
@@ -55,7 +55,7 @@ export async function createPaymentIntent() {
       }
       
       cart = await getOrCreateCartByIdentity({ sessionId })
-      console.log('createPaymentIntent: Cart found, items count:', cart.items.length)
+      logger.debug('createPaymentIntent: Cart found, items count:', cart.items.length)
       userId = `guest_${sessionId}` // Use session ID as guest user ID
     }
 
@@ -78,7 +78,7 @@ export async function createPaymentIntent() {
 
     // Create or get Stripe customer
     const stripe = getStripe()
-    console.log('createPaymentIntent: Stripe client created')
+    logger.debug('createPaymentIntent: Stripe client created')
     let customerId: string
 
     if (user && dbUser?.stripeCustomerId) {
@@ -101,14 +101,14 @@ export async function createPaymentIntent() {
       })
     } else {
       // Guest user - create temporary customer
-      console.log('createPaymentIntent: Creating guest customer for userId:', userId)
+      logger.debug('createPaymentIntent: Creating guest customer for userId:', userId)
       const customer = await stripe.customers.create({
         metadata: {
           userId: userId, // guest_sessionId
           isGuest: 'true',
         },
       })
-      console.log('createPaymentIntent: Guest customer created:', customer.id)
+      logger.debug('createPaymentIntent: Guest customer created:', customer.id)
       customerId = customer.id
     }
 
@@ -161,9 +161,9 @@ export async function createPaymentIntent() {
       paymentIntentId: paymentIntent.id
     }
   } catch (error) {
-    console.error('Error creating payment intent:', error)
-    console.error('Error details:', error instanceof Error ? error.message : 'Unknown error')
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    logger.error('Error creating payment intent:', error)
+    logger.error('Error details:', error instanceof Error ? error.message : 'Unknown error')
+    logger.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return { success: false, error: error instanceof Error ? error.message : 'Une erreur est survenue' }
   }
 }
@@ -225,7 +225,7 @@ export async function createSetupIntent() {
       setupIntentId: setupIntent.id
     }
   } catch (error) {
-    console.error('Error creating setup intent:', error)
+    logger.error('Error creating setup intent:', error)
     return { success: false, error: 'Une erreur est survenue' }
   }
 }
@@ -239,7 +239,7 @@ export async function getPaymentIntent(paymentIntentId: string) {
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
     return { success: true, paymentIntent }
   } catch (error) {
-    console.error('Error retrieving payment intent:', error)
+    logger.error('Error retrieving payment intent:', error)
     return { success: false, error: 'Payment intent introuvable' }
   }
 }

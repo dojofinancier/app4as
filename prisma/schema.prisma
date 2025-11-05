@@ -34,6 +34,7 @@ model User {
   ticketMessages           TicketMessage[]
   supportTickets           SupportTicket[]
   tutorRatings             TutorRating[]
+  errorLogs                ErrorLog[]
 
   @@index([defaultPaymentMethodId], map: "idx_users_default_payment_method_id")
   @@index([stripeCustomerId], map: "idx_users_stripe_customer_id")
@@ -578,4 +579,25 @@ model TutorRating {
   @@unique([studentId, tutorId, courseId])
   @@index([tutorId, courseId, hidden])
   @@map("tutor_ratings")
+}
+
+model ErrorLog {
+  id        String   @id @default(uuid())
+  message   String   @db.Text
+  stack     String?  @db.Text
+  userId    String?  @map("user_id")
+  errorType String   @map("error_type")
+  severity  String   @default("error")
+  context   Json?
+  userAgent String?  @map("user_agent") @db.Text
+  url       String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([errorType])
+  @@index([severity])
+  @@index([createdAt])
+  @@map("error_logs")
 }

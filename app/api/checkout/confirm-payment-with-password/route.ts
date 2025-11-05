@@ -1,13 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
+import { validateEnvForRoute } from '@/lib/utils/env-validation'
+import { rateLimit } from '@/lib/utils/rate-limit'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting: 10 requests per minute per IP (guest checkout)
+  const rateLimitResponse = rateLimit(request, 'PAYMENT')
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
+  // Validate critical environment variables for payment confirmation
+  try {
+    validateEnvForRoute(['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'DATABASE_URL'])
+  } catch (error) {
+    console.error('Environment validation failed:', error)
+    return NextResponse.json(
+      { error: 'Server configuration error' },
+      { status: 500 }
+    )
+  }
+
   try {
     const body = await request.json()
-    const { paymentIntentId, password, billingAddress } = body
+    const { paymentIntentId, password, billingInfo } = body
 
-    if (!paymentIntentId || !password || !billingAddress) {
+    if (!paymentIntentId || !password || !billingInfo) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -34,7 +53,7 @@ export async function POST(request: NextRequest) {
     
     // First, try to sign in to see if user exists
     const { data: existingUser, error: signInError } = await supabase.auth.signInWithPassword({
-      email: billingAddress.email,
+      email: billingInfo.email,
       password: password
     })
 
@@ -44,13 +63,13 @@ export async function POST(request: NextRequest) {
     // If sign in failed, try to create new account
     if (signInError) {
       const { data: newUserData, error: signUpError } = await supabase.auth.signUp({
-        email: billingAddress.email,
+        email: billingInfo.email,
         password: password,
         options: {
           data: {
-            first_name: billingAddress.firstName,
-            last_name: billingAddress.lastName,
-            phone: billingAddress.phone,
+            first_name: billingInfo.firstName,
+            last_name: billingInfo.lastName,
+            phone: billingInfo.phone || undefined,
           }
         }
       })
@@ -93,10 +112,10 @@ export async function POST(request: NextRequest) {
       await prisma.user.create({
         data: {
           id: authData.user.id,
-          email: billingAddress.email,
-          firstName: billingAddress.firstName,
-          lastName: billingAddress.lastName,
-          phone: billingAddress.phone,
+          email: billingInfo.email,
+          firstName: billingInfo.firstName,
+          lastName: billingInfo.lastName,
+          phone: billingInfo.phone || undefined,
           role: 'student'
         }
       })
@@ -200,6 +219,7 @@ export async function POST(request: NextRequest) {
                 email: true,
                 firstName: true,
                 lastName: true,
+                phone: true,
                 role: true,
                 createdAt: true
               }
@@ -212,6 +232,7 @@ export async function POST(request: NextRequest) {
                 email: newUser.email,
                 firstName: newUser.firstName,
                 lastName: newUser.lastName,
+                phone: newUser.phone,
                 createdAt: newUser.createdAt.toISOString()
               })
             }
@@ -221,6 +242,12 @@ export async function POST(request: NextRequest) {
           }
         }
         
+        // Fetch user phone for booking webhook
+        const userForBooking = await prisma.user.findUnique({
+          where: { id: orderWithDetails.userId },
+          select: { phone: true }
+        })
+
         // Send booking created webhook
         await sendBookingCreatedWebhook({
           orderId: orderWithDetails.id,
@@ -230,6 +257,7 @@ export async function POST(request: NextRequest) {
           discountCad: Number(orderWithDetails.discountCad),
           totalCad: Number(orderWithDetails.totalCad),
           couponCode: cartData.couponCode || undefined,
+          phone: userForBooking?.phone || null,
           items: orderWithDetails.items.map(item => ({
             appointmentId: item.appointment?.id || '',
             courseId: item.courseId,

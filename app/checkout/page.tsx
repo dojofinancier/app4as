@@ -120,10 +120,10 @@ export default function CheckoutPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Chargement...</p>
         </div>
       </div>
     )
@@ -134,10 +134,10 @@ export default function CheckoutPage() {
   
   if (!cart || (requiresClientSecret && !clientSecret)) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Panier introuvable</p>
-          <Link href="/panier" className="text-blue-600 hover:underline">
+          <p className="text-muted-foreground mb-4">Panier introuvable</p>
+          <Link href="/panier" className="text-primary hover:underline">
             Retour au panier
           </Link>
         </div>
@@ -156,19 +156,19 @@ export default function CheckoutPage() {
   const finalTotal = totalPrice - discount
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
           <Link 
             href="/panier" 
-            className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4"
+            className="inline-flex items-center text-primary hover:text-primary/80 mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour au panier
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Finaliser votre commande</h1>
-          <p className="text-gray-600 mt-2">Vérifiez vos sessions et procédez au paiement</p>
+          <h1 className="text-3xl font-bold text-foreground">Finaliser votre commande</h1>
+          <p className="text-muted-foreground mt-2">Vérifiez vos sessions et procédez au paiement</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -183,7 +183,7 @@ export default function CheckoutPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Cart Items */}
-                <div className="space-y-3 max-h-64 overflow-y-auto">
+                <div className="space-y-3">
                   {cart.items.map((item, index) => (
                     <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex-1">
@@ -217,15 +217,15 @@ export default function CheckoutPage() {
 
                 {/* Coupon */}
                 {cart.coupon && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="bg-success-light border border-success-border rounded-lg p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-green-900">
+                        <div className="w-2 h-2 bg-success rounded-full"></div>
+                        <span className="text-sm font-medium text-success">
                           Rabais: {cart.coupon.code}
                         </span>
                       </div>
-                      <span className="text-sm font-medium text-green-900">
+                      <span className="text-sm font-medium text-success">
                         -{formatCurrency(discount)}
                       </span>
                     </div>
@@ -239,7 +239,7 @@ export default function CheckoutPage() {
                     <span>{formatCurrency(totalPrice)}</span>
                   </div>
                   {discount > 0 && (
-                    <div className="flex justify-between text-sm text-green-600">
+                    <div className="flex justify-between text-sm text-success">
                       <span>Rabais:</span>
                       <span>-{formatCurrency(discount)}</span>
                     </div>
@@ -259,20 +259,20 @@ export default function CheckoutPage() {
           {/* Error Display */}
           {error && (
             <div className="mb-6">
-              <Card className="border-red-200 bg-red-50">
+              <Card className="border-error-border bg-error-light">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0">
-                      <div className="h-5 w-5 rounded-full bg-red-100 flex items-center justify-center">
-                        <span className="text-red-600 text-sm">!</span>
+                      <div className="h-5 w-5 rounded-full bg-error/20 flex items-center justify-center">
+                        <span className="text-error text-sm">!</span>
                       </div>
                     </div>
                     <div className="flex-1">
-                      <p className="text-red-800 text-sm">{error}</p>
+                      <p className="text-error text-sm">{error}</p>
                       {error.includes('compte existant') && (
                         <div className="mt-3">
                           <Link href="/connexion">
-                            <Button variant="outline" size="sm" className="text-red-700 border-red-300 hover:bg-red-100">
+                            <Button variant="outline" size="sm" className="text-error border-error-border hover:bg-error-light">
                               Se connecter
                             </Button>
                           </Link>
@@ -281,7 +281,7 @@ export default function CheckoutPage() {
                     </div>
                     <button
                       onClick={() => setError(null)}
-                      className="flex-shrink-0 text-red-400 hover:text-red-600"
+                      className="flex-shrink-0 text-error hover:text-error/80"
                     >
                       <span className="sr-only">Fermer</span>
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

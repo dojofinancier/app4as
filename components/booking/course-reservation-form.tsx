@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
-import { Clock, User, DollarSign, Calendar } from 'lucide-react'
+import { Clock, User, DollarSign, Calendar, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { SessionSelection } from './session-selection'
 
 interface TimeSlot {
@@ -43,54 +43,113 @@ interface CourseReservationFormProps {
   course: Course
   tutors: Tutor[]
   user: User | null
+  initialTutorId?: string
 }
 
-export function CourseReservationForm({ course, tutors, user }: CourseReservationFormProps) {
+export function CourseReservationForm({ course, tutors, user, initialTutorId }: CourseReservationFormProps) {
   const router = useRouter()
   const [selectedDuration, setSelectedDuration] = useState(60)
   const [selectedSessions, setSelectedSessions] = useState<TimeSlot[]>([])
+  const [isAddingToCart, setIsAddingToCart] = useState(false)
+  const [addToCartStatus, setAddToCartStatus] = useState<{
+    type: 'success' | 'error' | null
+    message: string
+  } | null>(null)
 
   const handleDurationChange = (duration: number) => {
     setSelectedDuration(duration)
     setSelectedSessions([]) // Reset selection when duration changes
+    setAddToCartStatus(null) // Clear status when changing duration
   }
 
   const handleSessionsSelected = async (sessions: TimeSlot[]) => {
-    // Add all sessions to cart
-    try {
-      for (const session of sessions) {
-        // Use the tutor from the session, or fall back to first tutor if no specific tutor selected
-        const tutorId = session.tutorId || tutors[0].id
-        
-        const response = await fetch('/api/cart/add', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            courseId: course.id,
-            tutorId: tutorId,
-            startDatetime: session.start.toISOString(),
-            durationMin: session.duration
-          }),
-        })
+    if (sessions.length === 0) return
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Erreur lors de l\'ajout au panier')
-        }
+    // Immediate UI feedback (optimistic UI - fix #1)
+    setIsAddingToCart(true)
+    setAddToCartStatus(null)
+
+    try {
+      // Prepare sessions for batch API
+      const sessionsToAdd = sessions.map(session => ({
+        tutorId: session.tutorId || tutors[0].id,
+        startDatetime: session.start.toISOString(),
+        durationMin: session.duration,
+      }))
+
+      // Single batch API call (fixes #2, #3, #4)
+      const response = await fetch('/api/cart/add-batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          courseId: course.id,
+          courseStudentRateCad: Number(course.studentRateCad), // Pass course rate (fix #4)
+          sessions: sessionsToAdd,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors de l\'ajout au panier')
       }
 
-      // Redirect to cart page
-      router.push('/panier')
+      // Success feedback
+      if (data.added > 0) {
+        // Show brief success message
+        setAddToCartStatus({
+          type: 'success',
+          message: data.skipped > 0
+            ? `${data.added} session${data.added > 1 ? 's' : ''} ajoutée${data.added > 1 ? 's' : ''} au panier. ${data.skipped} session${data.skipped > 1 ? 's' : ''} déjà dans le panier ou non disponible.`
+            : `${data.added} session${data.added > 1 ? 's' : ''} ajoutée${data.added > 1 ? 's' : ''} au panier avec succès!`,
+        })
+
+        // Clear selected sessions on success
+        setSelectedSessions([])
+
+        // Dispatch event to update cart counter in navbar
+        window.dispatchEvent(new CustomEvent('cartUpdated'))
+
+        // Redirect to cart page after brief delay to show success message
+        setTimeout(() => {
+          router.push('/panier')
+        }, 500) // Short delay to show success feedback
+      } else {
+        throw new Error('Aucune session n\'a pu être ajoutée')
+      }
     } catch (error) {
       console.error('Error adding sessions to cart:', error)
-      alert(`Erreur: ${error instanceof Error ? error.message : String(error)}`)
+      setAddToCartStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Une erreur est survenue lors de l\'ajout au panier',
+      })
+    } finally {
+      setIsAddingToCart(false)
     }
   }
 
   return (
     <div className="space-y-8">
+      {/* Status Message (Success/Error) */}
+      {addToCartStatus && (
+        <div
+          className={`rounded-lg p-4 border flex items-start gap-3 ${
+            addToCartStatus.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200'
+              : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200'
+          }`}
+        >
+          {addToCartStatus.type === 'success' ? (
+            <CheckCircle2 className="h-5 w-5 mt-0.5 flex-shrink-0" />
+          ) : (
+            <XCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+          )}
+          <p className="text-sm font-medium flex-1">{addToCartStatus.message}</p>
+        </div>
+      )}
+
       {/* Duration Selection */}
       <Card>
         <CardHeader>
@@ -106,6 +165,7 @@ export function CourseReservationForm({ course, tutors, user }: CourseReservatio
                 key={duration}
                 variant={selectedDuration === duration ? "default" : "outline"}
                 onClick={() => handleDurationChange(duration)}
+                disabled={isAddingToCart}
                 className="flex flex-col items-center gap-2 p-4 h-auto"
               >
                 <span className="font-medium">{duration} min</span>
@@ -125,6 +185,8 @@ export function CourseReservationForm({ course, tutors, user }: CourseReservatio
         tutors={tutors}
         selectedDuration={selectedDuration}
         onSessionsSelected={handleSessionsSelected}
+        initialTutorId={initialTutorId}
+        isAddingToCart={isAddingToCart}
       />
     </div>
   )

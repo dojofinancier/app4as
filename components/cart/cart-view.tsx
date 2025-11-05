@@ -10,7 +10,7 @@ import { removeFromCart, applyCoupon, removeCoupon, applyCouponGuest, removeCoup
 import { calculateOrderPricing } from '@/lib/pricing'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { frCA } from '@/lib/i18n/fr-CA'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 import type { Cart, CartItem, Course, Tutor, Coupon } from '@prisma/client'
 
 // Serialized versions for client components
@@ -128,8 +128,12 @@ export function CartView({ initialCart, sessionId }: CartViewProps) {
   const handleRemoveItem = async (itemId: string) => {
     const result = await removeFromCart(itemId, sessionId)
     if (result.success) {
-      // Force a full page reload to ensure the cart is updated
-      window.location.reload()
+      // Dispatch event to update cart counter in navbar
+      window.dispatchEvent(new CustomEvent('cartUpdated'))
+      // Refresh cart data without full page reload (prevents theme flash)
+      await refreshCart()
+      // Use router.refresh() to update server components without full reload
+      router.refresh()
     } else {
       setError(result.error || 'Une erreur est survenue')
     }
@@ -214,7 +218,7 @@ export function CartView({ initialCart, sessionId }: CartViewProps) {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-3">
+    <div className="grid gap-4 sm:gap-6 md:gap-8 lg:grid-cols-3">
       <div className="lg:col-span-2">
         <Card>
           <CardHeader>
@@ -224,9 +228,9 @@ export function CartView({ initialCart, sessionId }: CartViewProps) {
             {cart.items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-start justify-between rounded-lg border p-4"
+                className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3 sm:gap-0 rounded-lg border p-3 sm:p-4"
               >
-                <div className="flex-1">
+                <div className="flex-1 w-full sm:w-auto">
                   <h3 className="font-semibold">{item.course.titleFr}</h3>
                   <p className="text-sm text-muted-foreground">
                     Tuteur: {item.tutor.displayName}
@@ -241,13 +245,26 @@ export function CartView({ initialCart, sessionId }: CartViewProps) {
                     {formatCurrency(typeof item.unitPriceCad === 'number' ? item.unitPriceCad : Number((item.unitPriceCad as any)))}
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleRemoveItem(item.id)}
-                >
-                  {frCA.booking.removeFromCart}
-                </Button>
+                <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveItem(item.id)}
+                    className="flex-1 sm:flex-none text-xs sm:text-sm"
+                  >
+                    {frCA.booking.removeFromCart}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/cours/${item.course.slug}`)}
+                    className="flex-1 sm:flex-none text-xs sm:text-sm min-w-0"
+                  >
+                    <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />
+                    <span className="hidden sm:inline">Ajouter d'autres séances</span>
+                    <span className="sm:hidden">Ajouter</span>
+                  </Button>
+                </div>
               </div>
             ))}
           </CardContent>
@@ -303,8 +320,8 @@ export function CartView({ initialCart, sessionId }: CartViewProps) {
         </Card>
       </div>
 
-      <div className="lg:col-span-1">
-        <Card className="sticky top-4">
+      <div className="lg:col-span-1 lg:self-start">
+        <Card>
           <CardHeader>
             <CardTitle>Résumé</CardTitle>
           </CardHeader>
@@ -321,7 +338,7 @@ export function CartView({ initialCart, sessionId }: CartViewProps) {
             </div>
 
             {totals.discount > 0 && (
-              <div className="flex justify-between text-green-600">
+              <div className="flex justify-between text-success">
                 <span>{frCA.booking.discount}</span>
                 <span>-{formatCurrency(totals.discount)}</span>
               </div>

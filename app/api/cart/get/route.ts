@@ -1,15 +1,19 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getOrCreateCartByIdentity } from '@/lib/actions/cart'
 import { createClient } from '@/lib/supabase/server'
 import { getOrCreateCartSessionId } from '@/lib/utils/session'
+import { rateLimit } from '@/lib/utils/rate-limit'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Rate limiting: 60 requests per minute per user/IP
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const rateLimitResponse = rateLimit(request, 'API', user?.id)
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
     // Authenticated users use user.id; guests use session cookie
     if (user) {
       const cart = await getOrCreateCartByIdentity({ userId: user.id })

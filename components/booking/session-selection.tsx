@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { formatCurrency } from '@/lib/utils'
-import { Clock, User, DollarSign, Plus, ShoppingCart, X } from 'lucide-react'
+import { Clock, User, DollarSign, Plus, ShoppingCart, X, Loader2 } from 'lucide-react'
 import { CalendarBooking } from './calendar-booking'
 
 interface TimeSlot {
@@ -35,16 +36,25 @@ interface SessionSelectionProps {
   tutors: Tutor[]
   selectedDuration: number
   onSessionsSelected: (sessions: TimeSlot[]) => void
+  initialTutorId?: string
+  isAddingToCart?: boolean
 }
 
 export function SessionSelection({
   course,
   tutors,
   selectedDuration,
-  onSessionsSelected
+  onSessionsSelected,
+  initialTutorId,
+  isAddingToCart = false,
 }: SessionSelectionProps) {
   const [selectedSessions, setSelectedSessions] = useState<TimeSlot[]>([])
-  const [selectedTutorId, setSelectedTutorId] = useState<string>('all') // Default to "all tutors"
+  // Use initialTutorId if provided, otherwise default to "all tutors"
+  // Also validate that the initialTutorId exists in the tutors list
+  const isValidInitialTutor = initialTutorId && tutors.some(t => t.id === initialTutorId)
+  const [selectedTutorId, setSelectedTutorId] = useState<string>(
+    isValidInitialTutor ? initialTutorId : 'all'
+  )
   const [showConflictMessage, setShowConflictMessage] = useState(false)
 
   const selectedTutor = selectedTutorId === 'all' ? null : tutors.find(t => t.id === selectedTutorId) || null
@@ -123,15 +133,15 @@ export function SessionSelection({
     <div className="space-y-6">
       {/* Conflict Message */}
       {showConflictMessage && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="bg-warning-light border border-warning-border rounded-lg p-4">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-2">
-              <Clock className="h-5 w-5 text-yellow-600 mt-0.5" />
+              <Clock className="h-5 w-5 text-warning mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-yellow-800">
+                <p className="text-sm font-medium text-warning">
                   Créneaux en conflit
                 </p>
-                <p className="text-sm text-yellow-700">
+                <p className="text-sm text-warning">
                   Vous ne pouvez pas sélectionner des créneaux qui se chevauchent. Veuillez choisir des heures différentes.
                 </p>
               </div>
@@ -140,7 +150,7 @@ export function SessionSelection({
               variant="ghost"
               size="sm"
               onClick={() => setShowConflictMessage(false)}
-              className="h-6 w-6 p-0 text-yellow-600 hover:text-yellow-800"
+              className="h-6 w-6 p-0 text-warning hover:text-warning/80"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -172,41 +182,49 @@ export function SessionSelection({
 
       {/* Tutor Selection - Optional */}
       {tutors.length > 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Choisir un tuteur (optionnel)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Button
-                variant={selectedTutorId === 'all' ? "default" : "outline"}
-                onClick={() => setSelectedTutorId('all')}
-                className="h-auto p-4 flex flex-col items-start gap-2"
-              >
-                <div className="font-medium">Tous les tuteurs</div>
-                <div className="text-sm text-muted-foreground">
-                  {formatCurrency(calculatePrice(selectedDuration))} / session
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="tutor-selection" className="border rounded-lg">
+            <AccordionTrigger className="px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                <span className="font-medium">
+                  {selectedTutorId !== 'all' && selectedTutor
+                    ? `Tuteur sélectionné: ${selectedTutor.displayName}`
+                    : 'Choisir un tuteur (optionnel)'}
+                </span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="px-6 pb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Button
+                    variant={selectedTutorId === 'all' ? "default" : "outline"}
+                    onClick={() => setSelectedTutorId('all')}
+                    className="h-auto p-4 flex flex-col items-start gap-2"
+                  >
+                    <div className="font-medium">Tous les tuteurs</div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatCurrency(calculatePrice(selectedDuration))} / session
+                    </div>
+                  </Button>
+                  {tutors.map((tutor) => (
+                    <Button
+                      key={tutor.id}
+                      variant={selectedTutorId === tutor.id ? "default" : "outline"}
+                      onClick={() => setSelectedTutorId(tutor.id)}
+                      className="h-auto p-4 flex flex-col items-start gap-2"
+                    >
+                      <div className="font-medium">{tutor.displayName}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {formatCurrency(calculatePrice(selectedDuration))} / session
+                      </div>
+                    </Button>
+                  ))}
                 </div>
-              </Button>
-              {tutors.map((tutor) => (
-                <Button
-                  key={tutor.id}
-                  variant={selectedTutorId === tutor.id ? "default" : "outline"}
-                  onClick={() => setSelectedTutorId(tutor.id)}
-                  className="h-auto p-4 flex flex-col items-start gap-2"
-                >
-                  <div className="font-medium">{tutor.displayName}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {formatCurrency(calculatePrice(selectedDuration))} / session
-                  </div>
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       )}
 
       {/* Selected Sessions Summary */}
@@ -279,9 +297,23 @@ export function SessionSelection({
             </div>
 
             {/* Continue to Cart Button */}
-            <Button onClick={handleContinueToCart} className="w-full" size="lg">
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Continuer vers le panier ({selectedSessions.length} sessions)
+            <Button 
+              onClick={handleContinueToCart} 
+              className="w-full" 
+              size="lg"
+              disabled={isAddingToCart || selectedSessions.length === 0}
+            >
+              {isAddingToCart ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Ajout au panier...
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Continuer vers le panier ({selectedSessions.length} sessions)
+                </>
+              )}
             </Button>
 
             {/* Info */}

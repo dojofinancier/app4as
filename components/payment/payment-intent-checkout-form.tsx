@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
-import { CreditCard, MapPin, User, Mail, Phone, Save } from 'lucide-react'
+import { CreditCard, User } from 'lucide-react'
 
 interface CartItem {
   id: string
@@ -56,15 +56,11 @@ export function PaymentIntentCheckoutForm({
   const stripe = useStripe()
   const elements = useElements()
   const [loading, setLoading] = useState(false)
-  const [billingAddress, setBillingAddress] = useState({
+  const [billingInfo, setBillingInfo] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    address: '',
-    city: '',
-    province: '',
-    country: 'CA', // Use 2-character country code for Stripe
     password: '', // For guest users
     confirmPassword: '' // For guest users
   })
@@ -81,8 +77,8 @@ export function PaymentIntentCheckoutForm({
 
   // Password validation for guest users
   const isGuestUser = !user
-  const passwordsMatch = billingAddress.password === billingAddress.confirmPassword
-  const isPasswordValid = billingAddress.password.length >= 6
+  const passwordsMatch = billingInfo.password === billingInfo.confirmPassword
+  const isPasswordValid = billingInfo.password.length >= 6
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -118,15 +114,9 @@ export function PaymentIntentCheckoutForm({
           payment_method: {
             card: cardElement,
             billing_details: {
-              name: `${billingAddress.firstName} ${billingAddress.lastName}`,
-              email: billingAddress.email,
-              phone: billingAddress.phone,
-              address: {
-                line1: billingAddress.address,
-                city: billingAddress.city,
-                state: billingAddress.province,
-                country: billingAddress.country,
-              },
+              name: `${billingInfo.firstName} ${billingInfo.lastName}`,
+              email: billingInfo.email,
+              phone: billingInfo.phone || undefined,
             },
           },
         }
@@ -145,16 +135,12 @@ export function PaymentIntentCheckoutForm({
               },
               body: JSON.stringify({
                 paymentIntentId: paymentIntent.id,
-                password: billingAddress.password,
-                billingAddress: {
-                  firstName: billingAddress.firstName,
-                  lastName: billingAddress.lastName,
-                  email: billingAddress.email,
-                  phone: billingAddress.phone,
-                  address: billingAddress.address,
-                  city: billingAddress.city,
-                  province: billingAddress.province,
-                  country: billingAddress.country
+                password: billingInfo.password,
+                billingInfo: {
+                  firstName: billingInfo.firstName,
+                  lastName: billingInfo.lastName,
+                  email: billingInfo.email,
+                  phone: billingInfo.phone,
                 }
               })
             })
@@ -164,13 +150,16 @@ export function PaymentIntentCheckoutForm({
               
               // Handle specific error for existing user
               if (errorData.code === 'USER_ALREADY_EXISTS') {
-                onError(`Un compte existe déjà avec l'adresse email ${billingAddress.email}. Veuillez vous connecter avec votre compte existant.`)
+                onError(`Un compte existe déjà avec l'adresse email ${billingInfo.email}. Veuillez vous connecter avec votre compte existant.`)
                 return
               }
               
               throw new Error(errorData.error || 'Erreur lors de la création du compte')
             }
 
+            // Dispatch cart updated event to update cart counter
+            window.dispatchEvent(new CustomEvent('cartUpdated'))
+            
             // Account created and user signed in, redirect to dashboard
             window.location.href = '/tableau-de-bord'
             return
@@ -181,8 +170,35 @@ export function PaymentIntentCheckoutForm({
           }
         }
         
-        // For existing users, just redirect
-        onSuccess(paymentIntent.id)
+        // For existing users, confirm payment on server before redirecting
+        try {
+          const response = await fetch('/api/checkout/confirm-payment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              paymentIntentId: paymentIntent.id,
+            })
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || 'Erreur lors de la confirmation du paiement')
+          }
+
+          const result = await response.json()
+          console.log('Payment confirmed successfully:', result)
+          
+          // Dispatch cart updated event to update cart counter
+          window.dispatchEvent(new CustomEvent('cartUpdated'))
+          
+          // Redirect to dashboard after successful confirmation
+          onSuccess(paymentIntent.id)
+        } catch (error) {
+          console.error('Error confirming payment:', error)
+          onError(error instanceof Error ? error.message : 'Erreur lors de la confirmation du paiement')
+        }
       }
     } catch (error) {
       console.error('Payment error:', error)
@@ -223,8 +239,8 @@ export function PaymentIntentCheckoutForm({
             <Label htmlFor="firstName">Prénom *</Label>
             <Input
               id="firstName"
-              value={billingAddress.firstName}
-              onChange={(e) => setBillingAddress(prev => ({ ...prev, firstName: e.target.value }))}
+              value={billingInfo.firstName}
+              onChange={(e) => setBillingInfo(prev => ({ ...prev, firstName: e.target.value }))}
               required
             />
           </div>
@@ -232,8 +248,8 @@ export function PaymentIntentCheckoutForm({
             <Label htmlFor="lastName">Nom *</Label>
             <Input
               id="lastName"
-              value={billingAddress.lastName}
-              onChange={(e) => setBillingAddress(prev => ({ ...prev, lastName: e.target.value }))}
+              value={billingInfo.lastName}
+              onChange={(e) => setBillingInfo(prev => ({ ...prev, lastName: e.target.value }))}
               required
             />
           </div>
@@ -244,8 +260,8 @@ export function PaymentIntentCheckoutForm({
           <Input
             id="email"
             type="email"
-            value={billingAddress.email}
-            onChange={(e) => setBillingAddress(prev => ({ ...prev, email: e.target.value }))}
+            value={billingInfo.email}
+            onChange={(e) => setBillingInfo(prev => ({ ...prev, email: e.target.value }))}
             required
           />
         </div>
@@ -255,8 +271,8 @@ export function PaymentIntentCheckoutForm({
           <Input
             id="phone"
             type="tel"
-            value={billingAddress.phone}
-            onChange={(e) => setBillingAddress(prev => ({ ...prev, phone: e.target.value }))}
+            value={billingInfo.phone}
+            onChange={(e) => setBillingInfo(prev => ({ ...prev, phone: e.target.value }))}
           />
         </div>
 
@@ -268,8 +284,8 @@ export function PaymentIntentCheckoutForm({
               <Input
                 id="password"
                 type="password"
-                value={billingAddress.password}
-                onChange={(e) => setBillingAddress(prev => ({ ...prev, password: e.target.value }))}
+                value={billingInfo.password}
+                onChange={(e) => setBillingInfo(prev => ({ ...prev, password: e.target.value }))}
                 required
                 minLength={6}
               />
@@ -283,58 +299,19 @@ export function PaymentIntentCheckoutForm({
               <Input
                 id="confirmPassword"
                 type="password"
-                value={billingAddress.confirmPassword}
-                onChange={(e) => setBillingAddress(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                value={billingInfo.confirmPassword}
+                onChange={(e) => setBillingInfo(prev => ({ ...prev, confirmPassword: e.target.value }))}
                 required
                 minLength={6}
               />
-              {billingAddress.confirmPassword && !passwordsMatch && (
-                <p className="text-sm text-red-600 mt-1">
+              {billingInfo.confirmPassword && !passwordsMatch && (
+                <p className="text-sm text-error mt-1">
                   Les mots de passe ne correspondent pas
                 </p>
               )}
             </div>
           </>
         )}
-      </div>
-
-      {/* Billing Address */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium flex items-center gap-2">
-          <MapPin className="h-5 w-5" />
-          Adresse de facturation
-        </h3>
-        
-        <div>
-          <Label htmlFor="address">Adresse *</Label>
-          <Input
-            id="address"
-            value={billingAddress.address}
-            onChange={(e) => setBillingAddress(prev => ({ ...prev, address: e.target.value }))}
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="city">Ville *</Label>
-            <Input
-              id="city"
-              value={billingAddress.city}
-              onChange={(e) => setBillingAddress(prev => ({ ...prev, city: e.target.value }))}
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="province">Province *</Label>
-            <Input
-              id="province"
-              value={billingAddress.province}
-              onChange={(e) => setBillingAddress(prev => ({ ...prev, province: e.target.value }))}
-              required
-            />
-          </div>
-        </div>
       </div>
 
       {/* Payment Method */}
@@ -353,13 +330,13 @@ export function PaymentIntentCheckoutForm({
       </div>
 
       {/* Order Total */}
-      <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+      <div className="bg-muted p-4 rounded-lg space-y-2">
         <div className="flex justify-between text-sm">
           <span>Sous-total:</span>
           <span>{formatCurrency(totalPrice)}</span>
         </div>
         {discount > 0 && (
-          <div className="flex justify-between text-sm text-green-600">
+          <div className="flex justify-between text-sm text-success">
             <span>Rabais:</span>
             <span>-{formatCurrency(discount)}</span>
           </div>

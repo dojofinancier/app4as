@@ -72,7 +72,7 @@ export function StartConversation({ onSelectTutor }: StartConversationProps) {
         {availableTutors.map((tutor) => (
           <Card
             key={tutor.id}
-            className="cursor-pointer hover:bg-gray-50 transition-colors"
+            className="cursor-pointer hover:bg-muted transition-colors"
             onClick={() => onSelectTutor(tutor)}
           >
             <CardContent className="p-4">

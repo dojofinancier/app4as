@@ -44,17 +44,20 @@ export async function getAvailableSlots(
     return []
   }
 
-  // 2. Get all active tutors assigned to this course
+  // 2. Get all active tutors assigned to this course (optimized: only fetch needed fields)
   const tutorCourses = await prisma.tutorCourse.findMany({
     where: {
       courseId,
       active: true,
       tutor: { active: true },
     },
-    include: {
+    select: {
       tutor: {
-        include: {
-          user: true,
+        select: {
+          id: true,
+          displayName: true,
+          priority: true,
+          hourlyBaseRateCad: true,
         },
       },
     },
@@ -253,16 +256,24 @@ async function getBookedSlots(
 ): Promise<BookedSlot[]> {
   const slots: BookedSlot[] = []
 
-  // Get appointments with retry logic
+  // Get appointments with retry logic (optimized: only fetch needed fields)
+  // CRITICAL: Check for OVERLAPS, not just startDatetime within range
+  // An appointment that starts before fromDate but ends after fromDate should be included
   const appointments = await withRetry(async () => {
     return await prisma.appointment.findMany({
       where: {
         tutorId: { in: tutorIds },
-        startDatetime: {
-          gte: fromDate,
-          lte: toDate,
-        },
         status: { in: ['scheduled', 'completed'] },
+        // Check for overlap: appointment starts before toDate AND ends after fromDate
+        AND: [
+          { startDatetime: { lt: toDate } },
+          { endDatetime: { gt: fromDate } },
+        ],
+      },
+      select: {
+        tutorId: true,
+        startDatetime: true,
+        endDatetime: true,
       },
     })
   })
@@ -275,25 +286,57 @@ async function getBookedSlots(
     }))
   )
 
-  // Get non-expired holds with retry logic
+  // Get non-expired holds with retry logic (optimized: only fetch needed fields)
+  // CRITICAL: Check for OVERLAPS, not just startDatetime within range
+  // A hold that starts before fromDate but ends after fromDate should be included
   const now = new Date()
+  const maxHoldDuration = 120 // Maximum hold duration in minutes (for overlap calculation)
   const holds = await withRetry(async () => {
     return await prisma.slotHold.findMany({
       where: {
         tutorId: { in: tutorIds },
-        startDatetime: {
-          gte: fromDate,
-          lte: toDate,
-        },
         expiresAt: {
           gt: now,
         },
+        // Check for overlap: hold starts before toDate AND (start + duration) ends after fromDate
+        // We approximate by checking if startDatetime is within an extended range that accounts for max duration
+        // More precise: check if startDatetime < toDate AND (startDatetime + max duration) > fromDate
+        AND: [
+          { startDatetime: { lt: toDate } },
+          // Approximate: holds typically start within range or just before, so check if start + max duration overlaps
+          // This is conservative - we'll include all holds that could potentially overlap
+          {
+            OR: [
+              // Hold starts within the range
+              { startDatetime: { gte: fromDate, lte: toDate } },
+              // Hold starts before but could extend into range (check if start + max duration > fromDate)
+              {
+                AND: [
+                  { startDatetime: { lt: fromDate } },
+                  // We'll filter in code to check actual duration overlap
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      select: {
+        tutorId: true,
+        startDatetime: true,
+        durationMin: true,
       },
     })
   })
+  
+  // Filter holds to only include those that actually overlap the date range
+  const overlappingHolds = holds.filter(hold => {
+    const holdEnd = addMinutes(hold.startDatetime, hold.durationMin)
+    // Hold overlaps if: hold starts before toDate AND hold ends after fromDate
+    return isBefore(hold.startDatetime, toDate) && isAfter(holdEnd, fromDate)
+  })
 
   slots.push(
-    ...holds.map((hold) => ({
+    ...overlappingHolds.map((hold) => ({
       tutorId: hold.tutorId,
       startDatetime: hold.startDatetime,
       endDatetime: addMinutes(hold.startDatetime, hold.durationMin),
@@ -344,8 +387,10 @@ function generateSlotsForTutor(
       // Calculate which durations fit in the remaining window
       const availableDurations = VALID_DURATIONS.filter((duration) => {
         const slotEnd = addMinutes(currentSlotStart, duration)
+        // CRITICAL: Check both that slot fits in window AND is not booked
+        // Parentheses are important - operator precedence would otherwise short-circuit the booking check
         return (
-          isBefore(slotEnd, window.endDatetime) || isEqual(slotEnd, window.endDatetime) &&
+          (isBefore(slotEnd, window.endDatetime) || isEqual(slotEnd, window.endDatetime)) &&
           !isSlotBooked(currentSlotStart, slotEnd, bookedSlots)
         )
       })

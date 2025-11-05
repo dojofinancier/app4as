@@ -43,7 +43,7 @@ export function BookingTypeSelector({
       <CardContent>
         <div className="space-y-4">
           {/* Session Details */}
-          <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+          <div className="bg-muted p-4 rounded-lg space-y-2">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">
@@ -102,8 +102,8 @@ export function BookingTypeSelector({
           </div>
 
           {/* Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
+          <div className="bg-info-light border border-info-border rounded-lg p-3">
+            <p className="text-sm text-info">
               <strong>Note:</strong> Les sessions récurrentes vous permettent de réserver plusieurs sessions 
               à l'avance avec le même tuteur et le même horaire. Vous serez facturé pour toutes les sessions 
               immédiatement.

@@ -123,6 +123,7 @@ export async function createTutorAccount(data: {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      phone: user.phone,
       createdAt: user.createdAt.toISOString(),
     })
 
@@ -2828,8 +2829,14 @@ export async function getFinancialAnalytics(year?: number, month?: number) {
           }
         },
         refundRequests: {
+          where: {
+            status: {
+              in: ['approved', 'processed']
+            }
+          },
           select: {
-            amount: true
+            amount: true,
+            status: true
           }
         }
       }
@@ -3761,7 +3768,7 @@ export async function refundOrder(
   }
 
   try {
-    // Get order details
+    // Get order details with existing refunds
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       select: {
@@ -3786,6 +3793,19 @@ export async function refundOrder(
               }
             }
           }
+        },
+        refundRequests: {
+          where: {
+            status: {
+              in: ['approved', 'processed']
+            }
+          },
+          select: {
+            id: true,
+            amount: true,
+            stripeRefundId: true,
+            status: true
+          }
         }
       }
     })
@@ -3794,49 +3814,202 @@ export async function refundOrder(
       return { success: false, error: 'Commande non trouvée' }
     }
 
+    // Calculate total already refunded
+    const totalRefunded = order.refundRequests.reduce((sum, refund) => sum + Number(refund.amount), 0)
+    const remainingAmount = Number(order.totalCad) - totalRefunded
+
     if (order.status === 'refunded') {
-      return { success: false, error: 'Cette commande a déjà été remboursée' }
+      return { success: false, error: 'Cette commande a déjà été remboursée intégralement' }
     }
 
-    if (amount > Number(order.totalCad)) {
-      return { success: false, error: 'Le montant du remboursement ne peut pas dépasser le total de la commande' }
-    }
-
-    // Process Stripe refund
-    let stripeRefundId: string | null = null
-    if (order.stripePaymentIntentId) {
-      try {
-        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
-        const refund = await stripe.refunds.create({
-          payment_intent: order.stripePaymentIntentId,
-          amount: Math.round(amount * 100), // Convert to cents
-          reason: 'requested_by_customer',
-          metadata: {
-            orderId: orderId,
-            reason: reason,
-            processedBy: user.id
-          }
-        })
-        stripeRefundId = refund.id
-      } catch (stripeError) {
-        console.error('Stripe refund error:', stripeError)
-        return { success: false, error: 'Erreur lors du remboursement Stripe' }
+    if (amount > remainingAmount) {
+      return { 
+        success: false, 
+        error: `Le montant du remboursement ne peut pas dépasser le montant restant ($${remainingAmount.toFixed(2)} CAD)` 
       }
     }
 
-    // Update order status
-    const isFullRefund = amount >= Number(order.totalCad)
+    // Check if refund with same amount and Stripe ID already exists (idempotency)
+    if (order.stripePaymentIntentId) {
+      try {
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+        
+        // First, check if there's already a refund for this payment intent in Stripe
+        const existingStripeRefunds = await stripe.refunds.list({
+          payment_intent: order.stripePaymentIntentId,
+          limit: 100
+        })
+
+        // Check if we already have a refund record for any of these Stripe refunds
+        const existingStripeRefundIds = order.refundRequests
+          .map(r => r.stripeRefundId)
+          .filter(Boolean) as string[]
+
+        // Find if there's a Stripe refund that matches our amount but isn't in our DB
+        const matchingStripeRefund = existingStripeRefunds.data.find(
+          (refund: any) => 
+            Math.abs(refund.amount / 100 - amount) < 0.01 && // Amount matches (within 1 cent)
+            !existingStripeRefundIds.includes(refund.id)
+        )
+
+        let stripeRefundId: string | null = null
+
+        if (matchingStripeRefund) {
+          // Stripe refund exists but not in our DB - reconcile it
+          console.log('Found existing Stripe refund, reconciling:', matchingStripeRefund.id)
+          stripeRefundId = matchingStripeRefund.id
+        } else {
+          // Create new Stripe refund
+          const refund = await stripe.refunds.create({
+            payment_intent: order.stripePaymentIntentId,
+            amount: Math.round(amount * 100), // Convert to cents
+            reason: 'requested_by_customer',
+            metadata: {
+              orderId: orderId,
+              reason: reason,
+              processedBy: user.id
+            }
+          })
+          stripeRefundId = refund.id
+        }
+
+        // Now proceed with database operations using the stripeRefundId
+        return await processRefundDatabaseOperations(orderId, order, amount, reason, stripeRefundId, user.id, cancelAppointments)
+      } catch (stripeError: any) {
+        console.error('Stripe refund error:', stripeError)
+        
+        // If Stripe says refund already exists, try to reconcile
+        if (stripeError.code === 'refund_already_exists' || stripeError.message?.includes('already been refunded')) {
+          // Try to find the existing refund in Stripe
+          try {
+            const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+            const existingRefunds = await stripe.refunds.list({
+              payment_intent: order.stripePaymentIntentId,
+              limit: 100
+            })
+            
+            const matchingRefund = existingRefunds.data.find(
+              (refund: any) => Math.abs(refund.amount / 100 - amount) < 0.01
+            )
+
+            if (matchingRefund) {
+              // Reconcile the existing refund
+              return await processRefundDatabaseOperations(
+                orderId, 
+                order, 
+                amount, 
+                reason, 
+                matchingRefund.id, 
+                user.id, 
+                cancelAppointments
+              )
+            }
+          } catch (reconcileError) {
+            console.error('Error reconciling refund:', reconcileError)
+          }
+        }
+
+        return { 
+          success: false, 
+          error: `Erreur lors du remboursement Stripe: ${stripeError.message || 'Erreur inconnue'}` 
+        }
+      }
+    } else {
+      // No Stripe payment - just process database operations
+      return await processRefundDatabaseOperations(orderId, order, amount, reason, null, user.id, cancelAppointments)
+    }
+  } catch (error) {
+    console.error('Error processing refund:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Une erreur est survenue' }
+  }
+}
+
+/**
+ * Helper function to process refund database operations
+ * This is separated to allow reconciliation of existing Stripe refunds
+ */
+async function processRefundDatabaseOperations(
+  orderId: string,
+  order: any,
+  amount: number,
+  reason: string,
+  stripeRefundId: string | null,
+  userId: string,
+  cancelAppointments: boolean
+) {
+  try {
+    // Check if refund already exists (idempotency check)
+    if (stripeRefundId) {
+      const existingRefund = await prisma.refundRequest.findFirst({
+        where: {
+          stripeRefundId: stripeRefundId,
+          orderId: orderId
+        }
+      })
+
+      if (existingRefund) {
+        console.log('Refund already exists in database, returning existing record')
+        return { success: true, data: { refundId: stripeRefundId, existing: true } }
+      }
+    }
+
+    // Calculate total already refunded to determine new status
+    const totalRefunded = order.refundRequests.reduce((sum, refund) => sum + Number(refund.amount), 0)
+    const newTotalRefunded = totalRefunded + amount
+    const isFullRefund = newTotalRefunded >= Number(order.totalCad)
     const newStatus = isFullRefund ? 'refunded' : 'partially_refunded'
 
+    // Update order status
     await prisma.order.update({
       where: { id: orderId },
       data: { status: newStatus }
     })
 
     // Create refund request record
-    // For order-level refunds, we'll use the first appointment ID or create a dummy one
+    // For order-level refunds, use the first appointment ID if available
     const firstAppointmentId = order.items.find(item => item.appointment?.id)?.appointment?.id
-    if (firstAppointmentId) {
+    
+    if (!firstAppointmentId) {
+      // If no appointment, we need to find any appointment for this order or create a minimal one
+      // Since appointmentId is required in schema, we need to handle this
+      const orderWithAppointments = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          items: {
+            include: {
+              appointment: {
+                select: { id: true }
+              }
+            }
+          }
+        }
+      })
+      
+      const anyAppointmentId = orderWithAppointments?.items.find(item => item.appointment?.id)?.appointment?.id
+      
+      if (!anyAppointmentId) {
+        return { 
+          success: false, 
+          error: 'Impossible de créer le remboursement: aucun rendez-vous associé à cette commande' 
+        }
+      }
+      
+      // Use the found appointment ID
+      await prisma.refundRequest.create({
+        data: {
+          userId: order.user.id,
+          appointmentId: anyAppointmentId,
+          orderId: orderId,
+          amount: amount,
+          reason: reason,
+          status: 'processed',
+          stripeRefundId: stripeRefundId,
+          processedBy: userId,
+          processedAt: new Date()
+        }
+      })
+    } else {
+      // Create refund request with appointment ID
       await prisma.refundRequest.create({
         data: {
           userId: order.user.id,
@@ -3846,7 +4019,7 @@ export async function refundOrder(
           reason: reason,
           status: 'processed',
           stripeRefundId: stripeRefundId,
-          processedBy: user.id,
+          processedBy: userId,
           processedAt: new Date()
         }
       })
@@ -3867,23 +4040,28 @@ export async function refundOrder(
           data: {
             status: 'cancelled',
             cancellationReason: `Remboursement de commande: ${reason}`,
-            cancelledBy: user.id,
+            cancelledBy: userId,
             cancelledAt: new Date()
           }
         })
 
         // Log the cancellations
         for (const appointmentId of appointmentIds) {
-          await prisma.appointmentModification.create({
-            data: {
-              appointmentId,
-              modifiedBy: user.id,
-              modificationType: 'status_change',
-              reason: `Annulé suite au remboursement de commande: ${reason}`,
-              oldData: { status: 'scheduled' },
-              newData: { status: 'cancelled' }
-            }
-          })
+          try {
+            await prisma.appointmentModification.create({
+              data: {
+                appointmentId,
+                modifiedBy: userId,
+                modificationType: 'cancel',
+                reason: `Annulé suite au remboursement de commande: ${reason}`,
+                oldData: { status: 'scheduled' },
+                newData: { status: 'cancelled' }
+              }
+            })
+          } catch (modError) {
+            // Don't fail the refund if modification logging fails
+            console.error('Error logging appointment modification:', modError)
+          }
         }
       }
     }
@@ -3901,7 +4079,7 @@ export async function refundOrder(
         refundAmount: amount,
         refundReason: reason,
         stripeRefundId: stripeRefundId || undefined,
-        processedBy: user.id,
+        processedBy: userId,
         affectedAppointments: affectedAppointmentIds,
         timestamp: new Date().toISOString()
       })
@@ -3913,8 +4091,25 @@ export async function refundOrder(
     revalidatePath('/admin')
     return { success: true, data: { refundId: stripeRefundId } }
   } catch (error) {
-    console.error('Error processing refund:', error)
-    return { success: false, error: 'Une erreur est survenue' }
+    console.error('Error in processRefundDatabaseOperations:', error)
+    console.error('Error details:', {
+      orderId,
+      amount,
+      stripeRefundId,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined
+    })
+    
+    // If we have a Stripe refund ID but DB failed, log it for manual reconciliation
+    if (stripeRefundId) {
+      console.error('CRITICAL: Stripe refund succeeded but database update failed. Stripe Refund ID:', stripeRefundId)
+      console.error('This refund needs to be manually reconciled in the database.')
+    }
+    
+    return { 
+      success: false, 
+      error: error instanceof Error ? `Erreur lors de la mise à jour de la base de données: ${error.message}` : 'Une erreur est survenue lors de la mise à jour de la base de données' 
+    }
   }
 }
 

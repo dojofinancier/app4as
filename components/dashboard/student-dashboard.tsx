@@ -5,14 +5,16 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { formatCurrency, formatDateTime } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeleton'
+import { formatCurrency, formatDateTime, translateOrderStatus } from '@/lib/utils'
 import { frCA } from '@/lib/i18n/fr-CA'
 import { AppointmentCard } from './appointment-card'
 import { ProfileManagementTab } from './profile-management-tab'
 import { ReservationManagementTab } from './reservation-management-tab'
 import { MessagingTab } from '../messaging/messaging-tab'
 import { SupportTicketsTab } from './support-tickets-tab'
-import { Calendar, User as UserIcon, Settings, BookOpen, MessageCircle, HelpCircle } from 'lucide-react'
+import { Calendar, User as UserIcon, Settings, BookOpen, MessageCircle, HelpCircle, Menu } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { Appointment, Course, Tutor, User, Order } from '@prisma/client'
 
 interface StudentDashboardProps {
@@ -40,6 +42,7 @@ interface StudentDashboardProps {
     course: {
       id: string
       slug: string
+      code: string
       titleFr: string
       descriptionFr: string
       active: boolean
@@ -90,19 +93,12 @@ export function StudentDashboard({
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Function to refresh appointments
+  // Note: Refresh functionality removed - appointments are loaded server-side
+  // To refresh, user can reload the page
   const refreshAppointments = async () => {
     setIsRefreshing(true)
-    try {
-      const response = await fetch('/api/debug/appointments-detailed?email=' + encodeURIComponent(user.email))
-      if (response.ok) {
-        const data = await response.json()
-        setAppointments(data.appointments)
-      }
-    } catch (error) {
-      console.error('Error refreshing appointments:', error)
-    } finally {
-      setIsRefreshing(false)
-    }
+    // Reload the page to get fresh data from server
+    window.location.reload()
   }
 
   // Handle URL parameters
@@ -130,6 +126,30 @@ export function StudentDashboard({
   }, [searchParams])
   
   const now = new Date()
+  const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+  
+  // Filter appointments: future + last month
+  const relevantAppointments = appointments.filter((apt) => {
+    const aptDate = new Date(apt.startDatetime)
+    return aptDate >= oneMonthAgo
+  })
+  
+  // Extract unique course/tutor combinations
+  const uniqueCourseTutorCombinations = Array.from(
+    new Map(
+      relevantAppointments.map((apt) => [
+        `${apt.courseId}-${apt.tutorId}`, // Use courseId-tutorId as unique key
+        {
+          courseId: apt.courseId,
+          courseSlug: apt.course.slug,
+          courseCode: apt.course.code,
+          tutorId: apt.tutorId,
+          tutorFirstName: apt.tutor.user.firstName,
+        },
+      ])
+    ).values()
+  )
+  
   const upcomingAppointments = appointments
     .filter((apt) => new Date(apt.startDatetime) > now && apt.status === 'scheduled')
     .sort((a, b) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime())
@@ -139,66 +159,149 @@ export function StudentDashboard({
 
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold">
+    <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
           {frCA.dashboard.student.title}
         </h1>
-        <p className="mt-2 text-muted-foreground">
+        <p className="mt-2 text-sm sm:text-base text-muted-foreground">
           Bienvenue, {user.firstName} {user.lastName}
         </p>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex space-x-1 mb-8">
-        <Button
-          variant={activeTab === 'overview' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('overview')}
-        >
-          <Calendar className="h-4 w-4 mr-2" />
-          Vue d'ensemble
-        </Button>
-        <Button
-          variant={activeTab === 'reservations' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('reservations')}
-        >
-          <BookOpen className="h-4 w-4 mr-2" />
-          Mes réservations
-        </Button>
-        <Button
-          variant={activeTab === 'profile' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('profile')}
-        >
-          <UserIcon className="h-4 w-4 mr-2" />
-          Mon profil
-        </Button>
-        <Button
-          variant={activeTab === 'messages' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('messages')}
-        >
-          <MessageCircle className="h-4 w-4 mr-2" />
-          Messages
-        </Button>
-        <Button
-          variant={activeTab === 'tickets' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('tickets')}
-        >
-          <HelpCircle className="h-4 w-4 mr-2" />
-          Support
-        </Button>
+      {/* Navigation Tabs - Hamburger Menu on Mobile, Tabs on Desktop */}
+      <div className="mb-6 md:mb-8">
+        {/* Mobile: Hamburger Menu */}
+        <div className="md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full justify-between">
+                <span className="flex items-center gap-2">
+                  {activeTab === 'overview' && (
+                    <>
+                      <Calendar className="h-4 w-4" />
+                      Vue d'ensemble
+                    </>
+                  )}
+                  {activeTab === 'reservations' && (
+                    <>
+                      <BookOpen className="h-4 w-4" />
+                      Mes réservations
+                    </>
+                  )}
+                  {activeTab === 'profile' && (
+                    <>
+                      <UserIcon className="h-4 w-4" />
+                      Mon profil
+                    </>
+                  )}
+                  {activeTab === 'messages' && (
+                    <>
+                      <MessageCircle className="h-4 w-4" />
+                      Messages
+                    </>
+                  )}
+                  {activeTab === 'tickets' && (
+                    <>
+                      <HelpCircle className="h-4 w-4" />
+                      Support
+                    </>
+                  )}
+                </span>
+                <Menu className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="start">
+              <DropdownMenuItem
+                onClick={() => setActiveTab('overview')}
+                className={activeTab === 'overview' ? 'bg-accent' : ''}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Vue d'ensemble
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setActiveTab('reservations')}
+                className={activeTab === 'reservations' ? 'bg-accent' : ''}
+              >
+                <BookOpen className="h-4 w-4 mr-2" />
+                Mes réservations
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setActiveTab('profile')}
+                className={activeTab === 'profile' ? 'bg-accent' : ''}
+              >
+                <UserIcon className="h-4 w-4 mr-2" />
+                Mon profil
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setActiveTab('messages')}
+                className={activeTab === 'messages' ? 'bg-accent' : ''}
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Messages
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setActiveTab('tickets')}
+                className={activeTab === 'tickets' ? 'bg-accent' : ''}
+              >
+                <HelpCircle className="h-4 w-4 mr-2" />
+                Support
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Desktop: Horizontal Tabs */}
+        <div className="hidden md:flex space-x-1">
+          <Button
+            variant={activeTab === 'overview' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('overview')}
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Vue d'ensemble
+          </Button>
+          <Button
+            variant={activeTab === 'reservations' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('reservations')}
+          >
+            <BookOpen className="h-4 w-4 mr-2" />
+            Mes réservations
+          </Button>
+          <Button
+            variant={activeTab === 'profile' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('profile')}
+          >
+            <UserIcon className="h-4 w-4 mr-2" />
+            Mon profil
+          </Button>
+          <Button
+            variant={activeTab === 'messages' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('messages')}
+          >
+            <MessageCircle className="h-4 w-4 mr-2" />
+            Messages
+          </Button>
+          <Button
+            variant={activeTab === 'tickets' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('tickets')}
+          >
+            <HelpCircle className="h-4 w-4 mr-2" />
+            Support
+          </Button>
+        </div>
       </div>
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (
-        <div className="grid gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="grid gap-4 sm:gap-6 md:gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           {/* Upcoming Appointments */}
-          <Card className="mb-6">
+          <Card className="mb-4 sm:mb-6">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
                 <div>
-                  <CardTitle>{frCA.dashboard.student.upcomingAppointments}</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-lg sm:text-xl">{frCA.dashboard.student.upcomingAppointments}</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">
                     {upcomingAppointments.length} rendez-vous à venir
                   </CardDescription>
                 </div>
@@ -207,13 +310,27 @@ export function StudentDashboard({
                   size="sm"
                   onClick={refreshAppointments}
                   disabled={isRefreshing}
+                  className="w-full sm:w-auto"
                 >
                   {isRefreshing ? 'Actualisation...' : 'Actualiser'}
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              {upcomingAppointments.length === 0 ? (
+              {isRefreshing && upcomingAppointments.length === 0 ? (
+                <div className="space-y-4">
+                  {[...Array(2)].map((_, i) => (
+                    <div key={i} className="rounded-lg border p-4">
+                      <Skeleton className="h-5 w-48 mb-2" />
+                      <Skeleton className="h-4 w-32 mb-3" />
+                      <div className="flex gap-4">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-4 w-32" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : upcomingAppointments.length === 0 ? (
                 <div className="py-8 text-center text-muted-foreground">
                   {frCA.dashboard.student.noAppointments}
                 </div>
@@ -233,20 +350,34 @@ export function StudentDashboard({
           {/* Past Appointments */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>{frCA.dashboard.student.pastAppointments}</CardTitle>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                <CardTitle className="text-lg sm:text-xl">{frCA.dashboard.student.pastAppointments}</CardTitle>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={refreshAppointments}
                   disabled={isRefreshing}
+                  className="w-full sm:w-auto"
                 >
                   {isRefreshing ? 'Actualisation...' : 'Actualiser'}
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              {pastAppointments.length === 0 ? (
+              {isRefreshing && pastAppointments.length === 0 ? (
+                <div className="space-y-4">
+                  {[...Array(2)].map((_, i) => (
+                    <div key={i} className="rounded-lg border p-4">
+                      <Skeleton className="h-5 w-48 mb-2" />
+                      <Skeleton className="h-4 w-32 mb-3" />
+                      <div className="flex gap-4">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-4 w-32" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : pastAppointments.length === 0 ? (
                 <div className="py-8 text-center text-muted-foreground">
                   Aucun rendez-vous passé
                 </div>
@@ -265,18 +396,36 @@ export function StudentDashboard({
           </Card>
         </div>
 
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-4 sm:space-y-6">
           {/* Quick Actions */}
-          <Card className="mb-6">
+          <Card className="mb-4 sm:mb-6">
             <CardHeader>
-              <CardTitle>Actions rapides</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">Actions rapides</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <Button asChild className="w-full">
-                <Link href="/cours">Réserver plus de séances</Link>
-              </Button>
-              <Button asChild variant="outline" className="w-full">
-                <Link href="/panier">Voir le panier</Link>
+            <CardContent className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-wrap">
+              {/* Show buttons for unique course/tutor combinations if any exist */}
+              {uniqueCourseTutorCombinations.length > 0 && (
+                <>
+                  {uniqueCourseTutorCombinations.map((combo) => (
+                    <Button
+                      key={`${combo.courseId}-${combo.tutorId}`}
+                      asChild
+                      className="w-full sm:w-auto"
+                    >
+                      <Link href={`/cours/${combo.courseSlug}/reservation?tutorId=${combo.tutorId}`}>
+                        Réserver d'autres séances de {combo.courseCode} avec {combo.tutorFirstName}
+                      </Link>
+                    </Button>
+                  ))}
+                </>
+              )}
+              {/* General button - always show if there are appointments, or if no appointments at all */}
+              <Button
+                asChild
+                variant={uniqueCourseTutorCombinations.length > 0 ? "outline" : "default"}
+                className="w-full sm:w-auto"
+              >
+                <Link href="/cours">Réserver du tutorat pour d'autres cours</Link>
               </Button>
             </CardContent>
           </Card>
@@ -284,7 +433,7 @@ export function StudentDashboard({
           {/* Recent Orders */}
           <Card>
             <CardHeader>
-              <CardTitle>{frCA.dashboard.student.myOrders}</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">{frCA.dashboard.student.myOrders}</CardTitle>
             </CardHeader>
             <CardContent>
               {orders.length === 0 ? (
@@ -313,13 +462,15 @@ export function StudentDashboard({
                         <span
                           className={`inline-block rounded-full px-2 py-0.5 text-xs ${
                             order.status === 'paid'
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                              ? 'bg-success-light text-success dark:bg-success/20 dark:text-success'
                               : order.status === 'failed'
-                              ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                              ? 'bg-error-light text-error dark:bg-error/20 dark:text-error'
+                              : order.status === 'refunded' || order.status === 'partially_refunded'
+                              ? 'bg-warning-light text-warning dark:bg-warning/20 dark:text-warning'
+                              : 'bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground'
                           }`}
                         >
-                          {order.status}
+                          {translateOrderStatus(order.status)}
                         </span>
                       </div>
                     </div>

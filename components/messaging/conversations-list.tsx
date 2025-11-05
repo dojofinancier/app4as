@@ -48,7 +48,7 @@ export function ConversationsList({ onSelectConversation }: ConversationsListPro
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-red-600">{error}</div>
+        <div className="text-error">{error}</div>
       </div>
     )
   }
@@ -70,7 +70,7 @@ export function ConversationsList({ onSelectConversation }: ConversationsListPro
       {conversations.map((conversation) => (
         <Card
           key={conversation.participant.id}
-          className="cursor-pointer hover:bg-gray-50 transition-colors"
+          className="cursor-pointer hover:bg-muted transition-colors"
           onClick={() => onSelectConversation(conversation.participant)}
         >
           <CardContent className="p-4">

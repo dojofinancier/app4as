@@ -163,27 +163,27 @@ export function TutorProfileTab({ tutorProfile }: TutorProfileTabProps) {
     <div className="space-y-6">
       {/* Success/Error Messages */}
       {success && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-green-800 text-sm">{success}</p>
+        <div className="p-4 bg-success-light border border-success-border rounded-lg">
+          <p className="text-success text-sm">{success}</p>
         </div>
       )}
       
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-800 text-sm">{error}</p>
+        <div className="p-4 bg-error-light border border-error-border rounded-lg">
+          <p className="text-error text-sm">{error}</p>
         </div>
       )}
 
       {/* Profile Information */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <User className="h-4 w-4 sm:h-5 sm:w-5" />
                 Informations personnelles
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 Gérez vos informations de profil et votre biographie
               </CardDescription>
             </div>
@@ -191,6 +191,7 @@ export function TutorProfileTab({ tutorProfile }: TutorProfileTabProps) {
               <Button
                 variant="outline"
                 onClick={() => setIsEditingProfile(true)}
+                className="w-full sm:w-auto"
               >
                 Modifier
               </Button>
@@ -254,12 +255,12 @@ export function TutorProfileTab({ tutorProfile }: TutorProfileTabProps) {
                 />
               </div>
               
-              <div className="flex gap-2">
-                <Button type="submit" disabled={isLoading}>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button type="submit" disabled={isLoading} className="flex-1 sm:flex-initial">
                   <Save className="h-4 w-4 mr-2" />
                   {isLoading ? 'Sauvegarde...' : 'Sauvegarder'}
                 </Button>
-                <Button type="button" variant="outline" onClick={handleCancelProfile}>
+                <Button type="button" variant="outline" onClick={handleCancelProfile} className="flex-1 sm:flex-initial">
                   Annuler
                 </Button>
               </div>
@@ -304,13 +305,13 @@ export function TutorProfileTab({ tutorProfile }: TutorProfileTabProps) {
       {/* Password Management */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Lock className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <Lock className="h-4 w-4 sm:h-5 sm:w-5" />
                 Mot de passe
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 Modifiez votre mot de passe pour sécuriser votre compte
               </CardDescription>
             </div>
@@ -318,6 +319,7 @@ export function TutorProfileTab({ tutorProfile }: TutorProfileTabProps) {
               <Button
                 variant="outline"
                 onClick={() => setIsEditingPassword(true)}
+                className="w-full sm:w-auto"
               >
                 Modifier
               </Button>
@@ -407,12 +409,12 @@ export function TutorProfileTab({ tutorProfile }: TutorProfileTabProps) {
                 </div>
               </div>
               
-              <div className="flex gap-2">
-                <Button type="submit" disabled={isLoading}>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button type="submit" disabled={isLoading} className="flex-1 sm:flex-initial">
                   <Save className="h-4 w-4 mr-2" />
                   {isLoading ? 'Sauvegarde...' : 'Sauvegarder'}
                 </Button>
-                <Button type="button" variant="outline" onClick={handleCancelPassword}>
+                <Button type="button" variant="outline" onClick={handleCancelPassword} className="flex-1 sm:flex-initial">
                   Annuler
                 </Button>
               </div>
@@ -450,8 +452,8 @@ export function TutorProfileTab({ tutorProfile }: TutorProfileTabProps) {
               <p className="text-sm">
                 <span className={`inline-block rounded-full px-2 py-0.5 text-xs ${
                   tutorProfile.active 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                    : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                    ? 'bg-success-light text-success dark:bg-success/20 dark:text-success'
+                    : 'bg-error-light text-error dark:bg-error/20 dark:text-error'
                 }`}>
                   {tutorProfile.active ? 'Actif' : 'Inactif'}
                 </span>

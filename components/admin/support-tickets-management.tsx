@@ -90,11 +90,11 @@ export function SupportTicketsManagement() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open':
-        return <Badge variant="default" className="bg-blue-500">Ouvert</Badge>
+        return <Badge variant="default" className="bg-info">Ouvert</Badge>
       case 'in_progress':
-        return <Badge variant="default" className="bg-yellow-500">En cours</Badge>
+        return <Badge variant="default" className="bg-warning">En cours</Badge>
       case 'resolved':
-        return <Badge variant="default" className="bg-green-500">Résolu</Badge>
+        return <Badge variant="default" className="bg-success">Résolu</Badge>
       case 'closed':
         return <Badge variant="outline">Fermé</Badge>
       default:
@@ -107,9 +107,9 @@ export function SupportTicketsManagement() {
       case 'urgent':
         return <Badge variant="destructive">Urgent</Badge>
       case 'high':
-        return <Badge variant="default" className="bg-red-500">Élevé</Badge>
+        return <Badge variant="default" className="bg-error">Élevé</Badge>
       case 'medium':
-        return <Badge variant="default" className="bg-yellow-500">Moyen</Badge>
+        return <Badge variant="default" className="bg-warning">Moyen</Badge>
       case 'low':
         return <Badge variant="secondary">Faible</Badge>
       default:

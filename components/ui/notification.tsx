@@ -37,39 +37,39 @@ export function Notification({
   const getIcon = () => {
     switch (type) {
       case 'success':
-        return <CheckCircle className="h-5 w-5 text-green-600" />
+        return <CheckCircle className="h-5 w-5 text-success" />
       case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-600" />
+        return <AlertCircle className="h-5 w-5 text-error" />
       case 'warning':
-        return <AlertCircle className="h-5 w-5 text-yellow-600" />
+        return <AlertCircle className="h-5 w-5 text-warning" />
       case 'info':
-        return <Info className="h-5 w-5 text-blue-600" />
+        return <Info className="h-5 w-5 text-info" />
     }
   }
 
   const getBackgroundColor = () => {
     switch (type) {
       case 'success':
-        return 'bg-green-50 border-green-200'
+        return 'bg-success-light border-success-border'
       case 'error':
-        return 'bg-red-50 border-red-200'
+        return 'bg-error-light border-error-border'
       case 'warning':
-        return 'bg-yellow-50 border-yellow-200'
+        return 'bg-warning-light border-warning-border'
       case 'info':
-        return 'bg-blue-50 border-blue-200'
+        return 'bg-info-light border-info-border'
     }
   }
 
   const getTextColor = () => {
     switch (type) {
       case 'success':
-        return 'text-green-800'
+        return 'text-success'
       case 'error':
-        return 'text-red-800'
+        return 'text-error'
       case 'warning':
-        return 'text-yellow-800'
+        return 'text-warning'
       case 'info':
-        return 'text-blue-800'
+        return 'text-info'
     }
   }
 

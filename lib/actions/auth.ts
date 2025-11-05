@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
+import { clearCartSessionId } from '@/lib/utils/session'
 // Signup webhook removed - signups only happen via guest checkout
 
 export async function signUp(data: {
@@ -67,6 +68,43 @@ export async function signIn(data: { email: string; password: string }) {
 
 export async function signOut() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  // Clear user's cart items and holds before logging out
+  if (user) {
+    try {
+      const cart = await prisma.cart.findFirst({
+        where: { userId: user.id },
+        include: { items: true },
+      })
+      
+      if (cart && cart.items.length > 0) {
+        // Delete cart items and associated holds
+        await prisma.$transaction(async (tx) => {
+          // Delete slot holds for this user's cart
+          await tx.slotHold.deleteMany({
+            where: {
+              userId: user.id,
+              tutorId: { in: cart.items.map(item => item.tutorId) },
+              startDatetime: { in: cart.items.map(item => item.startDatetime) },
+            },
+          })
+          
+          // Delete cart items
+          await tx.cartItem.deleteMany({
+            where: { cartId: cart.id },
+          })
+        })
+      }
+    } catch (error) {
+      // Log error but don't fail logout
+      console.error('Error clearing cart on logout:', error)
+    }
+  }
+  
+  // Clear cart session cookie
+  await clearCartSessionId()
+  
   await supabase.auth.signOut()
   revalidatePath('/', 'layout')
   redirect('/')

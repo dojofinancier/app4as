@@ -165,11 +165,11 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader>
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-4 bg-muted rounded w-3/4"></div>
+                <div className="h-3 bg-muted rounded w-1/2"></div>
               </CardHeader>
               <CardContent>
-                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-8 bg-muted rounded w-1/2"></div>
               </CardContent>
             </Card>
           ))}
@@ -183,13 +183,13 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
       {/* Payments Modal Button */}
       <Card>
         <CardHeader>
-          <CardTitle>Détails des honoraires</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-lg sm:text-xl">Détails des honoraires</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
             Consultez vos rendez-vous non payés et l'historique des paiements
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => setShowPaymentsModal(true)} variant="outline">
+          <Button onClick={() => setShowPaymentsModal(true)} variant="outline" className="w-full sm:w-auto">
             <Eye className="h-4 w-4 mr-2" />
             Voir les détails des honoraires
           </Button>
@@ -197,22 +197,22 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {/* Current Month */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ce mois-ci</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Ce mois-ci</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{currentMonth.hours.toFixed(1)}h</span>
+                <span className="text-xl sm:text-2xl font-bold">{currentMonth.hours.toFixed(1)}h</span>
               </div>
               <div className="flex items-center space-x-2">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{formatCurrency(currentMonth.earnings)}</span>
+                <span className="text-xl sm:text-2xl font-bold">{formatCurrency(currentMonth.earnings)}</span>
               </div>
             </div>
           </CardContent>
@@ -221,18 +221,18 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
         {/* Last Month */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Mois dernier</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Mois dernier</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{lastMonth.hours.toFixed(1)}h</span>
+                <span className="text-xl sm:text-2xl font-bold">{lastMonth.hours.toFixed(1)}h</span>
               </div>
               <div className="flex items-center space-x-2">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{formatCurrency(lastMonth.earnings)}</span>
+                <span className="text-xl sm:text-2xl font-bold">{formatCurrency(lastMonth.earnings)}</span>
               </div>
             </div>
           </CardContent>
@@ -241,18 +241,18 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
         {/* Year to Date */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Année en cours</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Année en cours</CardTitle>
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{yearToDate?.totalHours.toFixed(1) || 0}h</span>
+                <span className="text-xl sm:text-2xl font-bold">{yearToDate?.totalHours.toFixed(1) || 0}h</span>
               </div>
               <div className="flex items-center space-x-2">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{formatCurrency(yearToDate?.totalEarnings || 0)}</span>
+                <span className="text-xl sm:text-2xl font-bold">{formatCurrency(yearToDate?.totalEarnings || 0)}</span>
               </div>
             </div>
           </CardContent>
@@ -260,15 +260,15 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Monthly Earnings Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Honoraires mensuels</CardTitle>
-            <CardDescription>Évolution des honoraires au fil des mois</CardDescription>
+            <CardTitle className="text-lg sm:text-xl">Honoraires mensuels</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Évolution des honoraires au fil des mois</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <LineChart data={monthlyEarnings}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
@@ -311,11 +311,11 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
         {/* Monthly Hours Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Heures travaillées</CardTitle>
-            <CardDescription>Heures complétées par mois</CardDescription>
+            <CardTitle className="text-lg sm:text-xl">Heures travaillées</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Heures complétées par mois</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart data={monthlyEarnings}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
@@ -347,22 +347,22 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
       {/* Detailed Earnings Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Détails des honoraires</CardTitle>
-          <CardDescription>Historique détaillé de tous vos rendez-vous</CardDescription>
+          <CardTitle className="text-lg sm:text-xl">Détails des honoraires</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">Historique détaillé de tous vos rendez-vous</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {earnings.map((earning) => (
-              <div key={earning.id} className="border rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">{earning.course.titleFr}</span>
-                      <Badge variant={earning.earningsStatus === 'paid' ? 'default' : 'secondary'}>
+              <div key={earning.id} className="border rounded-lg p-3 sm:p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-sm sm:text-base">{earning.course.titleFr}</span>
+                      <Badge variant={earning.earningsStatus === 'paid' ? 'default' : 'secondary'} className="text-xs">
                         {earning.earningsStatus === 'paid' ? 'Payé' : 'Gagné'}
                       </Badge>
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs sm:text-sm text-muted-foreground">
                       {new Date(earning.startDatetime).toLocaleDateString('fr-CA', {
                         year: 'numeric',
                         month: 'long',
@@ -372,9 +372,9 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
                       })}
                     </div>
                   </div>
-                  <div className="text-right space-y-1">
-                    <div className="font-bold">{formatCurrency(earning.tutorEarningsCad)}</div>
-                    <div className="text-sm text-muted-foreground">
+                  <div className="text-left sm:text-right space-y-1 sm:flex-shrink-0">
+                    <div className="font-bold text-base sm:text-lg">{formatCurrency(earning.tutorEarningsCad)}</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">
                       {earning.hoursWorked?.toFixed(1) || (earning.durationMin / 60).toFixed(1)}h
                     </div>
                   </div>
@@ -384,15 +384,15 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
                 {(earning.tutorNote || earning.adminNote) && (
                   <div className="space-y-2">
                     {earning.tutorNote && (
-                      <div className="text-sm">
-                        <span className="font-medium text-blue-600">Votre note:</span>
-                        <p className="text-muted-foreground">{earning.tutorNote}</p>
+                      <div className="text-xs sm:text-sm">
+                        <span className="font-medium text-info">Votre note:</span>
+                        <p className="text-muted-foreground break-words">{earning.tutorNote}</p>
                       </div>
                     )}
                     {earning.adminNote && (
-                      <div className="text-sm">
-                        <span className="font-medium text-orange-600">Note admin:</span>
-                        <p className="text-muted-foreground">{earning.adminNote}</p>
+                      <div className="text-xs sm:text-sm">
+                        <span className="font-medium text-warning">Note admin:</span>
+                        <p className="text-muted-foreground break-words">{earning.adminNote}</p>
                       </div>
                     )}
                   </div>
@@ -404,6 +404,7 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
                     variant="outline"
                     size="sm"
                     onClick={() => startEditingNote(earning.id, earning.tutorNote || '')}
+                    className="w-full sm:w-auto text-xs sm:text-sm"
                   >
                     <Edit3 className="h-4 w-4 mr-2" />
                     {earning.tutorNote ? 'Modifier la note' : 'Ajouter une note'}
@@ -412,9 +413,9 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
 
                 {/* Edit Note Form */}
                 {editingNote === earning.id && (
-                  <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="space-y-3 p-3 bg-muted rounded-lg">
                     <div>
-                      <Label htmlFor={`note-${earning.id}`}>Note (max 500 caractères)</Label>
+                      <Label htmlFor={`note-${earning.id}`} className="text-xs sm:text-sm">Note (max 500 caractères)</Label>
                       <Textarea
                         id={`note-${earning.id}`}
                         value={noteText}
@@ -422,16 +423,18 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
                         placeholder="Expliquez les circonstances de ce rendez-vous..."
                         maxLength={500}
                         rows={3}
+                        className="text-xs sm:text-sm"
                       />
                       <div className="text-xs text-muted-foreground mt-1">
                         {noteText.length}/500 caractères
                       </div>
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Button
                         size="sm"
                         onClick={() => handleUpdateNote(earning.id)}
                         disabled={noteText.length > 500}
+                        className="flex-1 sm:flex-initial"
                       >
                         Sauvegarder
                       </Button>
@@ -439,6 +442,7 @@ export function TutorEarningsDashboard({ tutorId }: TutorEarningsDashboardProps)
                         size="sm"
                         variant="outline"
                         onClick={cancelEditing}
+                        className="flex-1 sm:flex-initial"
                       >
                         Annuler
                       </Button>

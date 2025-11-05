@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAvailableSlots } from '@/lib/slots/generator'
 import { addDays, format, startOfMonth, endOfMonth } from 'date-fns'
+import { rateLimit } from '@/lib/utils/rate-limit'
 
 export async function GET(request: NextRequest) {
+  // Rate limiting: 100 requests per minute per IP (public endpoint)
+  const rateLimitResponse = rateLimit(request, 'PUBLIC')
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
   try {
     console.log('=== Course Availability API Called ===')
     
@@ -116,8 +123,14 @@ export async function GET(request: NextRequest) {
 
 // New endpoint to check availability for multiple dates (for calendar dots)
 export async function POST(request: NextRequest) {
+  // Rate limiting: 100 requests per minute per IP (public endpoint)
+  const rateLimitResponse = rateLimit(request, 'PUBLIC')
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
   try {
-    const { courseId, dates, duration } = await request.json()
+    const { courseId, dates, duration, tutorId } = await request.json()
 
     if (!courseId || !dates || !Array.isArray(dates)) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 })
@@ -151,8 +164,15 @@ export async function POST(request: NextRequest) {
       }]
     })
 
+    // Filter by tutor if specified
+    let filteredSlots = transformedSlots
+    if (tutorId) {
+      filteredSlots = transformedSlots.filter(slot => slot.tutorId === tutorId)
+    }
+
     // Deduplicate slots by time - keep only the highest priority tutor (lowest priority number)
-    const deduplicatedSlots = transformedSlots.reduce((acc, slot) => {
+    // Note: If tutorId is specified, this deduplication is less relevant but we keep it for consistency
+    const deduplicatedSlots = filteredSlots.reduce((acc, slot) => {
       const timeKey = `${slot.start.getTime()}-${slot.duration}`
       const existingSlot = acc.get(timeKey)
       

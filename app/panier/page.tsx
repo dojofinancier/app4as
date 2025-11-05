@@ -1,14 +1,18 @@
 import { getCurrentUser } from '@/lib/actions/auth'
 import { getOrCreateCartByIdentity } from '@/lib/actions/cart'
-import { getOrCreateCartSessionId } from '@/lib/utils/session'
+import { getCartSessionId } from '@/lib/utils/session'
 import { CartView } from '@/components/cart/cart-view'
 
 export default async function CartPage() {
   const user = await getCurrentUser()
-  const sessionId = user ? undefined : await getOrCreateCartSessionId()
+  // Only read session ID - don't create it here (cookies can only be modified in Server Actions/Route Handlers)
+  // Session ID will be created automatically when needed in cart actions
+  const sessionId = user ? undefined : await getCartSessionId()
   const cart = user
     ? await getOrCreateCartByIdentity({ userId: user.id })
-    : await getOrCreateCartByIdentity({ sessionId })
+    : sessionId
+      ? await getOrCreateCartByIdentity({ sessionId })
+      : { id: '', items: [], coupon: null } // Empty cart if no session ID
 
   // Convert Decimal fields to numbers for Client Component compatibility
   const serializedCart = {
@@ -40,8 +44,8 @@ export default async function CartPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <h1 className="mb-8 text-4xl font-bold">Mon panier</h1>
+    <div className="container mx-auto px-3 sm:px-4 py-12">
+      <h1 className="mb-8 text-2xl sm:text-3xl md:text-4xl font-bold">Mon panier</h1>
       <CartView initialCart={serializedCart} sessionId={sessionId} />
     </div>
   )

@@ -35,7 +35,7 @@ export interface BookedSlot {
 
 export const SLOT_GRID_MINUTES = 30
 export const LEAD_TIME_HOURS = 12
-export const MAX_ADVANCE_DAYS = 60
+export const MAX_ADVANCE_DAYS = 120 // 4 months in advance
 export const CANCELLATION_CUTOFF_HOURS = 2
 
 export const VALID_DURATIONS: Duration[] = [60, 90, 120]

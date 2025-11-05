@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AvailabilityManagementTab } from './tutor/availability-management-tab'
 import { TutorAppointmentCard } from './tutor-appointment-card'
 import { TutorMessagingTab } from './tutor/tutor-messaging-tab'
@@ -14,7 +15,7 @@ import { TutorProfileTab } from './tutor/tutor-profile-tab'
 import { TutorEarningsDashboard } from './tutor-earnings-dashboard'
 import { TutorCourses } from './tutor-courses'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
-import { Calendar, Clock, Users, DollarSign, BookOpen, TrendingUp, MessageCircle } from 'lucide-react'
+import { Calendar, Clock, Users, DollarSign, BookOpen, TrendingUp, MessageCircle, Menu, CalendarCheck, User, Star, Wallet } from 'lucide-react'
 import type { Appointment, Course, Tutor, User } from '@prisma/client'
 import { getUnreadMessageCount } from '@/lib/actions/messaging'
 import { TutorRatingsTab } from './tutor-ratings-tab'
@@ -136,24 +137,194 @@ export function TutorDashboard({ tutorId, tutorName, tutorProfile, appointments 
     <div className="container mx-auto px-4 py-12">
       <div className="space-y-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
             Tableau de bord - {tutorName}
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-sm sm:text-base text-muted-foreground mt-2">
             Gérez vos disponibilités et vos rendez-vous
           </p>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8">
-            <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-            <TabsTrigger value="availability">Disponibilités</TabsTrigger>
-            <TabsTrigger value="appointments">Rendez-vous</TabsTrigger>
-            <TabsTrigger value="courses">Mes cours</TabsTrigger>
-            <TabsTrigger value="earnings">Honoraires</TabsTrigger>
-            <TabsTrigger value="messages" className="relative">
+        {/* Navigation Tabs - Hamburger Menu on Mobile, Tabs on Desktop */}
+        <div className="mb-6 md:mb-8">
+          {/* Mobile: Hamburger Menu */}
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  <span className="flex items-center gap-2">
+                    {activeTab === 'overview' && (
+                      <>
+                        <Calendar className="h-4 w-4" />
+                        Vue d'ensemble
+                      </>
+                    )}
+                    {activeTab === 'availability' && (
+                      <>
+                        <CalendarCheck className="h-4 w-4" />
+                        Disponibilités
+                      </>
+                    )}
+                    {activeTab === 'appointments' && (
+                      <>
+                        <Clock className="h-4 w-4" />
+                        Rendez-vous
+                      </>
+                    )}
+                    {activeTab === 'courses' && (
+                      <>
+                        <BookOpen className="h-4 w-4" />
+                        Mes cours
+                      </>
+                    )}
+                    {activeTab === 'earnings' && (
+                      <>
+                        <Wallet className="h-4 w-4" />
+                        Honoraires
+                      </>
+                    )}
+                    {activeTab === 'messages' && (
+                      <>
+                        <MessageCircle className="h-4 w-4" />
+                        Messages
+                        {unreadMessageCount > 0 && (
+                          <Badge 
+                            variant="destructive" 
+                            className="h-5 w-5 flex items-center justify-center p-0 text-xs"
+                          >
+                            {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                    {activeTab === 'ratings' && (
+                      <>
+                        <Star className="h-4 w-4" />
+                        Évaluations
+                      </>
+                    )}
+                    {activeTab === 'profile' && (
+                      <>
+                        <User className="h-4 w-4" />
+                        Profil
+                      </>
+                    )}
+                  </span>
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="start">
+                <DropdownMenuItem
+                  onClick={() => setActiveTab('overview')}
+                  className={activeTab === 'overview' ? 'bg-accent' : ''}
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Vue d'ensemble
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setActiveTab('availability')}
+                  className={activeTab === 'availability' ? 'bg-accent' : ''}
+                >
+                  <CalendarCheck className="h-4 w-4 mr-2" />
+                  Disponibilités
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setActiveTab('appointments')}
+                  className={activeTab === 'appointments' ? 'bg-accent' : ''}
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  Rendez-vous
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setActiveTab('courses')}
+                  className={activeTab === 'courses' ? 'bg-accent' : ''}
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Mes cours
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setActiveTab('earnings')}
+                  className={activeTab === 'earnings' ? 'bg-accent' : ''}
+                >
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Honoraires
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setActiveTab('messages')}
+                  className={activeTab === 'messages' ? 'bg-accent' : ''}
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Messages
+                  {unreadMessageCount > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className="ml-auto h-5 w-5 flex items-center justify-center p-0 text-xs"
+                    >
+                      {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setActiveTab('ratings')}
+                  className={activeTab === 'ratings' ? 'bg-accent' : ''}
+                >
+                  <Star className="h-4 w-4 mr-2" />
+                  Évaluations
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setActiveTab('profile')}
+                  className={activeTab === 'profile' ? 'bg-accent' : ''}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Profil
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Desktop: Horizontal Tabs */}
+          <div className="hidden md:flex flex-wrap gap-2">
+            <Button
+              variant={activeTab === 'overview' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('overview')}
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Vue d'ensemble
+            </Button>
+            <Button
+              variant={activeTab === 'availability' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('availability')}
+            >
+              <CalendarCheck className="h-4 w-4 mr-2" />
+              Disponibilités
+            </Button>
+            <Button
+              variant={activeTab === 'appointments' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('appointments')}
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              Rendez-vous
+            </Button>
+            <Button
+              variant={activeTab === 'courses' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('courses')}
+            >
+              <BookOpen className="h-4 w-4 mr-2" />
+              Mes cours
+            </Button>
+            <Button
+              variant={activeTab === 'earnings' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('earnings')}
+            >
+              <Wallet className="h-4 w-4 mr-2" />
+              Honoraires
+            </Button>
+            <Button
+              variant={activeTab === 'messages' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('messages')}
+              className="relative"
+            >
               <MessageCircle className="h-4 w-4 mr-2" />
               Messages
               {unreadMessageCount > 0 && (
@@ -164,10 +335,26 @@ export function TutorDashboard({ tutorId, tutorName, tutorProfile, appointments 
                   {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
                 </Badge>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="ratings">Évaluations</TabsTrigger>
-            <TabsTrigger value="profile">Profil</TabsTrigger>
-          </TabsList>
+            </Button>
+            <Button
+              variant={activeTab === 'ratings' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('ratings')}
+            >
+              <Star className="h-4 w-4 mr-2" />
+              Évaluations
+            </Button>
+            <Button
+              variant={activeTab === 'profile' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('profile')}
+            >
+              <User className="h-4 w-4 mr-2" />
+              Profil
+            </Button>
+          </div>
+        </div>
+
+        {/* Tabs Content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
 
           <TabsContent value="overview" className="space-y-6">
             <OverviewTab 
@@ -403,18 +590,18 @@ function OverviewTab({ tutorProfile, appointments }: OverviewTabProps) {
           ) : (
             <div className="space-y-4">
               {upcomingAppointments.slice(0, 5).map((appointment) => (
-                <div key={appointment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <h4 className="font-semibold">{appointment.course.titleFr}</h4>
-                    <p className="text-sm text-muted-foreground">
+                <div key={appointment.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-sm sm:text-base">{appointment.course.titleFr}</h4>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Étudiant: {appointment.user.firstName} {appointment.user.lastName}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       {formatDateTime(new Date(appointment.startDatetime))}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">
+                  <div className="flex items-center gap-2 sm:flex-shrink-0">
+                    <Badge variant="outline" className="text-xs">
                       {Math.round(
                         (new Date(appointment.endDatetime).getTime() - 
                          new Date(appointment.startDatetime).getTime()) / 1000 / 60
@@ -432,13 +619,13 @@ function OverviewTab({ tutorProfile, appointments }: OverviewTabProps) {
       {tutorProfile && (
         <Card>
           <CardHeader>
-            <CardTitle>Résumé du profil</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg sm:text-xl">Résumé du profil</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
               Informations sur votre profil tuteur
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <h4 className="font-semibold mb-2">Informations personnelles</h4>
                 <div className="space-y-1 text-sm">
@@ -518,13 +705,13 @@ function AppointmentsTab({ appointments }: AppointmentsTabProps) {
     .sort((a, b) => new Date(b.startDatetime).getTime() - new Date(a.startDatetime).getTime())
 
   return (
-    <div className="grid gap-8 lg:grid-cols-3">
+    <div className="grid gap-6 sm:gap-8 lg:grid-cols-3">
       <div className="lg:col-span-2">
         {/* Upcoming Appointments */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Prochains rendez-vous</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg sm:text-xl">Prochains rendez-vous</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
               {upcomingAppointments.length} rendez-vous à venir
             </CardDescription>
           </CardHeader>
@@ -549,8 +736,8 @@ function AppointmentsTab({ appointments }: AppointmentsTabProps) {
         {/* Past Appointments */}
         <Card>
           <CardHeader>
-            <CardTitle>Rendez-vous passés</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg sm:text-xl">Rendez-vous passés</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
               Historique de vos séances
             </CardDescription>
           </CardHeader>

@@ -3,27 +3,38 @@ import { headers } from 'next/headers'
 import Stripe from 'stripe'
 import { getStripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
-import { createClient } from '@/lib/supabase/server'
-import { calculateTutorEarnings } from '@/lib/pricing'
+import { validateEnvForRoute } from '@/lib/utils/env-validation'
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(req: NextRequest) {
-  console.log('=== STRIPE WEBHOOK RECEIVED ===')
+  // Validate critical environment variables for webhook
+  try {
+    validateEnvForRoute(['STRIPE_WEBHOOK_SECRET', 'STRIPE_SECRET_KEY', 'DATABASE_URL'])
+  } catch (error) {
+    logger.error('Environment validation failed:', error)
+    return NextResponse.json(
+      { error: 'Server configuration error' },
+      { status: 500 }
+    )
+  }
+
+  logger.debug('=== STRIPE WEBHOOK RECEIVED ===')
   
   const body = await req.text()
   const headersList = await headers()
   const signature = headersList.get('stripe-signature')
 
-  console.log('Signature present:', !!signature)
-  console.log('Body length:', body.length)
-  console.log('Webhook secret configured:', !!process.env.STRIPE_WEBHOOK_SECRET)
+  logger.debug('Signature present:', !!signature)
+  logger.debug('Body length:', body.length)
+  logger.debug('Webhook secret configured:', !!process.env.STRIPE_WEBHOOK_SECRET)
 
   if (!signature) {
-    console.log('ERROR: No signature header')
+    logger.error('No signature header')
     return NextResponse.json({ error: 'No signature' }, { status: 400 })
   }
 
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    console.log('ERROR: STRIPE_WEBHOOK_SECRET not configured')
+    logger.error('STRIPE_WEBHOOK_SECRET not configured')
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
   }
 
@@ -31,23 +42,23 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event
 
   try {
-    console.log('Attempting signature verification...')
+    logger.debug('Attempting signature verification...')
     event = stripe.webhooks.constructEvent(
       body,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET!
     )
-    console.log('Signature verification successful!')
+    logger.debug('Signature verification successful!')
   } catch (err) {
-    console.error('Webhook signature verification failed:', err)
-    console.error('Error details:', err instanceof Error ? err.message : 'Unknown error')
+    logger.error('Webhook signature verification failed:', err)
+    logger.error('Error details:', err instanceof Error ? err.message : 'Unknown error')
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
   // Log the webhook event
-  console.log('Event type:', event.type)
-  console.log('Event ID:', event.id)
-  console.log('Event data:', JSON.stringify(event.data, null, 2))
+  logger.debug('Event type:', event.type)
+  logger.debug('Event ID:', event.id)
+  logger.debug('Event data:', JSON.stringify(event.data, null, 2))
 
   try {
     await prisma.webhookEvent.create({
@@ -57,19 +68,19 @@ export async function POST(req: NextRequest) {
         payloadJson: JSON.stringify(event.data)
       }
     })
-    console.log('Webhook event logged to database successfully')
+    logger.debug('Webhook event logged to database successfully')
   } catch (dbError) {
-    console.error('Error logging webhook event to database:', dbError)
+    logger.error('Error logging webhook event to database:', dbError)
     // Continue processing even if logging fails
   }
 
   try {
     if (event.type === 'payment_intent.succeeded') {
-      console.log('=== PROCESSING PAYMENT_INTENT.SUCCEEDED ===')
+      logger.debug('=== PROCESSING PAYMENT_INTENT.SUCCEEDED ===')
       const paymentIntent = event.data.object as Stripe.PaymentIntent
       
-      console.log('Payment Intent ID:', paymentIntent.id)
-      console.log('Payment Intent metadata:', paymentIntent.metadata)
+      logger.debug('Payment Intent ID:', paymentIntent.id)
+      logger.debug('Payment Intent metadata:', paymentIntent.metadata)
       
       // Get cart data from database first
       const paymentIntentData = await prisma.paymentIntentData.findUnique({
@@ -77,7 +88,7 @@ export async function POST(req: NextRequest) {
       })
 
       if (!paymentIntentData) {
-        console.error('No payment intent data found for:', paymentIntent.id)
+        logger.error('No payment intent data found for:', paymentIntent.id)
         return NextResponse.json({ error: 'Payment intent data not found' }, { status: 400 })
       }
 
@@ -94,7 +105,7 @@ export async function POST(req: NextRequest) {
       const userId = paymentIntentData.userId || metadataUserId
 
       if (!userId || !cartId) {
-        console.error('Missing required userId or cartId:', { 
+        logger.error('Missing required userId or cartId:', { 
           userId, 
           cartId, 
           metadataUserId, 
@@ -122,7 +133,7 @@ export async function POST(req: NextRequest) {
       try {
         cartData = JSON.parse(paymentIntentData.cartData)
       } catch (error) {
-        console.error('Error parsing cart data:', error)
+        logger.error('Error parsing cart data:', error)
         return NextResponse.json({ error: 'Invalid cart data' }, { status: 400 })
       }
 
@@ -131,7 +142,7 @@ export async function POST(req: NextRequest) {
       const finalDiscountAmount = cartData.discountAmount || (discountAmount ? parseFloat(discountAmount) : 0)
 
       if (cartItems.length === 0) {
-        console.error('No items in payment intent metadata')
+        logger.error('No items in payment intent metadata')
         return NextResponse.json({ error: 'No cart items in metadata' }, { status: 400 })
       }
 
@@ -247,12 +258,12 @@ export async function POST(req: NextRequest) {
       
       // Check if this is a guest user (userId starts with 'guest_')
       if (userId.startsWith('guest_')) {
-        console.log('Guest user payment detected - account creation will be handled by confirm-payment-with-password API')
+        logger.debug('Guest user payment detected - account creation will be handled by confirm-payment-with-password API')
         
         // For guest users, we don't create accounts here anymore
         // The confirm-payment-with-password API will handle account creation and order/appointment creation
         // We keep the payment intent data so the API can access it
-        console.log('Guest payment processed - waiting for account creation via API')
+        logger.debug('Guest payment processed - waiting for account creation via API')
         return NextResponse.json({ received: true })
       } else {
         // Existing authenticated user - update Stripe customer ID if not already set
@@ -277,10 +288,10 @@ export async function POST(req: NextRequest) {
                   defaultPaymentMethodId: paymentIntent.payment_method as string
                 }
               })
-              console.log('Saved new payment method for user:', userId)
+              logger.debug('Saved new payment method for user:', userId)
             }
           } catch (error) {
-            console.error('Error saving payment method:', error)
+            logger.error('Error saving payment method:', error)
             // Don't fail the webhook for this
           }
         }
@@ -314,6 +325,12 @@ export async function POST(req: NextRequest) {
         if (orderWithDetails) {
           const { sendBookingCreatedWebhook } = await import('@/lib/webhooks/make')
           
+          // Fetch user phone for booking webhook
+          const userForBooking = await prisma.user.findUnique({
+            where: { id: orderWithDetails.userId },
+            select: { phone: true }
+          })
+          
           await sendBookingCreatedWebhook({
             orderId: orderWithDetails.id,
             userId: orderWithDetails.userId,
@@ -322,6 +339,7 @@ export async function POST(req: NextRequest) {
             discountCad: Number(orderWithDetails.discountCad),
             totalCad: Number(orderWithDetails.totalCad),
             couponCode: finalCouponCode || undefined,
+            phone: userForBooking?.phone || null,
             items: orderWithDetails.items.map(item => ({
               appointmentId: item.appointment?.id || '',
               courseId: item.courseId,
@@ -338,10 +356,10 @@ export async function POST(req: NextRequest) {
         }
       } catch (webhookError) {
         // Don't fail the webhook processing if Make.com webhook fails
-        console.error('Error sending booking.created webhook:', webhookError)
+        logger.error('Error sending booking.created webhook:', webhookError)
       }
 
-      console.log('Payment intent processed successfully:', {
+      logger.debug('Payment intent processed successfully:', {
         orderId: result.order.id,
         appointmentsCreated: result.appointments.length,
         totalAmount: paymentIntent.amount / 100
@@ -360,7 +378,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error('Error processing webhook:', error)
+    logger.error('Error processing webhook:', error)
     
     // Mark webhook as processed even if it failed (to avoid retries)
     await prisma.webhookEvent.updateMany({

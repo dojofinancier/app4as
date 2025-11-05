@@ -1,14 +1,52 @@
-import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { unstable_cache } from 'next/cache'
 import { frCA } from '@/lib/i18n/fr-CA'
+import { CACHE_TTL, CACHE_TAGS } from '@/lib/utils/cache'
+import { CoursesPageClient } from '@/components/courses/courses-page-client'
+
+interface Course {
+  id: string
+  slug: string
+  code: string
+  titleFr: string
+  institution?: string
+}
+
+// Cached function to fetch active courses with available tutors (1 hour TTL)
+const getCachedCoursesWithTutors = unstable_cache(
+  async () => {
+    return await prisma.course.findMany({
+      where: {
+        active: true,
+        // Only courses that have at least one active tutor assigned
+        tutorCourses: {
+          some: {
+            active: true,
+            tutor: {
+              active: true
+            }
+          }
+        }
+      },
+      orderBy: { titleFr: 'asc' },
+      select: {
+        id: true,
+        slug: true,
+        code: true,
+        titleFr: true,
+        institution: true,
+      },
+    })
+  },
+  ['active-courses-with-tutors'],
+  {
+    revalidate: CACHE_TTL.COURSES,
+    tags: [CACHE_TAGS.COURSES],
+  }
+)
 
 export default async function CoursesPage() {
-  const courses = await prisma.course.findMany({
-    where: { active: true },
-    orderBy: { titleFr: 'asc' },
-  })
+  const courses = await getCachedCoursesWithTutors()
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -19,31 +57,7 @@ export default async function CoursesPage() {
         </p>
       </div>
 
-      {courses.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center">
-          <p className="text-muted-foreground">{frCA.courses.noCourses}</p>
-        </div>
-      ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((course) => (
-            <Card key={course.id}>
-              <CardHeader>
-                <CardTitle>{course.titleFr}</CardTitle>
-                <CardDescription className="line-clamp-3">
-                  {course.descriptionFr}
-                </CardDescription>
-              </CardHeader>
-              <CardFooter>
-                <Button asChild className="w-full">
-                  <Link href={`/cours/${course.slug}`}>
-                    {frCA.courses.viewCourse}
-                  </Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
+      <CoursesPageClient courses={courses} />
     </div>
   )
 }

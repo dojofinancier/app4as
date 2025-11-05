@@ -188,11 +188,11 @@ export function AdminTicketDetailsModal({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open':
-        return <Badge variant="default" className="bg-blue-500">Ouvert</Badge>
+        return <Badge variant="default" className="bg-info">Ouvert</Badge>
       case 'in_progress':
-        return <Badge variant="default" className="bg-yellow-500">En cours</Badge>
+        return <Badge variant="default" className="bg-warning">En cours</Badge>
       case 'resolved':
-        return <Badge variant="default" className="bg-green-500">Résolu</Badge>
+        return <Badge variant="default" className="bg-success">Résolu</Badge>
       case 'closed':
         return <Badge variant="outline">Fermé</Badge>
       default:
@@ -205,9 +205,9 @@ export function AdminTicketDetailsModal({
       case 'urgent':
         return <Badge variant="destructive">Urgent</Badge>
       case 'high':
-        return <Badge variant="default" className="bg-red-500">Élevé</Badge>
+        return <Badge variant="default" className="bg-error">Élevé</Badge>
       case 'medium':
-        return <Badge variant="default" className="bg-yellow-500">Moyen</Badge>
+        return <Badge variant="default" className="bg-warning">Moyen</Badge>
       case 'low':
         return <Badge variant="secondary">Faible</Badge>
       default:
@@ -272,7 +272,7 @@ export function AdminTicketDetailsModal({
 
         <div className="flex-1 overflow-y-auto space-y-4 py-4">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+            <div className="p-3 bg-error-light border border-error-border rounded-md text-error text-sm">
               {error}
             </div>
           )}
@@ -383,10 +383,10 @@ export function AdminTicketDetailsModal({
                     key={msg.id}
                     className={`border rounded-lg p-4 ${
                       msg.isInternal 
-                        ? 'bg-purple-50 border-purple-200' 
+                        ? 'bg-primary/10 border-primary/20' 
                         : msg.user.role === 'admin' 
-                        ? 'bg-blue-50' 
-                        : 'bg-gray-50'
+                        ? 'bg-info-light' 
+                        : 'bg-muted'
                     }`}
                   >
                     <div className="flex items-start justify-between mb-2">

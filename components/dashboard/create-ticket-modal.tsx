@@ -200,7 +200,7 @@ export function CreateTicketModal({ isOpen, onClose, onSuccess }: CreateTicketMo
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+            <div className="p-3 bg-error-light border border-error-border rounded-md text-error text-sm">
               {error}
             </div>
           )}

@@ -449,9 +449,9 @@ export function CouponManagement() {
                         className="p-1"
                       >
                         {coupon.active ? (
-                          <ToggleRight className="h-4 w-4 text-green-500" />
+                          <ToggleRight className="h-4 w-4 text-success" />
                         ) : (
-                          <ToggleLeft className="h-4 w-4 text-gray-400" />
+                          <ToggleLeft className="h-4 w-4 text-muted-foreground" />
                         )}
                       </Button>
                     </div>
@@ -797,7 +797,7 @@ export function CouponManagement() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Total économisé</Label>
-                  <p className="text-green-600 font-semibold">
+                  <p className="text-success font-semibold">
                     {formatCurrency(selectedCoupon.totalDiscount)}
                   </p>
                 </div>

@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
 import { MessageBubble } from './message-bubble'
 import { FileUploadDirect, ErrorNotification } from './file-upload-direct'
 import { sendMessage, getConversation } from '@/lib/actions/messaging'
@@ -33,17 +34,22 @@ export function ConversationView({ participant, onBack }: ConversationViewProps)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showFileUpload, setShowFileUpload] = useState(false)
-  const [pendingMessage, setPendingMessage] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors }
   } = useForm<MessageFormData>({
-    resolver: zodResolver(messageSchema)
+    resolver: zodResolver(messageSchema),
+    defaultValues: {
+      content: ''
+    }
   })
+
+  const messageContent = watch('content')
 
   const loadMessages = async () => {
     try {
@@ -76,8 +82,6 @@ export function ConversationView({ participant, onBack }: ConversationViewProps)
       setSending(true)
       setError(null)
 
-      console.log('Submitting message:', { content: data.content })
-
       // Check if we have content
       if (!data.content) {
         setError('Veuillez ajouter un message')
@@ -91,13 +95,31 @@ export function ConversationView({ participant, onBack }: ConversationViewProps)
         content: data.content
       })
 
-      console.log('Message send result:', result)
+      if (result.success && result.message) {
+        // Transform the returned message to match the format expected by MessageBubble
+        const newMessage = {
+          ...result.message,
+          // Serialize dates from Prisma Date objects to ISO strings
+          createdAt: result.message.createdAt instanceof Date 
+            ? result.message.createdAt.toISOString() 
+            : typeof result.message.createdAt === 'string'
+            ? result.message.createdAt
+            : new Date().toISOString(),
+          appointment: result.message.appointment ? {
+            ...result.message.appointment,
+            startDatetime: result.message.appointment.startDatetime instanceof Date
+              ? result.message.appointment.startDatetime.toISOString()
+              : result.message.appointment.startDatetime
+          } : null,
+          // Ensure attachments array exists (new messages won't have attachments yet)
+          attachments: result.message.attachments || []
+        }
 
-      if (result.success) {
-        reset()
-        setPendingMessage('')
-        // Reload messages to get the new one
-        await loadMessages()
+        // Append the new message to the messages array
+        setMessages(prev => [...prev, newMessage])
+        
+        // Clear the form
+        reset({ content: '' })
       } else {
         setError(result.error || 'Erreur lors de l\'envoi du message')
       }
@@ -162,7 +184,23 @@ export function ConversationView({ participant, onBack }: ConversationViewProps)
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 ? (
+        {loading ? (
+          // Skeleton loading state
+          <>
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'} mb-4`}>
+                <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                  i % 2 === 0 ? 'bg-muted' : 'bg-primary/20'
+                }`}>
+                  <Skeleton className="h-3 w-16 mb-2" />
+                  <Skeleton className="h-4 w-full mb-2" />
+                  <Skeleton className="h-4 w-3/4 mb-1" />
+                  <Skeleton className="h-2 w-20" />
+                </div>
+              </div>
+            ))}
+          </>
+        ) : messages.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
             Aucun message dans cette conversation
           </div>
@@ -190,7 +228,7 @@ export function ConversationView({ participant, onBack }: ConversationViewProps)
 
       {/* File upload section */}
       {showFileUpload && (
-        <div className="p-4 border-t bg-gray-50">
+        <div className="p-4 border-t bg-muted">
           <FileUploadDirect
             messageId={messages.length > 0 ? messages[messages.length - 1].id : ''}
             onUploadComplete={handleFileUploadComplete}
@@ -201,33 +239,41 @@ export function ConversationView({ participant, onBack }: ConversationViewProps)
 
       {/* Message input */}
       <div className="p-4 border-t">
-        <form onSubmit={(e) => {
-          console.log('Form submitted')
-          handleSubmit(onSubmit)(e)
-        }} className="flex gap-2">
-          <Input
+        <form onSubmit={handleSubmit(onSubmit)} className="flex gap-2 items-end">
+          <Textarea
             {...register('content')}
-            placeholder="Tapez votre message..."
+            placeholder="Tapez votre message... (Appuyez sur Entrée pour envoyer, Shift+Entrée pour une nouvelle ligne)"
             disabled={sending}
-            className="flex-1"
-            value={pendingMessage}
-            onChange={(e) => setPendingMessage(e.target.value)}
+            className="flex-1 min-h-[60px] max-h-[200px] resize-none"
+            rows={2}
+            onKeyDown={(e) => {
+              // Submit on Enter, allow Shift+Enter for new line
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                if (messageContent?.trim()) {
+                  handleSubmit(onSubmit)()
+                }
+              }
+            }}
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleToggleFileUpload}
-            disabled={sending}
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-          <Button type="submit" disabled={sending} size="sm">
-            <Send className="h-4 w-4" />
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleToggleFileUpload}
+              disabled={sending}
+              className="h-9"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            <Button type="submit" disabled={sending || !messageContent?.trim()} size="sm" className="h-9">
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
         </form>
         {errors.content && (
-          <p className="text-sm text-red-600 mt-1">{errors.content.message}</p>
+          <p className="text-sm text-error mt-1">{errors.content.message}</p>
         )}
       </div>
     </div>

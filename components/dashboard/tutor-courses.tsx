@@ -128,11 +128,11 @@ export function TutorCourses({ tutorId }: TutorCoursesProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
-        return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Approuvé</Badge>
+        return <Badge variant="default" className="bg-success-light text-success"><CheckCircle className="h-3 w-3 mr-1" />Approuvé</Badge>
       case 'pending':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800"><Clock className="h-3 w-3 mr-1" />En attente</Badge>
+        return <Badge variant="secondary" className="bg-warning-light text-warning"><Clock className="h-3 w-3 mr-1" />En attente</Badge>
       case 'rejected':
-        return <Badge variant="destructive" className="bg-red-100 text-red-800"><XCircle className="h-3 w-3 mr-1" />Rejeté</Badge>
+        return <Badge variant="destructive" className="bg-error-light text-error"><XCircle className="h-3 w-3 mr-1" />Rejeté</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -175,17 +175,17 @@ export function TutorCourses({ tutorId }: TutorCoursesProps) {
           {assignedCourses.length > 0 ? (
             <div className="space-y-4">
               {assignedCourses.map((course) => (
-                <div key={course.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="font-medium">{course.course.titleFr}</h3>
-                      <span className="text-sm text-muted-foreground">({course.course.code})</span>
+                <div key={course.id} className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 p-4 border rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <h3 className="font-medium text-sm sm:text-base">{course.course.titleFr}</h3>
+                      <span className="text-xs sm:text-sm text-muted-foreground">({course.course.code})</span>
                       {getStatusBadge(course.status)}
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                       {course.course.descriptionFr}
                     </p>
-                    <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                       {course.course.institution && (
                         <div className="flex items-center space-x-1">
                           <GraduationCap className="h-4 w-4" />
@@ -227,29 +227,29 @@ export function TutorCourses({ tutorId }: TutorCoursesProps) {
           {pendingRequests.length > 0 ? (
             <div className="space-y-4">
               {pendingRequests.map((request) => (
-                <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="font-medium">{request.course.titleFr}</h3>
-                      <span className="text-sm text-muted-foreground">({request.course.code})</span>
+                <div key={request.id} className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 p-4 border rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <h3 className="font-medium text-sm sm:text-base">{request.course.titleFr}</h3>
+                      <span className="text-xs sm:text-sm text-muted-foreground">({request.course.code})</span>
                       {getStatusBadge(request.status)}
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                       {request.course.descriptionFr}
                     </p>
                     {request.message && (
-                      <div className="flex items-start space-x-2 mb-2">
-                        <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground italic">"{request.message}"</p>
+                      <div className="flex items-start gap-2 mb-2">
+                        <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                        <p className="text-xs sm:text-sm text-muted-foreground italic break-words">"{request.message}"</p>
                       </div>
                     )}
                     {request.adminNote && (
-                      <div className="flex items-start space-x-2 mb-2">
-                        <AlertCircle className="h-4 w-4 mt-0.5 text-red-500" />
-                        <p className="text-sm text-red-600 italic">Admin: "{request.adminNote}"</p>
+                      <div className="flex items-start gap-2 mb-2">
+                        <AlertCircle className="h-4 w-4 mt-0.5 text-error flex-shrink-0" />
+                        <p className="text-xs sm:text-sm text-error italic break-words">Admin: "{request.adminNote}"</p>
                       </div>
                     )}
-                    <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                       <span>Demandé le {formatDate(request.requestedAt)}</span>
                       {request.reviewedAt && (
                         <span>Traité le {formatDate(request.reviewedAt)}</span>
@@ -261,6 +261,7 @@ export function TutorCourses({ tutorId }: TutorCoursesProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => handleCancelRequest(request.id)}
+                      className="w-full sm:w-auto"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Annuler
@@ -281,13 +282,13 @@ export function TutorCourses({ tutorId }: TutorCoursesProps) {
       {/* Available Courses */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <CardTitle className="flex items-center">
-                <Plus className="h-5 w-5 mr-2" />
+              <CardTitle className="flex items-center text-lg sm:text-xl">
+                <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                 Demander un cours
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 Parcourez les cours disponibles et demandez à les enseigner
               </CardDescription>
             </div>
@@ -311,16 +312,16 @@ export function TutorCourses({ tutorId }: TutorCoursesProps) {
           {filteredAvailableCourses.length > 0 ? (
             <div className="space-y-4">
               {filteredAvailableCourses.map((course) => (
-                <div key={course.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="font-medium">{course.titleFr}</h3>
-                      <span className="text-sm text-muted-foreground">({course.code})</span>
+                <div key={course.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <h3 className="font-medium text-sm sm:text-base">{course.titleFr}</h3>
+                      <span className="text-xs sm:text-sm text-muted-foreground">({course.code})</span>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                       {course.descriptionFr}
                     </p>
-                    <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                       {course.institution && (
                         <div className="flex items-center space-x-1">
                           <GraduationCap className="h-4 w-4" />
@@ -345,6 +346,7 @@ export function TutorCourses({ tutorId }: TutorCoursesProps) {
                       setIsRequestDialogOpen(true)
                     }}
                     size="sm"
+                    className="w-full sm:w-auto"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Demander

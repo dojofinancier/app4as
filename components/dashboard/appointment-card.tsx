@@ -1,6 +1,6 @@
 'use client'
 
-import { formatDateTime } from '@/lib/utils'
+import { formatDateTime, translateAppointmentStatus } from '@/lib/utils'
 import { MessageIndicator } from '../messaging/message-indicator'
 import type { Appointment, Course, Tutor, User } from '@prisma/client'
 
@@ -74,27 +74,27 @@ export function AppointmentCard({
             <span
               className={`inline-block rounded-full px-2 py-0.5 text-xs ${
                 appointment.status === 'scheduled'
-                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+                  ? 'bg-info-light text-info dark:bg-info/20 dark:text-info'
                   : appointment.status === 'cancelled'
-                  ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                  ? 'bg-error-light text-error dark:bg-error/20 dark:text-error'
                   : appointment.status === 'completed'
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                  ? 'bg-success-light text-success dark:bg-success/20 dark:text-success'
+                  : 'bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground'
               }`}
             >
-              {appointment.status}
+              {translateAppointmentStatus(appointment.status)}
             </span>
           </div>
           
           {/* Meeting Link Section */}
           {appointment.status === 'scheduled' && appointment.meetingLink && (
-            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-              <h4 className="text-sm font-medium text-blue-700 mb-2">Lien de réunion</h4>
+            <div className="mt-3 p-3 bg-info-light rounded-lg">
+              <h4 className="text-sm font-medium text-info mb-2">Lien de réunion</h4>
               <a
                 href={appointment.meetingLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 underline break-all text-sm"
+                className="text-info hover:text-info/80 underline break-all text-sm"
               >
                 {appointment.meetingLink}
               </a>

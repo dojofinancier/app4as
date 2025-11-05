@@ -51,7 +51,7 @@ export function TutorRatingsTab({ tutorId, courses = [] }: TutorRatingsTabProps)
           <CardTitle>Évaluations</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <Label>Cours</Label>
               <Select onValueChange={(v) => { setCourseId(v === 'all' ? undefined : v); setPage(1) }} value={courseId || 'all'}>
@@ -76,7 +76,7 @@ export function TutorRatingsTab({ tutorId, courses = [] }: TutorRatingsTabProps)
 
           {loading && <div>Chargement…</div>}
           {!loading && averages && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
               <Stat label="Nombre" value={averages.count} />
               <Stat label="Courtoisie" value={averages.avgQ1.toFixed(2)} />
               <Stat label="Maîtrise" value={averages.avgQ2.toFixed(2)} />
@@ -96,23 +96,23 @@ export function TutorRatingsTab({ tutorId, courses = [] }: TutorRatingsTabProps)
             <div className="text-muted-foreground">Aucune évaluation</div>
           )}
           {!loading && list && list.items.map(item => (
-            <div key={item.id} className="rounded border p-4 space-y-2">
-              <div className="text-sm text-muted-foreground">{new Date(item.createdAt).toLocaleDateString('fr-CA')}</div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+            <div key={item.id} className="rounded border p-3 sm:p-4 space-y-2">
+              <div className="text-xs sm:text-sm text-muted-foreground">{new Date(item.createdAt).toLocaleDateString('fr-CA')}</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm">
                 <div>Courtoisie: {item.q1Courtoisie}</div>
                 <div>Maîtrise: {item.q2Maitrise}</div>
                 <div>Pédagogie: {item.q3Pedagogie}</div>
                 <div>Dynamisme: {item.q4Dynamisme}</div>
               </div>
               {item.comment && (
-                <div className="text-sm whitespace-pre-wrap">{item.comment}</div>
+                <div className="text-xs sm:text-sm whitespace-pre-wrap break-words">{item.comment}</div>
               )}
             </div>
           ))}
           {!loading && list && list.total > list.pageSize && (
-            <div className="flex gap-2">
-              <button className="px-3 py-1 border rounded" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Précédent</button>
-              <button className="px-3 py-1 border rounded" disabled={list.items.length < pageSize} onClick={() => setPage(p => p + 1)}>Suivant</button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button className="px-3 py-1 border rounded text-sm w-full sm:w-auto" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Précédent</button>
+              <button className="px-3 py-1 border rounded text-sm w-full sm:w-auto" disabled={list.items.length < pageSize} onClick={() => setPage(p => p + 1)}>Suivant</button>
             </div>
           )}
         </CardContent>

@@ -41,17 +41,17 @@ export function TutorMessagingTab({ selectedStudentInfo }: TutorMessagingTabProp
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold mb-2">Messages</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">Messages</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Communiquez avec vos étudiants
           </p>
         </div>
         <button
           onClick={handleStartNewConversation}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors w-full sm:w-auto text-sm sm:text-base"
         >
           Nouvelle conversation
         </button>

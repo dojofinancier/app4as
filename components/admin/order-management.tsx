@@ -597,7 +597,7 @@ export function OrderManagement() {
 
       {/* Error Message */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
+        <div className="p-4 bg-error-light border border-error-border rounded-md text-error">
           {error}
         </div>
       )}
@@ -640,7 +640,7 @@ export function OrderManagement() {
                         {order.totalCad === 0 && ' (Gratuit)'}
                       </div>
                       {totalRefunded > 0 && (
-                        <div className="text-sm text-red-600">
+                        <div className="text-sm text-error">
                           Remboursé: {formatCurrency(totalRefunded)}
                         </div>
                       )}
@@ -804,7 +804,7 @@ export function OrderManagement() {
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Remise</Label>
-                      <p className="text-lg font-semibold text-green-600">
+                      <p className="text-lg font-semibold text-success">
                         -{formatCurrency(orderDetails.discountCad)}
                       </p>
                     </div>
@@ -853,7 +853,7 @@ export function OrderManagement() {
                                     href={item.appointment.meetingLink} 
                                     target="_blank" 
                                     rel="noopener noreferrer"
-                                    className="text-blue-600 hover:underline text-sm"
+                                    className="text-info hover:underline text-sm"
                                   >
                                     Lien de réunion
                                   </a>
@@ -866,7 +866,7 @@ export function OrderManagement() {
                             <div className="text-sm text-muted-foreground">
                               Prix unitaire: {formatCurrency(item.unitPriceCad)}
                             </div>
-                            <div className="text-sm text-green-600">
+                            <div className="text-sm text-success">
                               Gains tuteur: {formatCurrency(item.tutorEarningsCad)}
                             </div>
                           </div>
@@ -886,7 +886,7 @@ export function OrderManagement() {
                   <CardContent>
                     <div className="space-y-4">
                       {orderDetails.refundRequests.map((refund) => (
-                        <div key={refund.id} className="border-l-4 border-red-200 pl-4 py-2">
+                        <div key={refund.id} className="border-l-4 border-error-border pl-4 py-2">
                           <div className="flex justify-between items-start">
                             <div>
                               <p className="font-medium text-sm">
@@ -933,7 +933,7 @@ export function OrderManagement() {
           
           <div className="space-y-4">
             {refundError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+              <div className="p-3 bg-error-light border border-error-border rounded-md text-error text-sm">
                 {refundError}
               </div>
             )}

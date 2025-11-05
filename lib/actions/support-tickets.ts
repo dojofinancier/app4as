@@ -222,6 +222,10 @@ export async function getStudentTickets(params?: {
  * Get ticket details (student version - excludes internal messages)
  */
 export async function getTicketDetails(ticketId: string) {
+  if (!ticketId || ticketId.trim() === '') {
+    return { success: false, error: 'ID de ticket invalide' }
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -235,15 +239,18 @@ export async function getTicketDetails(ticketId: string) {
     select: { role: true }
   })
 
-  if (!dbUser || dbUser.role !== 'student') {
-    return { success: false, error: 'Accès refusé' }
+  if (!dbUser) {
+    return { success: false, error: 'Utilisateur non trouvé' }
+  }
+
+  if (dbUser.role !== 'student') {
+    return { success: false, error: 'Accès refusé - Cette fonction est réservée aux étudiants' }
   }
 
   try {
-    const ticket = await prisma.supportTicket.findFirst({
+    const ticket = await prisma.supportTicket.findUnique({
       where: {
-        id: ticketId,
-        userId: user.id
+        id: ticketId
       },
       include: {
         user: {
@@ -283,11 +290,7 @@ export async function getTicketDetails(ticketId: string) {
             createdAt: true
           }
         },
-        attachments: {
-          orderBy: {
-            createdAt: 'desc'
-          }
-        },
+        attachments: true,
         messages: {
           where: {
             isInternal: false // Exclude internal messages
@@ -310,13 +313,36 @@ export async function getTicketDetails(ticketId: string) {
     })
 
     if (!ticket) {
-      return { success: false, error: 'Ticket non trouvé ou accès refusé' }
+      return { success: false, error: 'Ticket non trouvé' }
     }
 
-    return { success: true, data: ticket }
+    // Verify the ticket belongs to the current user
+    if (ticket.userId !== user.id) {
+      return { success: false, error: 'Vous n\'avez pas l\'autorisation d\'accéder à ce ticket' }
+    }
+
+    // Convert Decimal fields to numbers for client-side serialization
+    const serializedTicket = {
+      ...ticket,
+      order: ticket.order ? {
+        ...ticket.order,
+        totalCad: Number(ticket.order.totalCad)
+      } : null
+    }
+
+    return { success: true, data: serializedTicket }
   } catch (error) {
     console.error('Error fetching ticket details:', error)
-    return { success: false, error: 'Une erreur est survenue' }
+    console.error('Error details:', {
+      ticketId,
+      userId: user?.id,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined
+    })
+    return { 
+      success: false, 
+      error: error instanceof Error ? `Erreur: ${error.message}` : 'Une erreur est survenue' 
+    }
   }
 }
 

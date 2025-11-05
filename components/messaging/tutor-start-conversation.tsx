@@ -50,19 +50,19 @@ export function TutorStartConversation({ onSelectStudent, onBack }: TutorStartCo
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onBack}>
+            <Button variant="ghost" size="sm" onClick={onBack} className="p-2">
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <CardTitle>Nouvelle conversation</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Nouvelle conversation</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
             <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               Aucun étudiant disponible pour le moment.
             </p>
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-2">
               Les étudiants apparaîtront ici une fois qu'ils auront pris des rendez-vous avec vous.
             </p>
           </div>
@@ -75,43 +75,43 @@ export function TutorStartConversation({ onSelectStudent, onBack }: TutorStartCo
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onBack}>
+          <Button variant="ghost" size="sm" onClick={onBack} className="p-2">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <CardTitle>Nouvelle conversation</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">Nouvelle conversation</CardTitle>
         </div>
-        <CardDescription>
+        <CardDescription className="text-xs sm:text-sm">
           Sélectionnez un étudiant pour commencer une conversation
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4">
+        <div className="grid gap-3 sm:gap-4">
           {availableStudents.map((student) => (
             <div
               key={student.id}
-              className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
               onClick={() => onSelectStudent(student)}
             >
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <User className="h-5 w-5 text-primary" />
                 </div>
-                <div>
-                  <h3 className="font-medium">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-medium text-sm sm:text-base truncate">
                     {student.firstName} {student.lastName}
                   </h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
                     {student.email}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">
+              <div className="flex items-center gap-2 sm:flex-shrink-0">
+                <Badge variant="outline" className="text-xs whitespace-nowrap">
                   {student.appointmentCount} rendez-vous
                 </Badge>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="w-full sm:w-auto">
                   <MessageCircle className="h-4 w-4 mr-2" />
-                  Message
+                  <span className="hidden sm:inline">Message</span>
                 </Button>
               </div>
             </div>

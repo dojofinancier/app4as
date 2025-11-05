@@ -222,8 +222,8 @@ export function TutorManagement() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <p className="text-red-800">{error}</p>
+        <div className="bg-error-light border border-error-border rounded-md p-4">
+          <p className="text-error">{error}</p>
         </div>
       )}
 
@@ -379,10 +379,10 @@ export function TutorManagement() {
                     <p><strong>Tarif horaire:</strong> {formatCurrency(Number(tutor.hourlyBaseRateCad))}</p>
                     <p><strong>Priorité:</strong> 
                       <span className={`ml-1 px-2 py-1 rounded text-xs ${
-                        tutor.priority === 0 ? 'bg-red-100 text-red-800' :
-                        tutor.priority >= 80 ? 'bg-green-100 text-green-800' :
-                        tutor.priority >= 50 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
+                        tutor.priority === 0 ? 'bg-error-light text-error' :
+                        tutor.priority >= 80 ? 'bg-success-light text-success' :
+                        tutor.priority >= 50 ? 'bg-warning-light text-warning' :
+                        'bg-muted text-muted-foreground'
                       }`}>
                         {tutor.priority === 0 ? 'Désactivé' : tutor.priority}
                       </span>
@@ -435,13 +435,13 @@ export function TutorManagement() {
                   <h4 className="font-medium mb-2">Évaluation</h4>
                   {tutor.ratings && tutor.ratings.count > 0 ? (
                     <div className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+                      <Star className="h-4 w-4 text-warning fill-warning" />
                       <span>{tutor.ratings.avgGeneral.toFixed(2)} / 5</span>
                       <span className="text-xs">({tutor.ratings.count} évaluation{tutor.ratings.count > 1 ? 's' : ''})</span>
                     </div>
                   ) : (
                     <div className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+                      <Star className="h-4 w-4 text-warning fill-warning" />
                       <span>À venir</span>
                     </div>
                   )}
@@ -517,8 +517,8 @@ function CreateTutorForm({ onClose, onSuccess }: { onClose: () => void; onSucces
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <p className="text-red-800">{error}</p>
+            <div className="bg-error-light border border-error-border rounded-md p-4">
+              <p className="text-error">{error}</p>
             </div>
           )}
 
@@ -699,7 +699,7 @@ function EditTutorModal({
           <h2 className="text-xl font-bold">Modifier le tuteur</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-muted-foreground hover:text-foreground"
           >
             ✕
           </button>
@@ -707,8 +707,8 @@ function EditTutorModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <p className="text-red-800">{error}</p>
+            <div className="bg-error-light border border-error-border rounded-md p-4">
+              <p className="text-error">{error}</p>
             </div>
           )}
 

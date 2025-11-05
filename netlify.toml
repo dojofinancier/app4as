@@ -22,3 +22,13 @@
 [[functions]]
   name = "complete-past-appointments"
   schedule = "0 * * * *"  # Every hour
+
+# Scheduled function for database ANALYZE (updates query planner statistics)
+[[functions]]
+  name = "analyze-database"
+  schedule = "0 2 * * 0"  # Every Sunday at 2 AM EST
+
+# Scheduled function for cleaning up old error logs (90 days retention)
+[[functions]]
+  name = "cleanup-error-logs"
+  schedule = "0 3 * * 0"  # Every Sunday at 3 AM EST

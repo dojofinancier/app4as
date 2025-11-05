@@ -13,6 +13,7 @@ export type MakeEventType =
   | 'ticket.created'
   | 'ticket.status_changed'
   | 'ticket.message_added'
+  | 'error.occurred'
   // Admin operations (not recorded in database)
   | 'course.created'
   | 'course.updated'
@@ -54,6 +55,8 @@ function getUrlForType(type: MakeEventType): string | undefined {
     case 'ticket.status_changed':
     case 'ticket.message_added':
       return process.env.MAKE_TICKET_WEBHOOK_URL || process.env.MAKE_BOOKING_WEBHOOK_URL
+    case 'error.occurred':
+      return process.env.MAKE_ERROR_WEBHOOK_URL || process.env.MAKE_BOOKING_WEBHOOK_URL
     // Admin operations use same webhook or fallback
     case 'course.created':
     case 'course.updated':
@@ -164,6 +167,7 @@ export async function sendSignupWebhook(data: {
   email: string
   firstName: string
   lastName: string
+  phone?: string | null
   createdAt: string
 }) {
   await sendMakeWebhook('signup', {
@@ -172,6 +176,7 @@ export async function sendSignupWebhook(data: {
     email: data.email,
     first_name: data.firstName,
     last_name: data.lastName,
+    phone: data.phone || null,
     created_at: data.createdAt,
   })
 }
@@ -187,6 +192,7 @@ export async function sendBookingCreatedWebhook(data: {
   discountCad: number
   totalCad: number
   couponCode?: string
+  phone?: string | null
   items: Array<{
     appointmentId: string
     courseId: string
@@ -208,6 +214,7 @@ export async function sendBookingCreatedWebhook(data: {
     discount_cad: data.discountCad,
     total_cad: data.totalCad,
     coupon_code: data.couponCode || null,
+    phone: data.phone || null,
     items: data.items,
     created_at: data.createdAt,
   })
@@ -437,6 +444,35 @@ export async function sendTicketMessageWebhook(data: {
     sender_role: data.senderRole,
     message: data.message,
     is_internal: data.isInternal,
+    timestamp: data.timestamp,
+  })
+}
+
+/**
+ * Send webhook to Make.com for error occurred events
+ */
+export async function sendErrorOccurredWebhook(data: {
+  errorId: string
+  message: string
+  errorType: string
+  severity: string
+  userId?: string
+  userEmail?: string
+  url?: string
+  stack?: string
+  context?: object
+  timestamp: string
+}) {
+  await sendMakeWebhook('error.occurred', {
+    error_id: data.errorId,
+    message: data.message,
+    error_type: data.errorType,
+    severity: data.severity,
+    user_id: data.userId || null,
+    user_email: data.userEmail || null,
+    url: data.url || null,
+    stack: data.stack || null,
+    context: data.context || null,
     timestamp: data.timestamp,
   })
 }

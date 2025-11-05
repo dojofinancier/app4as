@@ -86,7 +86,7 @@ export function FileUpload({ receiverId, onUploadComplete, onUploadError }: File
         className={`border-2 border-dashed transition-colors cursor-pointer ${
           dragActive 
             ? 'border-primary bg-primary/5' 
-            : 'border-gray-300 hover:border-gray-400'
+            : 'border-border hover:border-border'
         } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -95,11 +95,11 @@ export function FileUpload({ receiverId, onUploadComplete, onUploadError }: File
         onClick={handleClick}
       >
         <div className="p-4 text-center">
-          <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-          <p className="text-sm text-gray-600 mb-1">
+          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground mb-1">
             Glissez-déposez un fichier ici ou cliquez pour sélectionner
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             PDF, DOC, DOCX, JPG, PNG, GIF, WEBP (max 32MB)
           </p>
         </div>
@@ -115,8 +115,8 @@ export function FileUpload({ receiverId, onUploadComplete, onUploadError }: File
       />
 
       {isUploading && (
-        <div className="flex items-center gap-2 text-sm text-blue-600">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+        <div className="flex items-center gap-2 text-sm text-info">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-info"></div>
           Téléchargement en cours...
         </div>
       )}
@@ -140,13 +140,13 @@ export function FileAttachment({ attachment, onDownload }: FileAttachmentProps) 
   const fileSize = formatFileSize(attachment.fileSize)
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+    <div className="flex items-center gap-3 p-3 bg-muted rounded-lg border">
       <div className="text-2xl">{fileIcon}</div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 truncate">
+        <p className="text-sm font-medium text-foreground truncate">
           {attachment.fileName}
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           {fileSize} • {attachment.fileType}
         </p>
       </div>
@@ -170,14 +170,14 @@ interface ErrorNotificationProps {
 
 export function ErrorNotification({ message, onDismiss }: ErrorNotificationProps) {
   return (
-    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-      <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
-      <p className="text-sm text-red-800 flex-1">{message}</p>
+    <div className="flex items-center gap-2 p-3 bg-error-light border border-error-border rounded-lg">
+      <AlertCircle className="h-4 w-4 text-error flex-shrink-0" />
+      <p className="text-sm text-error flex-1">{message}</p>
       <Button
         size="sm"
         variant="ghost"
         onClick={onDismiss}
-        className="h-6 w-6 p-0 text-red-600 hover:text-red-800"
+        className="h-6 w-6 p-0 text-error hover:text-error/80"
       >
         <X className="h-4 w-4" />
       </Button>

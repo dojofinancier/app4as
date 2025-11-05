@@ -54,7 +54,7 @@ function TimeSelector({ value, onChange, className }: TimeSelectorProps) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`h-10 w-32 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className || ''}`}
     >
       {TIME_SLOTS.map((time) => (
         <option key={time} value={time}>
@@ -244,40 +244,40 @@ export function AvailabilityManagementTab({ tutorId }: AvailabilityManagementTab
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold mb-2">Gestion des disponibilités</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">Gestion des disponibilités</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Définissez vos heures de disponibilité récurrentes et vos exceptions
           </p>
         </div>
-        <Button onClick={saveAvailability} disabled={saving}>
+        <Button onClick={saveAvailability} disabled={saving} className="w-full sm:w-auto">
           {saving ? 'Sauvegarde...' : 'Sauvegarder'}
         </Button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error}</p>
+        <div className="bg-error-light border border-error-border rounded-lg p-4">
+          <p className="text-error">{error}</p>
         </div>
       )}
 
       {/* Weekly Availability Template */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                 Disponibilités récurrentes
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 Définissez vos heures de disponibilité pour chaque jour de la semaine
               </CardDescription>
             </div>
-            <Badge variant="outline" className="text-sm">
+            <Badge variant="outline" className="text-xs sm:text-sm w-full sm:w-auto">
               {getSummaryText()}
             </Badge>
           </div>
@@ -289,7 +289,7 @@ export function AvailabilityManagementTab({ tutorId }: AvailabilityManagementTab
             
             return (
               <div key={day.id} className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <Switch
                       checked={isEnabled}
@@ -303,7 +303,7 @@ export function AvailabilityManagementTab({ tutorId }: AvailabilityManagementTab
                         }
                       }}
                     />
-                    <Label className="text-base font-medium">
+                    <Label className="text-sm sm:text-base font-medium">
                       {day.name}
                     </Label>
                   </div>
@@ -312,6 +312,7 @@ export function AvailabilityManagementTab({ tutorId }: AvailabilityManagementTab
                       variant="outline"
                       size="sm"
                       onClick={() => addTimeSlot(day.id)}
+                      className="w-full sm:w-auto"
                     >
                       <Plus className="h-4 w-4 mr-1" />
                       Ajouter
@@ -320,28 +321,31 @@ export function AvailabilityManagementTab({ tutorId }: AvailabilityManagementTab
                 </div>
 
                 {isEnabled && (
-                  <div className="ml-8 space-y-2">
+                  <div className="ml-0 sm:ml-8 space-y-2">
                     {daySlots.map((slot) => (
-                      <div key={slot.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <div className="flex items-center gap-2">
+                      <div key={slot.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 border rounded-lg">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
                             <TimeSelector
                               value={slot.startTime}
                               onChange={(value) => updateTimeSlot(slot.id, 'startTime', value)}
+                              className="flex-1 min-w-0"
                             />
-                            <span className="text-muted-foreground">-</span>
+                            <span className="text-muted-foreground flex-shrink-0">-</span>
                             <TimeSelector
                               value={slot.endTime}
                               onChange={(value) => updateTimeSlot(slot.id, 'endTime', value)}
+                              className="flex-1 min-w-0"
                             />
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 sm:flex-shrink-0">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => copyTimeSlot(slot.id)}
+                            className="flex-1 sm:flex-initial"
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
@@ -349,6 +353,7 @@ export function AvailabilityManagementTab({ tutorId }: AvailabilityManagementTab
                             variant="ghost"
                             size="sm"
                             onClick={() => removeTimeSlot(slot.id)}
+                            className="flex-1 sm:flex-initial"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -368,17 +373,17 @@ export function AvailabilityManagementTab({ tutorId }: AvailabilityManagementTab
       {/* Exceptions Section */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                 Exceptions de dates
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 Ajoutez les dates où vos disponibilités changent de vos heures quotidiennes
               </CardDescription>
             </div>
-            <Button variant="outline" onClick={addException}>
+            <Button variant="outline" onClick={addException} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Ajouter une exception
             </Button>
@@ -386,42 +391,43 @@ export function AvailabilityManagementTab({ tutorId }: AvailabilityManagementTab
         </CardHeader>
         <CardContent>
           {exceptions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground text-sm">
               Aucune exception définie
             </div>
           ) : (
             <div className="space-y-3">
               {exceptions.map((exception) => (
-                <div key={exception.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                  <div className="flex items-center gap-3 flex-1">
-                    <Badge variant={exception.isUnavailable ? 'destructive' : 'default'}>
+                <div key={exception.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 border rounded-lg">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0">
+                    <Badge variant={exception.isUnavailable ? 'destructive' : 'default'} className="w-full sm:w-auto justify-center sm:justify-start">
                       {exception.isUnavailable ? 'Indisponible' : 'Disponible'}
                     </Badge>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Input
                         type="date"
                         value={exception.startDate}
                         onChange={(e) => updateException(exception.id, 'startDate', e.target.value)}
-                        className="w-40"
+                        className="w-full sm:w-40"
                       />
                       {exception.startDate !== exception.endDate && (
                         <>
-                          <span className="text-muted-foreground">-</span>
+                          <span className="text-muted-foreground flex-shrink-0">-</span>
                           <Input
                             type="date"
                             value={exception.endDate}
                             onChange={(e) => updateException(exception.id, 'endDate', e.target.value)}
-                            className="w-40"
+                            className="w-full sm:w-40"
                           />
                         </>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 sm:flex-shrink-0">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => removeException(exception.id)}
+                      className="w-full sm:w-auto"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

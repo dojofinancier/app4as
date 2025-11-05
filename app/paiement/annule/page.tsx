@@ -8,7 +8,7 @@ export default function PaymentCancelledPage() {
     <div className="container mx-auto flex min-h-[60vh] items-center justify-center px-4 py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-warning-light text-warning">
             <svg
               className="h-8 w-8"
               fill="none"

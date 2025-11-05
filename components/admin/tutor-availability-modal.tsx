@@ -96,8 +96,8 @@ export function TutorAvailabilityModal({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : error ? (
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <p className="text-red-800">{error}</p>
+          <div className="bg-error-light border border-error-border rounded-md p-4">
+            <p className="text-error">{error}</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -212,5 +212,7 @@ export function TutorAvailabilityModal({
     </Dialog>
   )
 }
+
+
 
 

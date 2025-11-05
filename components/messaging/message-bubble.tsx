@@ -63,8 +63,8 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
         isCurrentUser 
           ? 'bg-primary text-primary-foreground' 
           : isTutor
-          ? 'bg-blue-100 text-blue-900'
-          : 'bg-gray-100 text-gray-900'
+          ? 'bg-info-light text-info'
+          : 'bg-muted text-foreground'
       }`}>
         {/* Sender info */}
         <div className="flex items-center gap-2 mb-1">

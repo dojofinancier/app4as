@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { formatDateTime } from '@/lib/utils'
+import { formatDateTime, translateAppointmentStatus } from '@/lib/utils'
 import { getStudentAppointments } from '@/lib/actions/reservations'
 import { RescheduleModal } from './reschedule-modal'
 import { MessageCircle } from 'lucide-react'
@@ -57,6 +57,30 @@ export function ReservationManagementTab({ user }: ReservationManagementTabProps
   }
 
           const now = new Date()
+          const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+          
+          // Filter appointments: future + last month
+          const relevantAppointments = appointments.filter((apt) => {
+            const aptDate = new Date(apt.startDatetime)
+            return aptDate >= oneMonthAgo
+          })
+          
+          // Extract unique course/tutor combinations
+          const uniqueCourseTutorCombinations = Array.from(
+            new Map(
+              relevantAppointments.map((apt) => [
+                `${apt.courseId}-${apt.tutorId}`, // Use courseId-tutorId as unique key
+                {
+                  courseId: apt.courseId,
+                  courseSlug: apt.course.slug,
+                  courseCode: apt.course.code,
+                  tutorId: apt.tutorId,
+                  tutorFirstName: apt.tutor.user.firstName,
+                },
+              ])
+            ).values()
+          )
+          
           const upcomingAppointments = appointments
             .filter((apt) => new Date(apt.startDatetime) > now && apt.status === 'scheduled')
             .sort((a, b) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime())
@@ -67,17 +91,45 @@ export function ReservationManagementTab({ user }: ReservationManagementTabProps
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold mb-2">Gestion des réservations</h2>
-          <p className="text-muted-foreground">
-            Gérez vos rendez-vous
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/cours">Réserver plus de séances</Link>
-        </Button>
+      <div>
+        <h2 className="text-2xl font-bold mb-2">Gestion des réservations</h2>
+        <p className="text-muted-foreground">
+          Gérez vos rendez-vous
+        </p>
       </div>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg sm:text-xl">Actions rapides</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-wrap">
+          {/* Show buttons for unique course/tutor combinations if any exist */}
+          {uniqueCourseTutorCombinations.length > 0 && (
+            <>
+              {uniqueCourseTutorCombinations.map((combo) => (
+                <Button
+                  key={`${combo.courseId}-${combo.tutorId}`}
+                  asChild
+                  className="w-full sm:w-auto"
+                >
+                  <Link href={`/cours/${combo.courseSlug}/reservation?tutorId=${combo.tutorId}`}>
+                    Réserver d'autres séances de {combo.courseCode} avec {combo.tutorFirstName}
+                  </Link>
+                </Button>
+              ))}
+            </>
+          )}
+          {/* General button - always show */}
+          <Button
+            asChild
+            variant={uniqueCourseTutorCombinations.length > 0 ? "outline" : "default"}
+            className="w-full sm:w-auto"
+          >
+            <Link href="/cours">Réserver du tutorat pour d'autres cours</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Upcoming Appointments - Main Focus */}
       <Card>
@@ -151,16 +203,14 @@ function AppointmentManagementCard({ appointment, isUpcoming }: {
 
   return (
     <div className="rounded-lg border p-4">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="font-medium">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <h3 className="font-medium text-base sm:text-lg">
               {appointment.course.titleFr}
             </h3>
-            <Badge variant={appointment.status === 'scheduled' ? 'default' : 'secondary'}>
-              {appointment.status === 'scheduled' ? 'Programmé' : 
-               appointment.status === 'cancelled' ? 'Annulé' : 
-               appointment.status === 'completed' ? 'Terminé' : appointment.status}
+            <Badge variant={appointment.status === 'scheduled' ? 'default' : 'secondary'} className="text-xs">
+              {translateAppointmentStatus(appointment.status)}
             </Badge>
           </div>
           
@@ -173,8 +223,8 @@ function AppointmentManagementCard({ appointment, isUpcoming }: {
           </p>
 
           {appointment.cancellationReason && (
-            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm">
-              <p className="text-red-800">
+            <div className="mt-2 p-2 bg-error-light border border-error-border rounded text-sm">
+              <p className="text-error">
                 <strong>Annulé:</strong> {appointment.cancellationReason}
               </p>
             </div>
@@ -190,7 +240,7 @@ function AppointmentManagementCard({ appointment, isUpcoming }: {
         </div>
 
         {isUpcoming && appointment.status === 'scheduled' && (
-          <div className="flex flex-col gap-2 ml-4">
+          <div className="flex flex-col gap-2 sm:ml-4 sm:flex-shrink-0">
             {canRescheduleNow ? (
               <RescheduleModal appointment={appointment} />
             ) : (
@@ -204,6 +254,7 @@ function AppointmentManagementCard({ appointment, isUpcoming }: {
               variant="outline"
               size="sm"
               asChild
+              className="w-full sm:w-auto"
             >
               <Link href={`/tableau-de-bord?tab=messages&tutor=${appointment.tutorId}`}>
                 <MessageCircle className="h-4 w-4 mr-2" />
@@ -213,7 +264,7 @@ function AppointmentManagementCard({ appointment, isUpcoming }: {
           </div>
         )}
         {!isUpcoming && appointment.status === 'completed' && (
-          <div className="ml-4">
+          <div className="sm:ml-4 sm:flex-shrink-0 w-full sm:w-auto">
             <StudentRatingDialog tutorId={appointment.tutorId} courseId={appointment.courseId} appointmentId={appointment.id} />
           </div>
         )}

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime } from '@/lib/utils'
 import { 
   Calendar, 
@@ -134,13 +135,13 @@ export function StudentAppointmentsList({ studentId }: StudentAppointmentsListPr
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'scheduled':
-        return <Badge variant="default" className="bg-blue-100 text-blue-800">Programmé</Badge>
+        return <Badge variant="default" className="bg-info-light text-info">Programmé</Badge>
       case 'completed':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Terminé</Badge>
+        return <Badge variant="default" className="bg-success-light text-success">Terminé</Badge>
       case 'cancelled':
         return <Badge variant="destructive">Annulé</Badge>
       case 'refunded':
-        return <Badge variant="outline" className="border-orange-200 text-orange-800">Remboursé</Badge>
+        return <Badge variant="outline" className="border-warning-border text-warning">Remboursé</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
@@ -149,24 +150,56 @@ export function StudentAppointmentsList({ studentId }: StudentAppointmentsListPr
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'scheduled':
-        return <Clock className="h-4 w-4 text-blue-500" />
+        return <Clock className="h-4 w-4 text-info" />
       case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return <CheckCircle className="h-4 w-4 text-success" />
       case 'cancelled':
-        return <XCircle className="h-4 w-4 text-red-500" />
+        return <XCircle className="h-4 w-4 text-error" />
       case 'refunded':
-        return <AlertCircle className="h-4 w-4 text-orange-500" />
+        return <AlertCircle className="h-4 w-4 text-warning" />
       default:
-        return <Calendar className="h-4 w-4 text-gray-500" />
+        return <Calendar className="h-4 w-4 text-muted-foreground" />
     }
   }
 
   if (initialLoad && loading) {
     return (
-      <div className="p-6">
-        <div className="text-center text-muted-foreground">
-          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-          Chargement des rendez-vous...
+      <div className="h-full flex flex-col">
+        {/* Filter Buttons Skeleton */}
+        <div className="p-6 pb-4 border-b">
+          <div className="flex flex-wrap gap-2">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-9 w-24" />
+            ))}
+          </div>
+        </div>
+
+        {/* Appointments List Skeleton */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Skeleton className="h-5 w-5 rounded-full" />
+                        <div className="flex-1">
+                          <Skeleton className="h-5 w-48 mb-2" />
+                          <Skeleton className="h-4 w-32" />
+                        </div>
+                        <Skeleton className="h-6 w-20 rounded-full" />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-full" />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -243,21 +276,21 @@ export function StudentAppointmentsList({ studentId }: StudentAppointmentsListPr
 
                       {/* Cancellation details */}
                       {appointment.status === 'cancelled' && appointment.cancellationReason && (
-                        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="mt-4 p-3 bg-error-light border border-error-border rounded-lg">
                           <div className="flex items-start gap-2">
-                            <XCircle className="h-4 w-4 text-red-500 mt-0.5" />
+                            <XCircle className="h-4 w-4 text-error mt-0.5" />
                             <div className="flex-1">
-                              <p className="text-sm font-medium text-red-800">
+                              <p className="text-sm font-medium text-error">
                                 Annulé par: {appointment.cancelledBy === 'student' ? 'Étudiant' : 
                                             appointment.cancelledBy === 'tutor' ? 'Tuteur' : 
                                             appointment.cancelledBy === 'admin' ? 'Administrateur' : 'Système'}
                               </p>
                               {appointment.cancelledAt && (
-                                <p className="text-xs text-red-600 mb-2">
+                                <p className="text-xs text-error mb-2">
                                   Le {formatDateTime(appointment.cancelledAt)}
                                 </p>
                               )}
-                              <p className="text-sm text-red-700">
+                              <p className="text-sm text-error">
                                 <span className="font-medium">Raison:</span> {appointment.cancellationReason}
                               </p>
                             </div>

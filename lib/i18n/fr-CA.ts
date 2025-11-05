@@ -95,6 +95,19 @@ export const frCA = {
       reschedule: 'Replanifier',
       cancelAppointment: 'Annuler le rendez-vous',
     },
+    appointmentStatus: {
+      scheduled: 'Programmé',
+      completed: 'Terminé',
+      cancelled: 'Annulé',
+      refunded: 'Remboursé',
+    },
+    orderStatus: {
+      created: 'Créée',
+      paid: 'Payée',
+      failed: 'Échouée',
+      refunded: 'Remboursée',
+      partially_refunded: 'Partiellement remboursée',
+    },
     tutor: {
       title: 'Tableau de bord tuteur',
       availability: 'Disponibilités',

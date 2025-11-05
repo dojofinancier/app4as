@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { addToCart } from '@/lib/actions/cart'
+import { rateLimit } from '@/lib/utils/rate-limit'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting: 60 requests per minute per user/IP
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const rateLimitResponse = rateLimit(request, 'API', user?.id)
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
   try {
     const body = await request.json()
     const { courseId, tutorId, startDatetime, durationMin } = body

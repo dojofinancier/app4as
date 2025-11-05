@@ -18,3 +18,7 @@ CREATE INDEX IF NOT EXISTS idx_tutor_ratings_tutor_course_hidden_created
   ON public.tutor_ratings (tutor_id, course_id, hidden, created_at);
 
 
+
+
+
+
