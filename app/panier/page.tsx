@@ -59,7 +59,7 @@ export default async function CartPage() {
   return (
     <div className="container mx-auto px-3 sm:px-4 py-12">
       <h1 className="mb-8 text-2xl sm:text-3xl md:text-4xl font-bold">Mon panier</h1>
-      <CartView initialCart={serializedCart} sessionId={sessionId} />
+      <CartView initialCart={serializedCart} sessionId={sessionId ?? undefined} />
     </div>
   )
 }
