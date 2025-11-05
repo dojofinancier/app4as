@@ -9,7 +9,8 @@ import { OfflineIndicator } from "@/components/offline-indicator"
 import { GoogleAnalytics } from "@/components/analytics/google-analytics"
 import { ensureEnvValid } from "@/lib/utils/env-validation"
 
-// Validate environment variables on app startup
+// Validate environment variables on app startup (runtime only, not during build)
+// The validation function itself skips validation during build time
 ensureEnvValid()
 
 const dmSans = DM_Sans({ 

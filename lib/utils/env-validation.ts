@@ -167,8 +167,10 @@ export function validateEnvForRoute(requiredVars: string[]): void {
       'Site Settings → Environment Variables',
     ].join('\n')
 
-    // Always throw in production, log warning in development
-    if (process.env.NODE_ENV === 'production' || process.env.NETLIFY) {
+    // Always throw in production runtime (not build), log warning in development
+    // During build, we skip validation to allow builds to complete
+    const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
+    if ((process.env.NODE_ENV === 'production' || process.env.NETLIFY) && !isBuildTime) {
       throw new Error(errorMessage)
     }
     console.error(errorMessage)
@@ -200,8 +202,11 @@ export function ensureEnvValid(): void {
       ...result.missing.map((key) => `  - ${key}`),
     ].join('\n')
 
-    // In production/build, throw error to fail fast
-    if (process.env.NODE_ENV === 'production' || process.env.VERCEL || process.env.NETLIFY) {
+    // In production runtime (not build), throw error to fail fast
+    // During build, we skip validation to allow builds to complete
+    // Environment variables are validated at runtime when the app actually runs
+    const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
+    if ((process.env.NODE_ENV === 'production' || process.env.VERCEL || process.env.NETLIFY) && !isBuildTime) {
       throw new Error(errorMessage)
     }
 

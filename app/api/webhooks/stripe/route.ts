@@ -96,7 +96,6 @@ export async function POST(req: NextRequest) {
       const {
         userId: metadataUserId,
         cartId,
-        itemCount,
         couponCode,
         discountAmount
       } = paymentIntent.metadata || {}
@@ -254,7 +253,6 @@ export async function POST(req: NextRequest) {
       })
 
       // Handle user creation/update
-      let actualUserId = userId
       
       // Check if this is a guest user (userId starts with 'guest_')
       if (userId.startsWith('guest_')) {
