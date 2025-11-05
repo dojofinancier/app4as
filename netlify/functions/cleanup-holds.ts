@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-const handler = async () => {
+const cleanupHolds = async () => {
   try {
     const now = new Date()
 
@@ -36,6 +36,6 @@ const handler = async () => {
 }
 
 // Run every minute
-export const myHandler = schedule('* * * * *', handler)
+export const handler = schedule('* * * * *', cleanupHolds)
 
 

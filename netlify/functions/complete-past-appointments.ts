@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-const handler = async () => {
+const completePastAppointments = async () => {
   try {
     const now = new Date()
 
@@ -87,7 +87,7 @@ const handler = async () => {
 }
 
 // Run every hour
-export const myHandler = schedule('0 * * * *', handler)
+export const handler = schedule('0 * * * *', completePastAppointments)
 
 
 
