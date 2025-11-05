@@ -77,69 +77,45 @@ export default async function DashboardPage() {
 
       // Fetch remaining tutor data with error handling
       let tutorAppointments: any[] = []
-      let tutorAvailability: { rules: any[]; exceptions: any[]; timeOffs: any[] } = { rules: [], exceptions: [], timeOffs: [] }
 
       try {
         // Auto-complete past appointments first
         await autoCompletePastAppointments()
 
-        const [appointments, availabilityData] = await Promise.all([
-          // Get tutor appointments
-          prisma.appointment.findMany({
-            where: { tutorId: user.id },
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                  phone: true,
-                },
-              },
-              course: {
-                select: {
-                  id: true,
-                  titleFr: true,
-                  slug: true,
-                  descriptionFr: true,
-                  active: true,
-                  createdAt: true,
-                  studentRateCad: true,
-                },
-              },
-              orderItem: {
-                select: {
-                  unitPriceCad: true,
-                  lineTotalCad: true,
-                },
+        const appointments = await prisma.appointment.findMany({
+          where: { tutorId: user.id },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
               },
             },
-            orderBy: { startDatetime: 'asc' },
-          }),
-          // Get tutor availability
-          Promise.all([
-            prisma.availabilityRule.findMany({
-              where: { tutorId: user.id },
-              orderBy: [{ weekday: 'asc' }, { startTime: 'asc' }],
-            }),
-            prisma.availabilityException.findMany({
-              where: { tutorId: user.id },
-              orderBy: { startDate: 'asc' },
-            }),
-            prisma.timeOff.findMany({
-              where: { tutorId: user.id },
-              orderBy: { startDatetime: 'asc' },
-            }),
-          ]).then(([rules, exceptions, timeOffs]) => ({
-            rules: rules || [],
-            exceptions: exceptions || [],
-            timeOffs: timeOffs || [],
-          })),
-        ])
+            course: {
+              select: {
+                id: true,
+                titleFr: true,
+                slug: true,
+                descriptionFr: true,
+                active: true,
+                createdAt: true,
+                studentRateCad: true,
+              },
+            },
+            orderItem: {
+              select: {
+                unitPriceCad: true,
+                lineTotalCad: true,
+              },
+            },
+          },
+          orderBy: { startDatetime: 'asc' },
+        })
 
         tutorAppointments = appointments || []
-        tutorAvailability = availabilityData || { rules: [], exceptions: [], timeOffs: [] }
       } catch (error) {
         console.error('Error fetching tutor data:', error)
         // Continue with empty data rather than crashing
