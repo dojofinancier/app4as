@@ -12,11 +12,16 @@ export default async function CartPage() {
     ? await getOrCreateCartByIdentity({ userId: user.id })
     : sessionId
       ? await getOrCreateCartByIdentity({ sessionId })
-      : { id: '', items: [], coupon: null } // Empty cart if no session ID
+      : null // Empty cart if no session ID
 
   // Convert Decimal fields to numbers for Client Component compatibility
-  const serializedCart = {
-    ...cart,
+  // Ensure all required fields are present for SerializedCart type
+  const serializedCart = cart ? {
+    id: cart.id,
+    userId: cart.userId,
+    sessionId: cart.sessionId,
+    createdAt: cart.createdAt,
+    updatedAt: cart.updatedAt,
     items: cart.items.map(item => ({
       ...item,
       unitPriceCad: Number(item.unitPriceCad),
@@ -41,6 +46,14 @@ export default async function CartPage() {
       maxRedemptions: cart.coupon.maxRedemptions,
       redemptionCount: cart.coupon.redemptionCount
     } : null
+  } : {
+    id: '',
+    userId: null,
+    sessionId: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    items: [],
+    coupon: null
   }
 
   return (
