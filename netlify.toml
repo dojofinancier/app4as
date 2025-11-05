@@ -26,3 +26,9 @@
 [[schedule]]
   cron = "0 3 * * 0"
   function = "cleanup-error-logs"
+
+# Scheduled function for syncing course active status based on tutor availability
+# Runs every hour to ensure all courses have correct active status
+[[schedule]]
+  cron = "0 * * * *"
+  function = "sync-course-status"

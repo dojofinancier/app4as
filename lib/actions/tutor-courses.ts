@@ -455,6 +455,10 @@ export async function approveCourseRequest(requestId: string): Promise<{ success
       })
     })
 
+    // Sync course active status after approving request
+    const { syncCourseActiveStatus } = await import('@/lib/actions/course-management')
+    await syncCourseActiveStatus(request.courseId)
+
     revalidatePath('/tableau-de-bord')
     return { success: true }
   } catch (error) {

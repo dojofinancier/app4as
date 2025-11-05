@@ -40,6 +40,8 @@ import {
   assignTutorsToCourse,
   updateTutorCourseStatus,
   bulkActivateCourses,
+  bulkDeactivateCourses,
+  toggleCourseStatus,
   CourseData,
   CourseAnalytics,
   TutorAssignment
@@ -59,7 +61,9 @@ import {
   DollarSign,
   BookOpen,
   GraduationCap,
-  Tag
+  Tag,
+  Power,
+  PowerOff
 } from 'lucide-react'
 
 export function CourseManagement() {
@@ -77,11 +81,17 @@ export function CourseManagement() {
   const [availableTutors, setAvailableTutors] = useState<any[]>([])
   const [selectedTutorIds, setSelectedTutorIds] = useState<string[]>([])
 
-  // Filters
+  // Filter inputs (what user is typing)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [institutionFilter, setInstitutionFilter] = useState('')
   const [domainFilter, setDomainFilter] = useState('')
+
+  // Applied filters (what's actually used for search)
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState('')
+  const [appliedStatusFilter, setAppliedStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [appliedInstitutionFilter, setAppliedInstitutionFilter] = useState('')
+  const [appliedDomainFilter, setAppliedDomainFilter] = useState('')
 
   // Form states
   const [formData, setFormData] = useState({
@@ -96,16 +106,16 @@ export function CourseManagement() {
   useEffect(() => {
     loadCourses()
     loadAvailableTutors()
-  }, [searchTerm, statusFilter, institutionFilter, domainFilter])
+  }, [appliedSearchTerm, appliedStatusFilter, appliedInstitutionFilter, appliedDomainFilter])
 
   const loadCourses = async () => {
     setLoading(true)
     try {
       const result = await getAllCourses({
-        search: searchTerm || undefined,
-        status: statusFilter,
-        institution: institutionFilter || undefined,
-        domain: domainFilter || undefined
+        search: appliedSearchTerm || undefined,
+        status: appliedStatusFilter,
+        institution: appliedInstitutionFilter || undefined,
+        domain: appliedDomainFilter || undefined
       })
       
       if (result.success) {
@@ -118,6 +128,13 @@ export function CourseManagement() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleApplyFilters = () => {
+    setAppliedSearchTerm(searchTerm)
+    setAppliedStatusFilter(statusFilter)
+    setAppliedInstitutionFilter(institutionFilter)
+    setAppliedDomainFilter(domainFilter)
   }
 
   const loadAvailableTutors = async () => {
@@ -286,6 +303,44 @@ export function CourseManagement() {
     }
   }
 
+  const handleBulkDeactivate = async () => {
+    if (selectedCourses.length === 0) return
+
+    if (!confirm(`Êtes-vous sûr de vouloir désactiver ${selectedCourses.length} cours sélectionné(s) ?`)) {
+      return
+    }
+
+    try {
+      const result = await bulkDeactivateCourses(selectedCourses)
+      if (result.success) {
+        setSelectedCourses([])
+        loadCourses()
+        alert(`${selectedCourses.length} cours désactivés avec succès`)
+      } else {
+        alert(result.error || 'Erreur lors de la désactivation des cours')
+      }
+    } catch (error) {
+      console.error('Error bulk deactivating courses:', error)
+      alert('Erreur lors de la désactivation des cours')
+    }
+  }
+
+  const handleToggleCourseStatus = async (courseId: string) => {
+    try {
+      const result = await toggleCourseStatus(courseId)
+      if (result.success) {
+        loadCourses()
+        const action = result.active ? 'activé' : 'désactivé'
+        alert(`Cours ${action} avec succès`)
+      } else {
+        alert(result.error || 'Erreur lors de la modification du statut')
+      }
+    } catch (error) {
+      console.error('Error toggling course status:', error)
+      alert('Erreur lors de la modification du statut')
+    }
+  }
+
   const toggleCourseSelection = (courseId: string) => {
     setSelectedCourses(prev => 
       prev.includes(courseId) 
@@ -380,7 +435,7 @@ export function CourseManagement() {
               />
             </div>
             <div className="flex items-end">
-              <Button onClick={loadCourses} variant="outline">
+              <Button onClick={handleApplyFilters} variant="outline">
                 <Filter className="h-4 w-4 mr-2" />
                 Filtrer
               </Button>
@@ -394,7 +449,12 @@ export function CourseManagement() {
                 {selectedCourses.length} cours sélectionné(s)
               </span>
               <Button size="sm" onClick={handleBulkActivate}>
+                <Power className="h-4 w-4 mr-2" />
                 Activer sélectionnés
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleBulkDeactivate}>
+                <PowerOff className="h-4 w-4 mr-2" />
+                Désactiver sélectionnés
               </Button>
               <Button size="sm" variant="outline" onClick={deselectAllCourses}>
                 Désélectionner tout
@@ -499,6 +559,18 @@ export function CourseManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleToggleCourseStatus(course.id)}
+                          title={course.active ? 'Désactiver le cours' : 'Activer le cours'}
+                        >
+                          {course.active ? (
+                            <PowerOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Power className="h-4 w-4 text-primary" />
+                          )}
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"

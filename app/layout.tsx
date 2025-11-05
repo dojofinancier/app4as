@@ -19,8 +19,45 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: "4AS - Réservation de tuteur",
-  description: "Plateforme de réservation de séances de tutorat en ligne",
+  title: {
+    default: "Carré d'As Tutorat - Réservation de séances de tutorat",
+    template: "%s | Carré d'As Tutorat"
+  },
+  description: "Plateforme de réservation de séances de tutorat en ligne. Réservez des séances de tutorat avec des tuteurs qualifiés pour vos cours universitaires et professionnels.",
+  keywords: ["tutorat", "tuteur", "cours", "réservation", "apprentissage", "éducation"],
+  authors: [{ name: "4AS" }],
+  creator: "4AS",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://app.carredastutorat.com"),
+  icons: {
+    icon: "/images/1-84529878.ico",
+    shortcut: "/images/1-84529878.ico",
+    apple: "/images/1-84529878.ico",
+  },
+  openGraph: {
+    type: "website",
+    locale: "fr_CA",
+    url: "/",
+    siteName: "Carré d'As Tutorat",
+    title: "Carré d'As Tutorat - Réservation de séances de tutorat",
+    description: "Plateforme de réservation de séances de tutorat en ligne. Réservez des séances de tutorat avec des tuteurs qualifiés.",
+    // images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "4AS Tutorat" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Carré d'As Tutorat - Réservation de séances de tutorat",
+    description: "Plateforme de réservation de séances de tutorat en ligne",
+    // images: ["/twitter-image.jpg"],
+  },
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+      nosnippet: true,
+    },
+  },
 }
 
 export default function RootLayout({

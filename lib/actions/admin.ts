@@ -245,6 +245,17 @@ export async function updateTutorProfile(
   }
 
   try {
+    // If active status is being changed, get affected courses before update
+    let affectedCourseIds: string[] = []
+    if (data.active !== undefined) {
+      const tutorCourses = await prisma.tutorCourse.findMany({
+        where: { tutorId },
+        select: { courseId: true },
+        distinct: ['courseId']
+      })
+      affectedCourseIds = tutorCourses.map(tc => tc.courseId)
+    }
+
     const updatedTutor = await prisma.tutor.update({
       where: { id: tutorId },
       data: {
@@ -255,6 +266,14 @@ export async function updateTutorProfile(
         ...(data.active !== undefined && { active: data.active }),
       },
     })
+
+    // If active status changed, sync all affected courses
+    if (data.active !== undefined && affectedCourseIds.length > 0) {
+      const { syncCourseActiveStatus } = await import('@/lib/actions/course-management')
+      for (const courseId of affectedCourseIds) {
+        await syncCourseActiveStatus(courseId)
+      }
+    }
 
     revalidatePath('/admin/tuteurs')
     return { success: true, data: updatedTutor }
@@ -286,6 +305,15 @@ export async function deactivateTutor(tutorId: string) {
   }
 
   try {
+    // Get all courses this tutor was assigned to before deactivating
+    const tutorCourses = await prisma.tutorCourse.findMany({
+      where: { tutorId },
+      select: { courseId: true },
+      distinct: ['courseId']
+    })
+
+    const affectedCourseIds = tutorCourses.map(tc => tc.courseId)
+
     // Deactivate tutor profile
     await prisma.tutor.update({
       where: { id: tutorId },
@@ -297,6 +325,12 @@ export async function deactivateTutor(tutorId: string) {
       where: { tutorId },
       data: { active: false },
     })
+
+    // Sync active status for all affected courses
+    const { syncCourseActiveStatus } = await import('@/lib/actions/course-management')
+    for (const courseId of affectedCourseIds) {
+      await syncCourseActiveStatus(courseId)
+    }
 
     revalidatePath('/admin/tuteurs')
     return { success: true }

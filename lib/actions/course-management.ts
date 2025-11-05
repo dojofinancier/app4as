@@ -407,6 +407,38 @@ export async function getCourseTutors(courseId: string): Promise<{ success: bool
 }
 
 /**
+ * Sync course active status based on available active tutors
+ * A course is active if it has at least one active tutor with approved status
+ */
+export async function syncCourseActiveStatus(courseId: string): Promise<void> {
+  try {
+    // Count active tutors for this course
+    // Active tutor = TutorCourse.active = true AND status = 'approved' AND Tutor.active = true
+    const activeTutorCount = await prisma.tutorCourse.count({
+      where: {
+        courseId: courseId,
+        active: true,
+        status: 'approved',
+        tutor: {
+          active: true
+        }
+      }
+    })
+
+    // Update course status based on tutor availability
+    await prisma.course.update({
+      where: { id: courseId },
+      data: { active: activeTutorCount > 0 }
+    })
+
+    console.log(`Synced course ${courseId}: ${activeTutorCount} active tutors, course active: ${activeTutorCount > 0}`)
+  } catch (error) {
+    console.error(`Error syncing course active status for course ${courseId}:`, error)
+    // Don't throw - this is a background operation
+  }
+}
+
+/**
  * Assign tutors to a course
  */
 export async function assignTutorsToCourse(
@@ -439,6 +471,9 @@ export async function assignTutorsToCourse(
       skipDuplicates: true
     })
 
+    // Sync course active status (will check if any tutors are approved)
+    await syncCourseActiveStatus(courseId)
+
     revalidatePath('/tableau-de-bord')
     return { success: true }
   } catch (error) {
@@ -460,10 +495,23 @@ export async function updateTutorCourseStatus(
       return { success: false, error: 'Accès administrateur requis' }
     }
 
+    // Get the courseId before updating
+    const tutorCourse = await prisma.tutorCourse.findUnique({
+      where: { id: tutorCourseId },
+      select: { courseId: true }
+    })
+
+    if (!tutorCourse) {
+      return { success: false, error: 'Assignation non trouvée' }
+    }
+
     await prisma.tutorCourse.update({
       where: { id: tutorCourseId },
       data: { status }
     })
+
+    // Sync course active status after status change
+    await syncCourseActiveStatus(tutorCourse.courseId)
 
     revalidatePath('/tableau-de-bord')
     return { success: true }
@@ -493,5 +541,63 @@ export async function bulkActivateCourses(courseIds: string[]): Promise<{ succes
   } catch (error) {
     console.error('Error bulk activating courses:', error)
     return { success: false, error: 'Erreur lors de l\'activation des cours' }
+  }
+}
+
+/**
+ * Bulk deactivate courses
+ */
+export async function bulkDeactivateCourses(courseIds: string[]): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getCurrentUser()
+    if (!user || user.role !== 'admin') {
+      return { success: false, error: 'Accès administrateur requis' }
+    }
+
+    await prisma.course.updateMany({
+      where: { id: { in: courseIds } },
+      data: { active: false }
+    })
+
+    revalidatePath('/tableau-de-bord')
+    return { success: true }
+  } catch (error) {
+    console.error('Error bulk deactivating courses:', error)
+    return { success: false, error: 'Erreur lors de la désactivation des cours' }
+  }
+}
+
+/**
+ * Toggle course active status (individual course)
+ */
+export async function toggleCourseStatus(courseId: string): Promise<{ success: boolean; error?: string; active?: boolean }> {
+  try {
+    const user = await getCurrentUser()
+    if (!user || user.role !== 'admin') {
+      return { success: false, error: 'Accès administrateur requis' }
+    }
+
+    // Get current status
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { active: true }
+    })
+
+    if (!course) {
+      return { success: false, error: 'Cours non trouvé' }
+    }
+
+    // Toggle status
+    const updatedCourse = await prisma.course.update({
+      where: { id: courseId },
+      data: { active: !course.active },
+      select: { active: true }
+    })
+
+    revalidatePath('/tableau-de-bord')
+    return { success: true, active: updatedCourse.active }
+  } catch (error) {
+    console.error('Error toggling course status:', error)
+    return { success: false, error: 'Erreur lors de la modification du statut du cours' }
   }
 }
