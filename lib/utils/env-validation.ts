@@ -91,6 +91,7 @@ export function validateEnv(): EnvValidationResult {
     MAKE_SIGNUP_WEBHOOK_URL: 'Make.com webhook for signups',
     MAKE_BOOKING_WEBHOOK_URL: 'Make.com webhook for bookings',
     NEXT_PUBLIC_APP_URL: 'App URL for redirects (defaults to Netlify URL)',
+    NEXT_PUBLIC_GA_MEASUREMENT_ID: 'Google Analytics 4 measurement ID (e.g., G-XXXXXXXXXX)',
   }
 
   const missingOptional: string[] = []

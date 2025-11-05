@@ -3,32 +3,26 @@
 
 [build]
   command = "npm run build"
-  publish = ".next"
+  # Note: publish directory is automatically handled by the Next.js adapter
 
 [build.environment]
   NODE_VERSION = "18"
 
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
+# Note: Next.js API routes work automatically with the adapter
+# No need for manual redirects - the adapter handles all routing
 
-# Scheduled function for cleanup of expired holds
-[[functions]]
-  name = "cleanup-holds"
-  schedule = "* * * * *"  # Every minute
-
-# Scheduled function for auto-completing past appointments
-[[functions]]
-  name = "complete-past-appointments"
-  schedule = "0 * * * *"  # Every hour
+# Scheduled Functions
+# Functions using schedule() wrapper (cleanup-holds, complete-past-appointments) are configured inline
+# Functions using Handler type need explicit schedule blocks below
 
 # Scheduled function for database ANALYZE (updates query planner statistics)
-[[functions]]
-  name = "analyze-database"
-  schedule = "0 2 * * 0"  # Every Sunday at 2 AM EST
+# Runs every Sunday at 2 AM EST
+[[schedule]]
+  cron = "0 2 * * 0"
+  function = "analyze-database"
 
 # Scheduled function for cleaning up old error logs (90 days retention)
-[[functions]]
-  name = "cleanup-error-logs"
-  schedule = "0 3 * * 0"  # Every Sunday at 3 AM EST
+# Runs every Sunday at 3 AM EST
+[[schedule]]
+  cron = "0 3 * * 0"
+  function = "cleanup-error-logs"

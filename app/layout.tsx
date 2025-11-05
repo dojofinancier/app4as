@@ -6,6 +6,7 @@ import { Navbar } from "@/components/layout/navbar"
 import { Footer } from "@/components/layout/footer"
 import { ThemeProvider } from "@/components/layout/theme-provider"
 import { OfflineIndicator } from "@/components/offline-indicator"
+import { GoogleAnalytics } from "@/components/analytics/google-analytics"
 import { ensureEnvValid } from "@/lib/utils/env-validation"
 
 // Validate environment variables on app startup
@@ -55,6 +56,7 @@ export default function RootLayout({
         />
       </head>
       <body className={cn(dmSans.variable, "min-h-screen antialiased font-sans flex flex-col")}>
+        <GoogleAnalytics />
         <ThemeProvider defaultTheme="light" storageKey="4as-theme">
           <OfflineIndicator />
           <Navbar />

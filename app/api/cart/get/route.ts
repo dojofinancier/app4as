@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOrCreateCartByIdentity } from '@/lib/actions/cart'
 import { createClient } from '@/lib/supabase/server'
-import { getOrCreateCartSessionId } from '@/lib/utils/session'
 import { rateLimit } from '@/lib/utils/rate-limit'
 
 export async function GET(request: NextRequest) {

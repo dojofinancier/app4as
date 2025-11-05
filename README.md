@@ -69,6 +69,7 @@ These environment variables are optional but recommended:
 | `MAKE_SIGNUP_WEBHOOK_URL` | Make.com webhook URL for user signups | None |
 | `MAKE_BOOKING_WEBHOOK_URL` | Make.com webhook URL for bookings | None |
 | `NEXT_PUBLIC_APP_URL` | App URL for redirects | Netlify URL (auto-detected) |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics 4 measurement ID (e.g., G-XXXXXXXXXX) | None |
 
 ### Environment Variable Setup
 

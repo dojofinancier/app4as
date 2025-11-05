@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { getAvailableSlots } from '@/lib/slots/generator'
-import { addDays, format, startOfMonth, endOfMonth } from 'date-fns'
+import { addDays, format } from 'date-fns'
 import { rateLimit } from '@/lib/utils/rate-limit'
 
 export async function GET(request: NextRequest) {
