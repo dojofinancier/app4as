@@ -13,8 +13,6 @@ const nextConfig = {
   },
   // Compress output
   compress: true,
-  // Optimize fonts
-  optimizeFonts: true,
 }
 
 module.exports = nextConfig
