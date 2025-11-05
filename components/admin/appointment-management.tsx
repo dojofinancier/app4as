@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Calendar, Clock, User, BookOpen, Search, Plus, Eye, MoreHorizontal, Loader2, X, Check } from 'lucide-react'
+import { Calendar, Clock, User, BookOpen, Search, Plus, Eye, MoreHorizontal, Loader2, Check } from 'lucide-react'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { 
   getAllAppointments, 
