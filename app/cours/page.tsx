@@ -4,14 +4,6 @@ import { frCA } from '@/lib/i18n/fr-CA'
 import { CACHE_TTL, CACHE_TAGS } from '@/lib/utils/cache'
 import { CoursesPageClient } from '@/components/courses/courses-page-client'
 
-interface Course {
-  id: string
-  slug: string
-  code: string
-  titleFr: string
-  institution?: string
-}
-
 // Cached function to fetch active courses with available tutors (1 hour TTL)
 const getCachedCoursesWithTutors = unstable_cache(
   async () => {
