@@ -12,10 +12,9 @@ import {
   addTicketMessageAdmin,
   updateTicketStatus,
   updateTicketPriority,
-  assignTicket,
-  type TicketStatus,
-  type TicketPriority
+  assignTicket
 } from '@/lib/actions/admin'
+import { type TicketStatus, type TicketPriority } from '@prisma/client'
 import { getTicketAttachmentDownloadUrl } from '@/lib/actions/ticket-attachments'
 import { formatDateTime } from '@/lib/utils'
 import { Loader2, Send, Download, Paperclip, Lock } from 'lucide-react'
