@@ -121,11 +121,6 @@ export default async function DashboardPage() {
         // Continue with empty data rather than crashing
       }
 
-      // Serialize user for client components (tutor case)
-      const serializedTutorUser = {
-        ...user,
-      }
-
       // Serialize tutor profile for client components
       const serializedTutorProfile = {
         ...tutorProfile,
