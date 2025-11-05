@@ -315,7 +315,7 @@ export default function CheckoutPage() {
                         cart={cart}
                         user={currentUser}
                         clientSecret={clientSecret}
-                        onSuccess={(paymentIntentId) => {
+                        onSuccess={(_paymentIntentId) => {
                           router.push('/tableau-de-bord')
                         }}
                         onError={(errorMessage) => {
