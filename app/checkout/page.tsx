@@ -184,7 +184,7 @@ export default function CheckoutPage() {
               <CardContent className="space-y-4">
                 {/* Cart Items */}
                 <div className="space-y-3">
-                  {cart.items.map((item, index) => (
+                  {cart.items.map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex-1">
                         <div className="font-medium">{item.course.titleFr}</div>
