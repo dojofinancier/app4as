@@ -40,6 +40,12 @@ const getCachedCoursesWithTutors = unstable_cache(
 export default async function CoursesPage() {
   const courses = await getCachedCoursesWithTutors()
 
+  // Transform courses to match component interface (convert null to undefined)
+  const transformedCourses = courses.map(course => ({
+    ...course,
+    institution: course.institution ?? undefined,
+  }))
+
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="mb-8">
@@ -49,7 +55,7 @@ export default async function CoursesPage() {
         </p>
       </div>
 
-      <CoursesPageClient courses={courses} />
+      <CoursesPageClient courses={transformedCourses} />
     </div>
   )
 }
