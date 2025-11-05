@@ -4,7 +4,6 @@ import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Upload, X, File, AlertCircle } from 'lucide-react'
-import { uploadFile } from '@/lib/actions/file-upload'
 import { formatFileSize, getFileIcon } from '@/lib/utils/file-utils'
 
 interface FileUploadProps {
@@ -13,7 +12,7 @@ interface FileUploadProps {
   onUploadError: (error: string) => void
 }
 
-export function FileUpload({ receiverId, onUploadComplete, onUploadError }: FileUploadProps) {
+export function FileUpload({ receiverId: _receiverId, onUploadComplete, onUploadError }: FileUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)

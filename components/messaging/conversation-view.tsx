@@ -112,7 +112,7 @@ export function ConversationView({ participant, onBack }: ConversationViewProps)
               : result.message.appointment.startDatetime
           } : null,
           // Ensure attachments array exists (new messages won't have attachments yet)
-          attachments: result.message.attachments || []
+          attachments: (result.message as any).attachments || []
         }
 
         // Append the new message to the messages array

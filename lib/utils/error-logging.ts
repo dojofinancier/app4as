@@ -52,7 +52,7 @@ export async function logError(
         userId: options?.userId,
         errorType,
         severity,
-        context: options?.context || undefined,
+        context: (options?.context || undefined) as any,
         userAgent,
         url,
       },
@@ -80,7 +80,7 @@ export async function logError(
         userEmail: errorLog.user?.email || undefined,
         url: errorLog.url || undefined,
         stack: errorLog.stack || undefined,
-        context: errorLog.context || undefined,
+        context: (errorLog.context as any) || undefined,
         timestamp: errorLog.createdAt.toISOString(),
       })
     } catch (webhookError) {

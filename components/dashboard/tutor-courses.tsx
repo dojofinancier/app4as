@@ -25,7 +25,7 @@ import {
   CourseRequestData,
   AvailableCourseData
 } from '@/lib/actions/tutor-courses'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import { 
   Plus, 
   BookOpen, 
@@ -36,7 +36,6 @@ import {
   Search,
   GraduationCap,
   Tag,
-  DollarSign,
   MessageSquare,
   Trash2
 } from 'lucide-react'

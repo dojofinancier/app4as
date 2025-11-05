@@ -6,7 +6,6 @@ import {
   type TutorAvailability,
   type AvailabilityWindow,
   type BookedSlot,
-  type Duration,
   SLOT_GRID_MINUTES,
   LEAD_TIME_HOURS,
   MAX_ADVANCE_DAYS,
@@ -20,10 +19,7 @@ import {
   isBefore,
   isAfter,
   isEqual,
-  isWithinInterval,
-  parseISO,
   format,
-  parse,
   set,
 } from 'date-fns'
 
@@ -290,7 +286,6 @@ async function getBookedSlots(
   // CRITICAL: Check for OVERLAPS, not just startDatetime within range
   // A hold that starts before fromDate but ends after fromDate should be included
   const now = new Date()
-  const maxHoldDuration = 120 // Maximum hold duration in minutes (for overlap calculation)
   const holds = await withRetry(async () => {
     return await prisma.slotHold.findMany({
       where: {

@@ -1,5 +1,3 @@
-import { Decimal } from '@prisma/client/runtime/library'
-
 export type Duration = 60 | 90 | 120
 
 export interface TimeSlot {

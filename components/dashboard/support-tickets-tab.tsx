@@ -8,16 +8,15 @@ import { formatDateTime } from '@/lib/utils'
 import { 
   getStudentTickets
 } from '@/lib/actions/support-tickets'
-import { TICKET_CATEGORIES, type TicketCategory } from '@/lib/constants/ticket-categories'
 import { CreateTicketModal } from './create-ticket-modal'
 import { TicketDetailsModal } from './ticket-details-modal'
-import { Plus, MessageSquare, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { Plus, MessageSquare, Clock } from 'lucide-react'
 
 interface SupportTicketsTabProps {
   userId: string
 }
 
-export function SupportTicketsTab({ userId }: SupportTicketsTabProps) {
+export function SupportTicketsTab({ userId: _userId }: SupportTicketsTabProps) {
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
@@ -278,7 +277,7 @@ function TicketCard({
 }: { 
   ticket: any
   onSelect: () => void
-  getStatusBadge: (status: string) => JSX.Element
+  getStatusBadge: (status: string) => React.JSX.Element
   getCategoryLabel: (category: string) => string
 }) {
   return (

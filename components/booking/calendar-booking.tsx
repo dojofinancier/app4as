@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { format, startOfWeek, endOfWeek, isSameDay, isToday, isPast, addMinutes, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, isAfter, addDays } from 'date-fns'
+import { format, startOfWeek, endOfWeek, isSameDay, isToday, isPast, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, isAfter, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -25,12 +25,6 @@ interface CalendarBookingProps {
   selectedSessions?: TimeSlot[]
   selectedTutorId?: string
 }
-
-const TIME_SLOTS = [
-  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-  '15:00', '15:30', '16:00', '16:30', '17:00'
-]
 
 export function CalendarBooking({ 
   courseId, 
@@ -80,31 +74,6 @@ export function CalendarBooking({
     } catch (error) {
       console.error('Error fetching available slots:', error)
       return []
-    }
-  }
-
-  // Check if a date has availability (for calendar dots)
-  const hasAvailability = async (date: Date): Promise<boolean> => {
-    try {
-      const dateStr = format(date, 'yyyy-MM-dd')
-      let url = `/api/course-availability?courseId=${courseId}&date=${dateStr}&duration=${selectedDuration}`
-      
-      // Add tutorId parameter if a specific tutor is selected
-      if (selectedTutorId !== 'all') {
-        url += `&tutorId=${selectedTutorId}`
-      }
-      
-      const response = await fetch(url)
-      
-      if (!response.ok) {
-        return false
-      }
-      
-      const data = await response.json()
-      return data.hasAvailability || false
-    } catch (error) {
-      console.error('Error checking availability:', error)
-      return false
     }
   }
 

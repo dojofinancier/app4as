@@ -2801,10 +2801,6 @@ export async function getFinancialAnalytics(year?: number, month?: number) {
     const yearlyStart = new Date(currentYear, 0, 1)
     const yearlyEnd = new Date(currentYear, 11, 31, 23, 59, 59)
 
-    // Monthly data
-    const monthlyStart = new Date(currentYear, currentMonth - 1, 1)
-    const monthlyEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59)
-
     // Get all orders for the year
     const yearlyOrders = await prisma.order.findMany({
       where: {
@@ -3340,10 +3336,6 @@ export async function getRevenueBreakdown(year?: number, month?: number) {
     const yearlyStart = new Date(currentYear, 0, 1)
     const yearlyEnd = new Date(currentYear, 11, 31, 23, 59, 59)
 
-    // Monthly data
-    const monthlyStart = new Date(currentYear, currentMonth - 1, 1)
-    const monthlyEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59)
-
     // Get orders with items
     const yearlyOrders = await prisma.order.findMany({
       where: {
@@ -3374,11 +3366,6 @@ export async function getRevenueBreakdown(year?: number, month?: number) {
           }
         }
       }
-    })
-
-    const monthlyOrders = yearlyOrders.filter(order => {
-      const orderMonth = order.createdAt.getMonth() + 1
-      return orderMonth === currentMonth
     })
 
     // Revenue by course
@@ -3954,7 +3941,7 @@ async function processRefundDatabaseOperations(
     }
 
     // Calculate total already refunded to determine new status
-    const totalRefunded = order.refundRequests.reduce((sum, refund) => sum + Number(refund.amount), 0)
+    const totalRefunded = order.refundRequests.reduce((sum: number, refund: any) => sum + Number(refund.amount), 0)
     const newTotalRefunded = totalRefunded + amount
     const isFullRefund = newTotalRefunded >= Number(order.totalCad)
     const newStatus = isFullRefund ? 'refunded' : 'partially_refunded'
@@ -3967,7 +3954,7 @@ async function processRefundDatabaseOperations(
 
     // Create refund request record
     // For order-level refunds, use the first appointment ID if available
-    const firstAppointmentId = order.items.find(item => item.appointment?.id)?.appointment?.id
+    const firstAppointmentId = order.items.find((item: any) => item.appointment?.id)?.appointment?.id
     
     if (!firstAppointmentId) {
       // If no appointment, we need to find any appointment for this order or create a minimal one
@@ -3985,7 +3972,7 @@ async function processRefundDatabaseOperations(
         }
       })
       
-      const anyAppointmentId = orderWithAppointments?.items.find(item => item.appointment?.id)?.appointment?.id
+      const anyAppointmentId = orderWithAppointments?.items.find((item: any) => item.appointment?.id)?.appointment?.id
       
       if (!anyAppointmentId) {
         return { 
@@ -4028,7 +4015,7 @@ async function processRefundDatabaseOperations(
     // Cancel appointments if requested
     if (cancelAppointments) {
       const appointmentIds = order.items
-        .map(item => item.appointment?.id)
+        .map((item: any) => item.appointment?.id)
         .filter(Boolean) as string[]
 
       if (appointmentIds.length > 0) {
@@ -4070,7 +4057,7 @@ async function processRefundDatabaseOperations(
     try {
       const { sendOrderRefundedWebhook } = await import('@/lib/webhooks/make')
       const affectedAppointmentIds = cancelAppointments 
-        ? order.items.map(item => item.appointment?.id).filter(Boolean) as string[]
+        ? order.items.map((item: any) => item.appointment?.id).filter(Boolean) as string[]
         : []
 
       await sendOrderRefundedWebhook({
@@ -4762,7 +4749,7 @@ export async function addTicketMessageAdmin(
   ticketId: string,
   message: string,
   isInternal: boolean = false,
-  attachmentIds?: string[]
+  _attachmentIds?: string[]
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

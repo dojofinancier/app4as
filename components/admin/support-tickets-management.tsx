@@ -9,15 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatDateTime } from '@/lib/utils'
 import { 
   getAllSupportTickets,
-  getAdminsForAssignment,
-  updateTicketStatus,
-  updateTicketPriority,
-  assignTicket,
-  type TicketStatus,
-  type TicketPriority
+  getAdminsForAssignment
 } from '@/lib/actions/admin'
 import { AdminTicketDetailsModal } from './admin-ticket-details-modal'
-import { Search, Filter, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { Search } from 'lucide-react'
 
 export function SupportTicketsManagement() {
   const [tickets, setTickets] = useState<any[]>([])

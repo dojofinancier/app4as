@@ -41,8 +41,6 @@ export async function getOrCreateCartByIdentity(args: { userId?: string; session
   // CRITICAL: Filter out cart items that are already booked as appointments
   // This prevents showing booked slots in cart after logout/login
   if (cart.items.length > 0) {
-    const now = new Date()
-    const cartItemIds = cart.items.map(item => item.id)
     const itemTutorIds = cart.items.map(item => item.tutorId)
     const itemStartTimes = cart.items.map(item => item.startDatetime)
     

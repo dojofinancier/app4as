@@ -352,7 +352,7 @@ export async function getTicketDetails(ticketId: string) {
 export async function addTicketMessage(
   ticketId: string,
   message: string,
-  attachmentIds?: string[]
+  _attachmentIds?: string[]
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

@@ -4,25 +4,18 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import { 
   BookOpen, 
   Users, 
   Tag, 
   Calendar, 
   ShoppingCart, 
-  Webhook, 
-  Plus,
-  Edit,
-  Trash2,
   DollarSign,
   TrendingUp,
   UserCheck,
   Clock,
-  Activity,
-  AlertTriangle,
-  CheckCircle,
-  XCircle
+  AlertTriangle
 } from 'lucide-react'
 import { TutorManagement } from '@/components/admin/tutor-management'
 import { StudentManagement } from '@/components/admin/student-management'
@@ -32,7 +25,6 @@ import { CouponManagement } from '@/components/admin/coupon-management'
 import { AppointmentManagement } from '@/components/admin/appointment-management'
 import { OrderManagement } from '@/components/admin/order-management'
 import { SupportTicketsManagement } from '@/components/admin/support-tickets-management'
-import { RatingsManagement } from '@/components/dashboard/admin/ratings-management'
 import { 
   getOrderAnalytics,
   getFinancialAnalytics,
@@ -189,7 +181,7 @@ interface SupportTickets {
   totalCount: number
   recentTickets: Array<{
     id: string
-    title: string
+    subject: string
     status: string
     priority: string
     createdAt: Date
@@ -209,18 +201,18 @@ interface RevenueBreakdown {
 
 export function AdminDashboard({ user }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'courses' | 'course-requests' | 'tutors' | 'students' | 'coupons' | 'appointments' | 'orders' | 'tickets'>('overview')
-  const [courses, setCourses] = useState<Course[]>([])
-  const [tutors, setTutors] = useState<Tutor[]>([])
-  const [coupons, setCoupons] = useState<Coupon[]>([])
-  const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [orders, setOrders] = useState<Order[]>([])
-  const [orderAnalytics, setOrderAnalytics] = useState<OrderAnalytics | null>(null)
+  const [_courses, setCourses] = useState<Course[]>([])
+  const [_tutors, setTutors] = useState<Tutor[]>([])
+  const [_coupons, setCoupons] = useState<Coupon[]>([])
+  const [_appointments, setAppointments] = useState<Appointment[]>([])
+  const [_orders, setOrders] = useState<Order[]>([])
+  const [_orderAnalytics, setOrderAnalytics] = useState<OrderAnalytics | null>(null)
   const [financialAnalytics, setFinancialAnalytics] = useState<FinancialAnalytics | null>(null)
   const [operationalMetrics, setOperationalMetrics] = useState<OperationalMetrics | null>(null)
   const [performanceAnalytics, setPerformanceAnalytics] = useState<PerformanceAnalytics | null>(null)
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null)
   const [supportTickets, setSupportTickets] = useState<SupportTickets | null>(null)
-  const [revenueBreakdown, setRevenueBreakdown] = useState<RevenueBreakdown | null>(null)
+  const [_revenueBreakdown, setRevenueBreakdown] = useState<RevenueBreakdown | null>(null)
   const [loading, setLoading] = useState(true)
   const [showMonthlyModal, setShowMonthlyModal] = useState(false)
 
@@ -401,14 +393,6 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
     } finally {
       setLoading(false)
     }
-  }
-
-  const getTotalRevenue = () => {
-    return orders.reduce((sum, order) => sum + order.totalCad, 0)
-  }
-
-  const getActiveCoupons = () => {
-    return coupons.filter(coupon => coupon.active).length
   }
 
   if (loading) {
@@ -663,7 +647,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {performanceAnalytics.topCourses.map((course, index) => (
+                      {performanceAnalytics.topCourses.map((course) => (
                         <div key={course.id} className="flex justify-between items-center">
                           <span className="text-sm truncate">{course.title}</span>
                           <Badge variant="secondary">{course.count}</Badge>
@@ -679,7 +663,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {performanceAnalytics.topTutors.map((tutor, index) => (
+                      {performanceAnalytics.topTutors.map((tutor) => (
                         <div key={tutor.id} className="flex justify-between items-center">
                           <span className="text-sm truncate">{tutor.name}</span>
                           <Badge variant="secondary">{tutor.appointments}</Badge>
@@ -695,7 +679,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {performanceAnalytics.topStudents.map((student, index) => (
+                      {performanceAnalytics.topStudents.map((student) => (
                         <div key={student.id} className="flex justify-between items-center">
                           <span className="text-sm truncate">{student.name}</span>
                           <Badge variant="secondary">{formatCurrency(student.totalSpent)}</Badge>
@@ -809,9 +793,6 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
 
       {activeTab === 'tickets' && <SupportTicketsManagement />}
 
-      {activeTab === 'ratings' && (
-        <RatingsManagement />
-      )}
 
       {/* Monthly Breakdown Modal */}
       {showMonthlyModal && financialAnalytics && (

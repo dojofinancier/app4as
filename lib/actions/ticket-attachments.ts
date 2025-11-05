@@ -5,16 +5,6 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/actions/auth'
 
 const MAX_FILE_SIZE = 32 * 1024 * 1024 // 32MB in bytes
-const ALLOWED_FILE_TYPES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'image/gif',
-  'image/webp'
-]
 
 const ALLOWED_EXTENSIONS = [
   '.pdf',

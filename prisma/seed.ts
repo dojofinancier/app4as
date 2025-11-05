@@ -19,7 +19,7 @@ async function main() {
     },
   })
 
-  const francais = await prisma.course.upsert({
+  await prisma.course.upsert({
     where: { slug: 'francais-secondaire' },
     update: {},
     create: {
@@ -32,7 +32,7 @@ async function main() {
     },
   })
 
-  const sciences = await prisma.course.upsert({
+  await prisma.course.upsert({
     where: { slug: 'sciences-secondaire' },
     update: {},
     create: {
@@ -62,7 +62,7 @@ async function main() {
   tutorIds.forEach((id) => console.log(`   - ${id}`))
 
   // Create coupons
-  const couponEte = await prisma.coupon.upsert({
+  await prisma.coupon.upsert({
     where: { code: 'ETE2024' },
     update: {},
     create: {
@@ -77,7 +77,7 @@ async function main() {
     },
   })
 
-  const coupon50 = await prisma.coupon.upsert({
+  await prisma.coupon.upsert({
     where: { code: 'BIENVENUE50' },
     update: {},
     create: {

@@ -3,10 +3,9 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { formatCurrency } from '@/lib/utils'
-import { Clock, User, DollarSign, Plus, ShoppingCart, X, Loader2 } from 'lucide-react'
+import { Clock, User, DollarSign, ShoppingCart, X, Loader2 } from 'lucide-react'
 import { CalendarBooking } from './calendar-booking'
 
 interface TimeSlot {

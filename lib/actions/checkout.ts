@@ -1,6 +1,5 @@
 'use server'
 
-import Stripe from 'stripe'
 import { getStripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'

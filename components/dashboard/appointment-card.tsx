@@ -2,7 +2,6 @@
 
 import { formatDateTime, translateAppointmentStatus } from '@/lib/utils'
 import { MessageIndicator } from '../messaging/message-indicator'
-import type { Appointment, Course, Tutor, User } from '@prisma/client'
 
 interface AppointmentCardProps {
   appointment: {
@@ -45,7 +44,7 @@ interface AppointmentCardProps {
 
 export function AppointmentCard({
   appointment,
-  isPast = false,
+  isPast: _isPast = false,
 }: AppointmentCardProps) {
 
 

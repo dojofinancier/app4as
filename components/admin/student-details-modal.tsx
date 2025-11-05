@@ -3,10 +3,9 @@
 import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { 
   User, 
   Mail, 
@@ -14,7 +13,6 @@ import {
   Calendar, 
   DollarSign, 
   MessageSquare, 
-  CreditCard,
   X,
   Clock,
   CheckCircle,
@@ -23,11 +21,7 @@ import {
   Ticket
 } from 'lucide-react'
 import { 
-  getAllStudents,
-  getStudentDetails,
-  getStudentAppointments,
-  getStudentOrders,
-  getStudentMessages
+  getStudentDetails
 } from '@/lib/actions/admin'
 import { StudentAppointmentsList } from './student-appointments-list'
 import { StudentOrdersList } from './student-orders-list'
@@ -90,21 +84,6 @@ export function StudentDetailsModal({ studentId, isOpen, onClose }: StudentDetai
       setError('Une erreur est survenue')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-        return <Badge variant="default" className="bg-info-light text-info">Programmé</Badge>
-      case 'completed':
-        return <Badge variant="default" className="bg-success-light text-success">Terminé</Badge>
-      case 'cancelled':
-        return <Badge variant="destructive">Annulé</Badge>
-      case 'refunded':
-        return <Badge variant="outline" className="border-warning-border text-warning">Remboursé</Badge>
-      default:
-        return <Badge variant="secondary">{status}</Badge>
     }
   }
 

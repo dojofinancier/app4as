@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createPaymentMethod, updatePaymentMethod, deletePaymentMethod } from '@/lib/actions/payment-methods'
-import { getStripe } from '@/lib/stripe-elements'
-import { CreditCard, Trash2, AlertCircle } from 'lucide-react'
+import { CreditCard, Trash2 } from 'lucide-react'
 
 interface PaymentMethodFormProps {
   existingPaymentMethod?: any

@@ -332,7 +332,6 @@ async function checkExceptionConflicts(
   // Check if any appointment falls within unavailable exceptions
   for (const appointment of futureAppointments) {
     const appointmentDate = new Date(appointment.startDatetime)
-    const appointmentDateStr = appointmentDate.toISOString().split('T')[0]
 
     for (const exception of exceptions) {
       if (exception.isUnavailable) {

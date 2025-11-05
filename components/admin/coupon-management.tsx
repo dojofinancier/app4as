@@ -1,15 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
+import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { 
   Search, 
   Plus, 
@@ -20,21 +19,18 @@ import {
   Tag,
   DollarSign,
   Percent,
-  Calendar,
   Users,
   Loader2,
   SortAsc,
   SortDesc,
-  Eye,
-  X
+  Eye
 } from 'lucide-react'
 import { 
   getAllCoupons, 
   createCoupon, 
   updateCoupon, 
-  deleteCoupon, 
-  toggleCouponStatus,
-  getCouponDetails 
+  deleteCoupon,
+  toggleCouponStatus
 } from '@/lib/actions/admin'
 
 interface Coupon {
@@ -53,12 +49,6 @@ interface Coupon {
   _count: {
     carts: number
   }
-}
-
-// Type for the server response
-type CouponWithAnalytics = Coupon & {
-  totalDiscount: number
-  orderCount: number
 }
 
 type SortBy = 'code' | 'redemptionCount' | 'totalDiscount'

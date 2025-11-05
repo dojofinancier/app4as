@@ -70,3 +70,6 @@ prisma/migrations
 *.jpg.bak
 
 
+
+# Local Netlify folder
+.netlify

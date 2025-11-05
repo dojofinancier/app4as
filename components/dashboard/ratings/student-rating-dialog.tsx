@@ -42,7 +42,7 @@ function StarInput({ label, value, onChange }: { label: string; value: number; o
   )
 }
 
-export function StudentRatingDialog({ tutorId, courseId, appointmentId }: { tutorId: string; courseId: string; appointmentId?: string }) {
+export function StudentRatingDialog({ tutorId, courseId, appointmentId: _appointmentId }: { tutorId: string; courseId: string; appointmentId?: string }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [existing, setExisting] = useState<any | null>(null)

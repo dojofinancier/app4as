@@ -86,7 +86,7 @@ export async function rescheduleAppointment(data: {
     }
 
     // Use transaction to ensure data consistency
-    const result = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // Update appointment
       const updatedAppointment = await tx.appointment.update({
         where: { id: data.appointmentId },

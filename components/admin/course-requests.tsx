@@ -43,7 +43,6 @@ import {
   Search,
   Filter,
   MessageSquare,
-  User,
   BookOpen,
   AlertCircle
 } from 'lucide-react'

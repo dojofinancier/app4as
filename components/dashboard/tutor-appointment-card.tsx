@@ -5,10 +5,8 @@ import { formatDateTime } from '@/lib/utils'
 import { TutorMessageIndicator } from '../messaging/tutor-message-indicator'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { MessageCircle, Link as LinkIcon, Save, X } from 'lucide-react'
-import Link from 'next/link'
+import { Link as LinkIcon, Save, X } from 'lucide-react'
 import { updateMeetingLink } from '@/lib/actions/reservations'
-import type { Appointment, Course, Tutor, User } from '@prisma/client'
 
 interface TutorAppointmentCardProps {
   appointment: {

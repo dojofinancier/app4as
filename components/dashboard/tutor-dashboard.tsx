@@ -15,8 +15,7 @@ import { TutorProfileTab } from './tutor/tutor-profile-tab'
 import { TutorEarningsDashboard } from './tutor-earnings-dashboard'
 import { TutorCourses } from './tutor-courses'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
-import { Calendar, Clock, Users, DollarSign, BookOpen, TrendingUp, MessageCircle, Menu, CalendarCheck, User, Star, Wallet } from 'lucide-react'
-import type { Appointment, Course, Tutor, User } from '@prisma/client'
+import { Calendar, Clock, DollarSign, BookOpen, MessageCircle, Menu, CalendarCheck, User, Star, Wallet } from 'lucide-react'
 import { getUnreadMessageCount } from '@/lib/actions/messaging'
 import { TutorRatingsTab } from './tutor-ratings-tab'
 
@@ -85,7 +84,7 @@ interface TutorDashboardProps {
 export function TutorDashboard({ tutorId, tutorName, tutorProfile, appointments = [] }: TutorDashboardProps) {
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState('overview')
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+  const [_selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [selectedStudentInfo, setSelectedStudentInfo] = useState<any>(null)
   const [unreadMessageCount, setUnreadMessageCount] = useState<number>(0)
 

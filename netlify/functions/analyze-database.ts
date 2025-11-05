@@ -27,9 +27,9 @@ const CRITICAL_TABLES = [
   'webhook_events',
 ] as const
 
-export const handler: Handler = async (event, context) => {
+export const handler: Handler = async (event, _context) => {
   // Only allow scheduled execution (not manual triggers)
-  if (event.source !== 'netlify-scheduled') {
+  if ((event as any).source !== 'netlify-scheduled') {
     return {
       statusCode: 403,
       body: JSON.stringify({ error: 'This function can only be triggered by scheduled events' }),

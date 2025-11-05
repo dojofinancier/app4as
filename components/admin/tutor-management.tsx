@@ -77,10 +77,6 @@ interface Tutor {
   }
 }
 
-const WEEKDAYS = [
-  'Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'
-]
-
 export function TutorManagement() {
   const [tutors, setTutors] = useState<Tutor[]>([])
   const [loading, setLoading] = useState(true)

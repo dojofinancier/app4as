@@ -30,7 +30,7 @@ export async function signUp(data: {
 
     // Create user in database
     try {
-      const user = await prisma.user.create({
+      await prisma.user.create({
         data: {
           id: authData.user.id,
           email: data.email,
@@ -205,7 +205,7 @@ export async function updateProfileInfo(data: {
     })
 
     // Update user profile
-    const updatedUser = await prisma.user.update({
+    await prisma.user.update({
       where: { id: authUser.id },
       data: {
         firstName: data.firstName,

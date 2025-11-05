@@ -1,6 +1,5 @@
 import { ProfileInfoForm } from './profile-info-form'
 import { ChangePasswordForm } from './change-password-form'
-import type { User } from '@prisma/client'
 
 interface ProfileManagementTabProps {
   user: {

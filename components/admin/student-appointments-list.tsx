@@ -1,16 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime } from '@/lib/utils'
 import { 
-  Calendar, 
-  Clock, 
-  User, 
-  BookOpen,
+  Calendar,
+  Clock,
   XCircle,
   CheckCircle,
   AlertCircle,

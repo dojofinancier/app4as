@@ -1,8 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Calendar, Clock, DollarSign } from 'lucide-react'
+import { Calendar, Clock } from 'lucide-react'
 
 interface BookingTypeSelectorProps {
   tutor: {
@@ -25,7 +24,7 @@ interface BookingTypeSelectorProps {
 
 export function BookingTypeSelector({
   tutor,
-  course,
+  course: _course,
   selectedSlot,
   duration,
   onSelectOneOff,

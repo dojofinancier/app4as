@@ -13,9 +13,8 @@ import { ProfileManagementTab } from './profile-management-tab'
 import { ReservationManagementTab } from './reservation-management-tab'
 import { MessagingTab } from '../messaging/messaging-tab'
 import { SupportTicketsTab } from './support-tickets-tab'
-import { Calendar, User as UserIcon, Settings, BookOpen, MessageCircle, HelpCircle, Menu } from 'lucide-react'
+import { Calendar, User as UserIcon, BookOpen, MessageCircle, HelpCircle, Menu } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import type { Appointment, Course, Tutor, User, Order } from '@prisma/client'
 
 interface StudentDashboardProps {
   user: {
@@ -87,9 +86,9 @@ export function StudentDashboard({
 }: StudentDashboardProps) {
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'reservations' | 'messages' | 'tickets'>('overview')
-  const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null)
+  const [_selectedTutorId, setSelectedTutorId] = useState<string | null>(null)
   const [selectedTutorInfo, setSelectedTutorInfo] = useState<any>(null)
-  const [appointments, setAppointments] = useState(initialAppointments)
+  const [appointments, _setAppointments] = useState(initialAppointments)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Function to refresh appointments

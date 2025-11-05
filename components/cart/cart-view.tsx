@@ -2,16 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { removeFromCart, applyCoupon, removeCoupon, applyCouponGuest, removeCouponGuest, getOrCreateCartByIdentity } from '@/lib/actions/cart'
 import { calculateOrderPricing } from '@/lib/pricing'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { frCA } from '@/lib/i18n/fr-CA'
 import { Loader2, Plus } from 'lucide-react'
-import type { Cart, CartItem, Course, Tutor, Coupon } from '@prisma/client'
 
 // Serialized versions for client components
 interface SerializedCartItem {
@@ -62,13 +60,6 @@ interface SerializedCart {
   } | null
 }
 
-interface CartWithItems extends Cart {
-  items: (CartItem & {
-    course: Course
-    tutor: Tutor
-  })[]
-  coupon: Coupon | null
-}
 
 interface CartViewProps {
   initialCart: SerializedCart

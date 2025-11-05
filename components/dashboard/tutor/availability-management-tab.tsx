@@ -8,9 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Plus, Copy, Trash2, Edit, Calendar, Clock } from 'lucide-react'
+import { Plus, Copy, Trash2, Calendar, Clock } from 'lucide-react'
 import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
 import { 
   getTutorAvailabilityRules, 
   getTutorAvailabilityExceptions,

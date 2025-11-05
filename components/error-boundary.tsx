@@ -50,10 +50,10 @@ export class ErrorBoundary extends Component<Props, State> {
     // Log error to database
     logClientError(
       error.message || 'Une erreur inattendue est survenue',
-      error.stack || errorInfo.componentStack,
+      error.stack || errorInfo.componentStack || undefined,
       {
         url: typeof window !== 'undefined' ? window.location.href : undefined,
-        componentStack: errorInfo.componentStack,
+        componentStack: errorInfo.componentStack || undefined,
       }
     ).then((errorId) => {
       this.setState({ errorId })

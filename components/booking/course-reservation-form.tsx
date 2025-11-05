@@ -4,9 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
-import { Clock, User, DollarSign, Calendar, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { Clock, CheckCircle2, XCircle } from 'lucide-react'
 import { SessionSelection } from './session-selection'
 
 interface TimeSlot {
@@ -46,10 +45,10 @@ interface CourseReservationFormProps {
   initialTutorId?: string
 }
 
-export function CourseReservationForm({ course, tutors, user, initialTutorId }: CourseReservationFormProps) {
+export function CourseReservationForm({ course, tutors, user: _user, initialTutorId }: CourseReservationFormProps) {
   const router = useRouter()
   const [selectedDuration, setSelectedDuration] = useState(60)
-  const [selectedSessions, setSelectedSessions] = useState<TimeSlot[]>([])
+  const [_selectedSessions, setSelectedSessions] = useState<TimeSlot[]>([])
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [addToCartStatus, setAddToCartStatus] = useState<{
     type: 'success' | 'error' | null

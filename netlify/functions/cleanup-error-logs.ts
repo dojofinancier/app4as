@@ -7,9 +7,9 @@ const prisma = new PrismaClient()
  * Scheduled function to clean up error logs older than 90 days
  * Runs weekly on Sundays at 2 AM
  */
-export const handler: Handler = async (event, context) => {
+export const handler: Handler = async (event, _context) => {
   // Only allow scheduled invocations
-  if (event.httpMethod !== 'POST' && event.source !== 'netlify-scheduled') {
+  if (event.httpMethod !== 'POST' && (event as any).source !== 'netlify-scheduled') {
     return {
       statusCode: 405,
       body: JSON.stringify({ error: 'Method not allowed' }),
