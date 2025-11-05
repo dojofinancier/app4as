@@ -1,8 +1,5 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/actions/auth'
-import { SignUpForm } from '@/components/auth/sign-up-form'
-import { frCA } from '@/lib/i18n/fr-CA'
 
 export default async function SignUpPage() {
   const user = await getCurrentUser()
