@@ -3,8 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/actions/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency } from '@/lib/utils'
-import { Clock, User, DollarSign, Users } from 'lucide-react'
+import { Clock, Users } from 'lucide-react'
 import { CourseReservationForm } from '@/components/booking/course-reservation-form'
 
 interface CourseReservationPageProps {
