@@ -76,7 +76,9 @@ export function formatDate(date: Date | string): string {
 
 export function formatDateTime(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date
+  // Format in Eastern Time (America/Toronto) - handles EST/EDT automatically
   return new Intl.DateTimeFormat('fr-CA', {
+    timeZone: 'America/Toronto',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -87,7 +89,9 @@ export function formatDateTime(date: Date | string): string {
 
 export function formatTime(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date
+  // Format in Eastern Time (America/Toronto) - handles EST/EDT automatically
   return new Intl.DateTimeFormat('fr-CA', {
+    timeZone: 'America/Toronto',
     hour: '2-digit',
     minute: '2-digit',
   }).format(dateObj)

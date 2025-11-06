@@ -22,6 +22,10 @@ import {
   format,
   set,
 } from 'date-fns'
+import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz'
+
+// Eastern Time zone (handles EST/EDT automatically)
+const TIMEZONE = 'America/Toronto'
 
 /**
  * Get available slots for a course within a date range
@@ -184,18 +188,23 @@ async function getTutorAvailability(
   const windows: AvailabilityWindow[] = []
 
   // Generate windows from recurring rules
-  let currentDate = startOfDay(fromDate)
-  const endDate = endOfDay(toDate)
+  // Convert UTC dates to Eastern Time for day calculations
+  const fromDateEastern = utcToZonedTime(fromDate, TIMEZONE)
+  const toDateEastern = utcToZonedTime(toDate, TIMEZONE)
+  let currentDate = startOfDay(fromDateEastern)
+  const endDate = endOfDay(toDateEastern)
 
   while (isBefore(currentDate, endDate)) {
     const weekday = currentDate.getDay()
 
     // Check for exceptions first - use string comparison to avoid timezone issues
     const dateExceptions = exceptions.filter((ex) => {
-      // Convert dates to YYYY-MM-DD format for comparison
+      // Convert dates to YYYY-MM-DD format for comparison (all in Eastern Time)
       const currentDateStr = format(currentDate, 'yyyy-MM-dd')
-      const exceptionStartStr = format(new Date(ex.startDate), 'yyyy-MM-dd')
-      const exceptionEndStr = format(new Date(ex.endDate), 'yyyy-MM-dd')
+      const exceptionStartEastern = utcToZonedTime(ex.startDate, TIMEZONE)
+      const exceptionEndEastern = utcToZonedTime(ex.endDate, TIMEZONE)
+      const exceptionStartStr = format(exceptionStartEastern, 'yyyy-MM-dd')
+      const exceptionEndStr = format(exceptionEndEastern, 'yyyy-MM-dd')
       
       return currentDateStr >= exceptionStartStr && currentDateStr <= exceptionEndStr
     })
@@ -228,6 +237,7 @@ async function getTutorAvailability(
   }
 
   // Remove time off from windows
+  // Note: timeOff datetimes are stored in UTC, windows are now in UTC (from parseDateTimeFromParts)
   const finalWindows = windows.filter((window) => {
     return !timeOffs.some((timeOff) =>
       isOverlapping(
@@ -439,10 +449,20 @@ function isOverlapping(
 
 /**
  * Parse a date-time from date and time string (HH:MM)
+ * Times are interpreted as Eastern Time (EST/EDT)
  */
 function parseDateTimeFromParts(date: Date, timeStr: string): Date {
   const [hours, minutes] = timeStr.split(':').map(Number)
-  return set(date, { hours, minutes, seconds: 0, milliseconds: 0 })
+  
+  // Create date in Eastern Time zone
+  // First, get the date in Eastern Time
+  const easternDate = utcToZonedTime(date, TIMEZONE)
+  
+  // Set the time in Eastern Time
+  const dateWithTime = set(easternDate, { hours, minutes, seconds: 0, milliseconds: 0 })
+  
+  // Convert back to UTC for storage/comparison
+  return zonedTimeToUtc(dateWithTime, TIMEZONE)
 }
 
 

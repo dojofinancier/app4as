@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAvailableSlots } from '@/lib/slots/generator'
-import { addDays, format } from 'date-fns'
+import { addDays, format, set } from 'date-fns'
+import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz'
 import { rateLimit } from '@/lib/utils/rate-limit'
+
+// Eastern Time zone (handles EST/EDT automatically)
+const TIMEZONE = 'America/Toronto'
 
 export async function GET(request: NextRequest) {
   // Rate limiting: 100 requests per minute per IP (public endpoint)
@@ -26,8 +30,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 })
     }
 
-    // Parse the date
-    const targetDate = new Date(date + 'T00:00:00')
+    // Parse the date - interpret as Eastern Time, convert to UTC
+    // Create date at midnight Eastern Time for the given date
+    // zonedTimeToUtc needs a Date where the components represent Eastern Time
+    // We'll create a date in UTC first, convert to Eastern, set to midnight, then back to UTC
+    const [year, month, day] = date.split('-').map(Number)
+    // Create a reference date in UTC (any time will do, we'll adjust it)
+    const referenceDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0))
+    // Convert to Eastern Time to get the date components in Eastern
+    const easternDate = utcToZonedTime(referenceDate, TIMEZONE)
+    // Set to midnight in Eastern Time (using date-fns set to avoid timezone issues)
+    const midnightEastern = set(easternDate, { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 })
+    // Convert back to UTC - this is midnight Eastern Time represented as UTC
+    const targetDate = zonedTimeToUtc(midnightEastern, TIMEZONE)
     const fromDate = targetDate
     const toDate = addDays(targetDate, 1) // Get availability for the specific date
 
