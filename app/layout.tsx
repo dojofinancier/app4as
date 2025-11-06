@@ -1,3 +1,9 @@
+// Set timezone to Eastern Time (America/Toronto) for the entire application
+// This must be set before any date operations
+if (typeof process !== 'undefined') {
+  process.env.TZ = 'America/Toronto'
+}
+
 import type { Metadata } from "next"
 import { DM_Sans } from "next/font/google"
 import "./globals.css"

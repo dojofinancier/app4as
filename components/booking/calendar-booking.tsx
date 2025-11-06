@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { format, startOfWeek, endOfWeek, isSameDay, isToday, isPast, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, isAfter, addDays } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { MAX_ADVANCE_DAYS } from '@/lib/slots/types'
 import { WEEKDAYS } from '@/lib/constants/weekdays'
+
+// Eastern Time zone (handles EST/EDT automatically)
+const TIMEZONE = 'America/Toronto'
 
 interface TimeSlot {
   start: Date
@@ -50,7 +54,7 @@ export function CalendarBooking({
   // Fetch real available slots from API
   const fetchAvailableSlots = async (date: Date): Promise<TimeSlot[]> => {
     try {
-      const dateStr = format(date, 'yyyy-MM-dd')
+      const dateStr = formatInTimeZone(date, TIMEZONE, 'yyyy-MM-dd')
       let url = `/api/course-availability?courseId=${courseId}&date=${dateStr}&duration=${selectedDuration}`
       
       // Add tutorId parameter if a specific tutor is selected
@@ -103,7 +107,7 @@ export function CalendarBooking({
     if (!currentMonth) return
     
     try {
-      const dates = calendarDays.map(date => format(date, 'yyyy-MM-dd'))
+      const dates = calendarDays.map(date => formatInTimeZone(date, TIMEZONE, 'yyyy-MM-dd'))
       const requestBody: any = {
         courseId,
         dates,
@@ -270,7 +274,7 @@ export function CalendarBooking({
               const isSelected = selectedDate && isSameDay(date, selectedDate)
               const isCurrentMonth = isSameMonth(date, currentMonth)
               const isPastDate = isPast(date) && !isTodayDate
-              const dateStr = format(date, 'yyyy-MM-dd')
+              const dateStr = formatInTimeZone(date, TIMEZONE, 'yyyy-MM-dd')
               const hasSlots = availabilityMap[dateStr] || false
               const isAvailable = hasSlots && !isPastDate && isCurrentMonth
               

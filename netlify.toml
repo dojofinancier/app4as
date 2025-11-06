@@ -7,6 +7,7 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  TZ = "America/Toronto"
 
 # Note: Next.js API routes work automatically with the adapter
 # No need for manual redirects - the adapter handles all routing

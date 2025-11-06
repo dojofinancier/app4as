@@ -22,7 +22,7 @@ import {
   format,
   set,
 } from 'date-fns'
-import { fromZonedTime, toZonedTime } from 'date-fns-tz'
+import { fromZonedTime, toZonedTime, formatInTimeZone } from 'date-fns-tz'
 
 // Eastern Time zone (handles EST/EDT automatically)
 const TIMEZONE = 'America/Toronto'
@@ -188,13 +188,13 @@ async function getTutorAvailability(
   const windows: AvailabilityWindow[] = []
 
   // Generate windows from recurring rules
-  // Convert UTC dates to Eastern Time for day calculations
-  const fromDateEastern = toZonedTime(fromDate, TIMEZONE)
-  const toDateEastern = toZonedTime(toDate, TIMEZONE)
-  let currentDate = startOfDay(fromDateEastern)
-  const endDate = endOfDay(toDateEastern)
+  // Server is now configured to operate in Eastern Time (TZ=America/Toronto)
+  // So we can use simple date operations
+  let currentDate = startOfDay(fromDate)
+  const endDate = endOfDay(toDate)
 
   while (isBefore(currentDate, endDate)) {
+    // getDay() now returns weekday in Eastern Time since TZ is set
     const weekday = currentDate.getDay()
 
     // Check for exceptions first - use string comparison to avoid timezone issues
