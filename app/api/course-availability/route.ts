@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAvailableSlots } from '@/lib/slots/generator'
 import { addDays, format, set } from 'date-fns'
-import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz'
+import { fromZonedTime, toZonedTime } from 'date-fns-tz'
 import { rateLimit } from '@/lib/utils/rate-limit'
 
 // Eastern Time zone (handles EST/EDT automatically)
@@ -32,17 +32,17 @@ export async function GET(request: NextRequest) {
 
     // Parse the date - interpret as Eastern Time, convert to UTC
     // Create date at midnight Eastern Time for the given date
-    // zonedTimeToUtc needs a Date where the components represent Eastern Time
+    // fromZonedTime needs a Date where the components represent Eastern Time
     // We'll create a date in UTC first, convert to Eastern, set to midnight, then back to UTC
     const [year, month, day] = date.split('-').map(Number)
     // Create a reference date in UTC (any time will do, we'll adjust it)
     const referenceDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0))
     // Convert to Eastern Time to get the date components in Eastern
-    const easternDate = utcToZonedTime(referenceDate, TIMEZONE)
+    const easternDate = toZonedTime(referenceDate, TIMEZONE)
     // Set to midnight in Eastern Time (using date-fns set to avoid timezone issues)
     const midnightEastern = set(easternDate, { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 })
     // Convert back to UTC - this is midnight Eastern Time represented as UTC
-    const targetDate = zonedTimeToUtc(midnightEastern, TIMEZONE)
+    const targetDate = fromZonedTime(midnightEastern, TIMEZONE)
     const fromDate = targetDate
     const toDate = addDays(targetDate, 1) // Get availability for the specific date
 

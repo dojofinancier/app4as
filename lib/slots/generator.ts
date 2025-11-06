@@ -22,7 +22,7 @@ import {
   format,
   set,
 } from 'date-fns'
-import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz'
+import { fromZonedTime, toZonedTime } from 'date-fns-tz'
 
 // Eastern Time zone (handles EST/EDT automatically)
 const TIMEZONE = 'America/Toronto'
@@ -189,8 +189,8 @@ async function getTutorAvailability(
 
   // Generate windows from recurring rules
   // Convert UTC dates to Eastern Time for day calculations
-  const fromDateEastern = utcToZonedTime(fromDate, TIMEZONE)
-  const toDateEastern = utcToZonedTime(toDate, TIMEZONE)
+  const fromDateEastern = toZonedTime(fromDate, TIMEZONE)
+  const toDateEastern = toZonedTime(toDate, TIMEZONE)
   let currentDate = startOfDay(fromDateEastern)
   const endDate = endOfDay(toDateEastern)
 
@@ -201,8 +201,8 @@ async function getTutorAvailability(
     const dateExceptions = exceptions.filter((ex) => {
       // Convert dates to YYYY-MM-DD format for comparison (all in Eastern Time)
       const currentDateStr = format(currentDate, 'yyyy-MM-dd')
-      const exceptionStartEastern = utcToZonedTime(ex.startDate, TIMEZONE)
-      const exceptionEndEastern = utcToZonedTime(ex.endDate, TIMEZONE)
+      const exceptionStartEastern = toZonedTime(ex.startDate, TIMEZONE)
+      const exceptionEndEastern = toZonedTime(ex.endDate, TIMEZONE)
       const exceptionStartStr = format(exceptionStartEastern, 'yyyy-MM-dd')
       const exceptionEndStr = format(exceptionEndEastern, 'yyyy-MM-dd')
       
@@ -456,13 +456,13 @@ function parseDateTimeFromParts(date: Date, timeStr: string): Date {
   
   // Create date in Eastern Time zone
   // First, get the date in Eastern Time
-  const easternDate = utcToZonedTime(date, TIMEZONE)
+  const easternDate = toZonedTime(date, TIMEZONE)
   
   // Set the time in Eastern Time
   const dateWithTime = set(easternDate, { hours, minutes, seconds: 0, milliseconds: 0 })
   
   // Convert back to UTC for storage/comparison
-  return zonedTimeToUtc(dateWithTime, TIMEZONE)
+  return fromZonedTime(dateWithTime, TIMEZONE)
 }
 
 
