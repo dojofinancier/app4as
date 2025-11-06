@@ -22,7 +22,7 @@ import {
   format,
   set,
 } from 'date-fns'
-import { fromZonedTime, toZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { fromZonedTime, toZonedTime } from 'date-fns-tz'
 
 // Eastern Time zone (handles EST/EDT automatically)
 const TIMEZONE = 'America/Toronto'
