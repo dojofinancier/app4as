@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAvailableSlots } from '@/lib/slots/generator'
-import { addDays, format, set } from 'date-fns'
+import { addDays, set } from 'date-fns'
 import { fromZonedTime, toZonedTime, formatInTimeZone } from 'date-fns-tz'
 import { rateLimit } from '@/lib/utils/rate-limit'
 
