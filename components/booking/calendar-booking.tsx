@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { MAX_ADVANCE_DAYS } from '@/lib/slots/types'
+import { WEEKDAYS } from '@/lib/constants/weekdays'
 
 interface TimeSlot {
   start: Date
@@ -252,12 +253,16 @@ export function CalendarBooking({
         <CardContent>
           {/* Calendar Grid */}
           <div className="grid grid-cols-7 gap-1">
-            {/* Day headers */}
-            {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => (
-              <div key={`day-header-${index}`} className="text-center text-sm font-medium text-muted-foreground py-2">
-                {day}
-              </div>
-            ))}
+            {/* Day headers - Calendar starts on Monday (weekStartsOn: 1) */}
+            {/* Map calendar grid positions (0-6) to weekday IDs: Monday=1, Tuesday=2, ..., Sunday=0 */}
+            {[1, 2, 3, 4, 5, 6, 0].map((weekdayId) => {
+              const weekday = WEEKDAYS.find(day => day.id === weekdayId)
+              return (
+                <div key={`day-header-${weekdayId}`} className="text-center text-sm font-medium text-muted-foreground py-2">
+                  {weekday?.letter || ''}
+                </div>
+              )
+            })}
             
             {/* Date cells */}
             {calendarDays.map((date) => {

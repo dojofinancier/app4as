@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAvailableSlots } from '@/lib/slots/generator'
 import { addDays, format, set } from 'date-fns'
-import { fromZonedTime, toZonedTime } from 'date-fns-tz'
+import { fromZonedTime, toZonedTime, formatInTimeZone } from 'date-fns-tz'
 import { rateLimit } from '@/lib/utils/rate-limit'
 
 // Eastern Time zone (handles EST/EDT automatically)
@@ -75,8 +75,9 @@ export async function GET(request: NextRequest) {
     })
 
     // Filter slots for the specific date and tutor (if specified)
+    // IMPORTANT: Format slot date in Eastern Time to match the date parameter (which is in Eastern Time)
     const filteredSlots = transformedSlots.filter(slot => {
-      const slotDate = format(slot.start, 'yyyy-MM-dd')
+      const slotDate = formatInTimeZone(slot.start, TIMEZONE, 'yyyy-MM-dd')
       const dateMatches = slotDate === date
       
       // If tutorId is specified, only return slots for that tutor
@@ -200,15 +201,16 @@ export async function POST(request: NextRequest) {
     const finalSlots = Array.from(deduplicatedSlots.values())
 
     // Create a map of date -> has availability
+    // IMPORTANT: Format slot dates in Eastern Time to match the date strings (which are in Eastern Time)
     const availabilityMap: Record<string, boolean> = {}
     
     dates.forEach(dateStr => {
-      const date = format(new Date(dateStr), 'yyyy-MM-dd')
+      // dateStr is already in YYYY-MM-DD format from the client
       const hasSlots = finalSlots.some(slot => {
-        const slotDate = format(slot.start, 'yyyy-MM-dd')
-        return slotDate === date
+        const slotDate = formatInTimeZone(slot.start, TIMEZONE, 'yyyy-MM-dd')
+        return slotDate === dateStr
       })
-      availabilityMap[date] = hasSlots
+      availabilityMap[dateStr] = hasSlots
     })
 
     return NextResponse.json({ availabilityMap })

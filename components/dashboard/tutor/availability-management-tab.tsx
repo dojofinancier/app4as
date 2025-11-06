@@ -18,21 +18,12 @@ import {
   type AvailabilityRule,
   type AvailabilityException
 } from '@/lib/actions/availability'
+import { WEEKDAYS } from '@/lib/constants/weekdays'
 
 
 interface AvailabilityManagementTabProps {
   tutorId: string
 }
-
-const WEEKDAYS = [
-  { id: 0, name: 'Dimanche', short: 'Dim' },
-  { id: 1, name: 'Lundi', short: 'Lun' },
-  { id: 2, name: 'Mardi', short: 'Mar' },
-  { id: 3, name: 'Mercredi', short: 'Mer' },
-  { id: 4, name: 'Jeudi', short: 'Jeu' },
-  { id: 5, name: 'Vendredi', short: 'Ven' },
-  { id: 6, name: 'Samedi', short: 'Sam' }
-]
 
 // Generate 30-minute time slots in 24-hour format
 const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {

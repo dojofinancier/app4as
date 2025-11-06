@@ -12,10 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { getTutorAvailabilityForAdmin } from '@/lib/actions/admin'
 import { Calendar, Clock, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-
-const WEEKDAYS = [
-  'Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'
-]
+import { WEEKDAYS } from '@/lib/constants/weekdays'
 
 interface AvailabilityRule {
   id: string
@@ -120,13 +117,16 @@ export function TutorAvailabilityModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {rules.map((rule) => (
-                        <tr key={rule.id} className="border-t">
-                          <td className="p-3 text-sm">{WEEKDAYS[rule.weekday]}</td>
-                          <td className="p-3 text-sm">{rule.startTime}</td>
-                          <td className="p-3 text-sm">{rule.endTime}</td>
-                        </tr>
-                      ))}
+                      {rules.map((rule) => {
+                        const weekday = WEEKDAYS.find(day => day.id === rule.weekday)
+                        return (
+                          <tr key={rule.id} className="border-t">
+                            <td className="p-3 text-sm">{weekday?.name || 'Inconnu'}</td>
+                            <td className="p-3 text-sm">{rule.startTime}</td>
+                            <td className="p-3 text-sm">{rule.endTime}</td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
