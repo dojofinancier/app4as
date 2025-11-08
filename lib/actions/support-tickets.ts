@@ -106,6 +106,7 @@ export async function createSupportTicket(data: {
       ticketId: ticket.id,
       userId: ticket.userId,
       userEmail: ticket.user.email,
+      studentName: `${ticket.user.firstName} ${ticket.user.lastName}`,
       subject: ticket.subject,
       category: ticket.category,
       priority: ticket.priority,
@@ -427,6 +428,7 @@ export async function addTicketMessage(
       messageId: ticketMessage.id,
       userId: user.id,
       userEmail: ticketMessage.user.email,
+      studentName: `${ticketMessage.user.firstName} ${ticketMessage.user.lastName}`,
       senderRole: ticketMessage.user.role,
       message: ticketMessage.message,
       isInternal: false,
@@ -492,7 +494,9 @@ export async function closeTicket(ticketId: string) {
       include: {
         user: {
           select: {
-            email: true
+            email: true,
+            firstName: true,
+            lastName: true
           }
         }
       }
@@ -503,6 +507,7 @@ export async function closeTicket(ticketId: string) {
       ticketId,
       userId: ticket.userId,
       userEmail: updatedTicket.user.email,
+      studentName: `${updatedTicket.user.firstName} ${updatedTicket.user.lastName}`,
       oldStatus,
       newStatus: 'closed',
       changedBy: user.id,

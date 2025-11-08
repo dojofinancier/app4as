@@ -2607,12 +2607,17 @@ export async function updateAppointmentStatus(
       })
 
       if (appointmentWithDetails) {
+        const studentEmail = appointmentWithDetails.user?.email || ''
+        const tutorEmail = appointmentWithDetails.tutor?.user?.email || ''
+
         if (status === 'cancelled' && oldData.status !== 'cancelled') {
           // Send cancellation webhook
           await sendBookingCancelledWebhook({
             appointmentId: appointmentWithDetails.id,
             userId: appointmentWithDetails.userId,
             tutorId: appointmentWithDetails.tutorId,
+            studentEmail,
+            tutorEmail,
             courseId: appointmentWithDetails.courseId,
             courseTitleFr: appointmentWithDetails.course.titleFr,
             cancelledBy: 'admin',
@@ -2630,6 +2635,8 @@ export async function updateAppointmentStatus(
             appointmentId: appointmentWithDetails.id,
             userId: appointmentWithDetails.userId,
             tutorId: appointmentWithDetails.tutorId,
+            studentEmail,
+            tutorEmail,
             courseId: appointmentWithDetails.courseId,
             courseTitleFr: appointmentWithDetails.course.titleFr,
             startDatetime: appointmentWithDetails.startDatetime.toISOString(),
@@ -4094,9 +4101,12 @@ async function processRefundDatabaseOperations(
         ? order.items.map((item: any) => item.appointment?.id).filter(Boolean) as string[]
         : []
 
+      const studentEmail = order.user?.email || ''
+
       await sendOrderRefundedWebhook({
         orderId: orderId,
         userId: order.user.id,
+        studentEmail,
         refundAmount: amount,
         refundReason: reason,
         stripeRefundId: stripeRefundId || undefined,
@@ -4585,7 +4595,9 @@ export async function updateTicketStatus(
       include: {
         user: {
           select: {
-            email: true
+            email: true,
+            firstName: true,
+            lastName: true
           }
         }
       }
@@ -4596,6 +4608,7 @@ export async function updateTicketStatus(
       ticketId,
       userId: ticket.userId,
       userEmail: updatedTicket.user.email,
+      studentName: `${updatedTicket.user.firstName} ${updatedTicket.user.lastName}`,
       oldStatus,
       newStatus: status,
       changedBy: user.id,
@@ -4660,7 +4673,9 @@ export async function updateTicketPriority(
       include: {
         user: {
           select: {
-            email: true
+            email: true,
+            firstName: true,
+            lastName: true
           }
         }
       }
@@ -4671,6 +4686,7 @@ export async function updateTicketPriority(
       ticketId,
       userId: ticket.userId,
       userEmail: updatedTicket.user.email,
+      studentName: `${updatedTicket.user.firstName} ${updatedTicket.user.lastName}`,
       oldStatus: ticket.status,
       newStatus: ticket.status,
       changedBy: user.id,
@@ -4743,7 +4759,9 @@ export async function assignTicket(ticketId: string, adminId: string | null) {
       include: {
         user: {
           select: {
-            email: true
+            email: true,
+            firstName: true,
+            lastName: true
           }
         },
         assignee: {
@@ -4762,6 +4780,7 @@ export async function assignTicket(ticketId: string, adminId: string | null) {
       ticketId,
       userId: ticket.userId,
       userEmail: updatedTicket.user.email,
+      studentName: `${updatedTicket.user.firstName} ${updatedTicket.user.lastName}`,
       oldStatus: ticket.status,
       newStatus: ticket.status,
       changedBy: user.id,
@@ -4858,6 +4877,7 @@ export async function addTicketMessageAdmin(
         messageId: ticketMessage.id,
         userId: user.id,
         userEmail: ticketMessage.user.email,
+        studentName: `${ticketMessage.user.firstName} ${ticketMessage.user.lastName}`,
         senderRole: ticketMessage.user.role,
         message: ticketMessage.message,
         isInternal: false,

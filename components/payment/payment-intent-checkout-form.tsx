@@ -279,7 +279,7 @@ export function PaymentIntentCheckoutForm({
         {isGuestUser && (
           <>
             <div>
-              <Label htmlFor="password">Mot de passe *</Label>
+              <Label htmlFor="password">Choisissez un mot de passe *</Label>
               <Input
                 id="password"
                 type="password"

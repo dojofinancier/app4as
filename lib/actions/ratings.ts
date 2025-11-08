@@ -91,6 +91,12 @@ export async function upsertRating(input: UpsertRatingInput) {
     revalidatePath('/tuteur', 'layout')
     revalidatePath('/admin', 'layout')
 
+    // Fetch student and tutor emails for webhook
+    const [student, tutor] = await Promise.all([
+      prisma.user.findUnique({ where: { id: rating.studentId }, select: { email: true } }),
+      prisma.user.findUnique({ where: { id: rating.tutorId }, select: { email: true } })
+    ])
+
     // Make.com webhook
     const eventType = before ? 'rating.updated' : 'rating.created'
     await sendMakeWebhook(eventType, {
@@ -98,6 +104,8 @@ export async function upsertRating(input: UpsertRatingInput) {
       tutorId: rating.tutorId,
       courseId: rating.courseId,
       studentId: rating.studentId,
+      studentEmail: student?.email || '',
+      tutorEmail: tutor?.email || '',
       q1Courtoisie: rating.q1Courtoisie,
       q2Maitrise: rating.q2Maitrise,
       q3Pedagogie: rating.q3Pedagogie,

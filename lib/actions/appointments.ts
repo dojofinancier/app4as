@@ -81,10 +81,15 @@ export async function autoCompletePastAppointments() {
         })
 
         if (appointmentWithDetails && appointmentWithDetails.orderItem) {
+          const studentEmail = appointmentWithDetails.user?.email || ''
+          const tutorEmail = appointmentWithDetails.tutor?.user?.email || ''
+
           await sendAppointmentCompletedWebhook({
             appointmentId: appointmentWithDetails.id,
             userId: appointmentWithDetails.userId,
             tutorId: appointmentWithDetails.tutorId,
+            studentEmail,
+            tutorEmail,
             courseId: appointmentWithDetails.courseId,
             courseTitleFr: appointmentWithDetails.course.titleFr,
             startDatetime: appointmentWithDetails.startDatetime.toISOString(),

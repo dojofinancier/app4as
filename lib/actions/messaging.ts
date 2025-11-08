@@ -60,6 +60,7 @@ export async function sendMessage(data: {
             id: true,
             firstName: true,
             lastName: true,
+            email: true,
             role: true
           }
         },
@@ -68,6 +69,7 @@ export async function sendMessage(data: {
             id: true,
             firstName: true,
             lastName: true,
+            email: true,
             role: true
           }
         },
@@ -92,6 +94,8 @@ export async function sendMessage(data: {
       receiverId: message.receiverId,
       senderName: `${message.sender.firstName} ${message.sender.lastName}`,
       receiverName: `${message.receiver.firstName} ${message.receiver.lastName}`,
+      senderEmail: message.sender.email,
+      receiverEmail: message.receiver.email,
       content: message.content,
       appointmentId: message.appointmentId || undefined,
       appointmentTitle: message.appointment?.course.titleFr,

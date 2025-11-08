@@ -218,12 +218,20 @@ export async function cancelTutorAppointment(
       }
     })
 
+    // Fetch student and tutor emails for webhook
+    const [student, tutor] = await Promise.all([
+      prisma.user.findUnique({ where: { id: appointment.userId }, select: { email: true } }),
+      prisma.user.findUnique({ where: { id: appointment.tutorId }, select: { email: true } })
+    ])
+
     // Send cancellation webhook
     try {
       await sendBookingCancelledWebhook({
         appointmentId: appointment.id,
         userId: appointment.userId,
         tutorId: appointment.tutorId,
+        studentEmail: student?.email || '',
+        tutorEmail: tutor?.email || '',
         courseId: appointment.courseId,
         courseTitleFr: appointment.course.titleFr,
         cancelledBy: 'tutor',

@@ -227,6 +227,8 @@ export async function sendBookingCancelledWebhook(data: {
   appointmentId: string
   userId: string
   tutorId: string
+  studentEmail: string
+  tutorEmail: string
   courseId: string
   courseTitleFr: string
   cancelledBy: 'student' | 'tutor' | 'admin'
@@ -243,6 +245,8 @@ export async function sendBookingCancelledWebhook(data: {
     appointment_id: data.appointmentId,
     user_id: data.userId,
     tutor_id: data.tutorId,
+    student_email: data.studentEmail,
+    tutor_email: data.tutorEmail,
     course_id: data.courseId,
     course_title_fr: data.courseTitleFr,
     cancelled_by: data.cancelledBy,
@@ -264,6 +268,8 @@ export async function sendBookingRescheduledWebhook(data: {
   appointmentId: string
   userId: string
   tutorId: string
+  studentEmail: string
+  tutorEmail: string
   courseId: string
   courseTitleFr: string
   rescheduledBy: 'student' | 'tutor' | 'admin'
@@ -279,6 +285,8 @@ export async function sendBookingRescheduledWebhook(data: {
     appointment_id: data.appointmentId,
     user_id: data.userId,
     tutor_id: data.tutorId,
+    student_email: data.studentEmail,
+    tutor_email: data.tutorEmail,
     course_id: data.courseId,
     course_title_fr: data.courseTitleFr,
     rescheduled_by: data.rescheduledBy,
@@ -299,6 +307,8 @@ export async function sendAppointmentCompletedWebhook(data: {
   appointmentId: string
   userId: string
   tutorId: string
+  studentEmail: string
+  tutorEmail: string
   courseId: string
   courseTitleFr: string
   startDatetime: string
@@ -311,6 +321,8 @@ export async function sendAppointmentCompletedWebhook(data: {
     appointment_id: data.appointmentId,
     user_id: data.userId,
     tutor_id: data.tutorId,
+    student_email: data.studentEmail,
+    tutor_email: data.tutorEmail,
     course_id: data.courseId,
     course_title_fr: data.courseTitleFr,
     start_datetime: data.startDatetime,
@@ -327,6 +339,7 @@ export async function sendAppointmentCompletedWebhook(data: {
 export async function sendOrderRefundedWebhook(data: {
   orderId: string
   userId: string
+  studentEmail: string
   refundAmount: number
   refundReason: string
   stripeRefundId?: string
@@ -337,6 +350,7 @@ export async function sendOrderRefundedWebhook(data: {
   await sendMakeWebhook('order.refunded', {
     order_id: data.orderId,
     user_id: data.userId,
+    student_email: data.studentEmail,
     refund_amount: data.refundAmount,
     refund_reason: data.refundReason,
     stripe_refund_id: data.stripeRefundId,
@@ -355,6 +369,8 @@ export async function sendMessageWebhook(data: {
   receiverId: string
   senderName: string
   receiverName: string
+  senderEmail: string
+  receiverEmail: string
   content: string
   appointmentId?: string
   appointmentTitle?: string
@@ -366,6 +382,8 @@ export async function sendMessageWebhook(data: {
     receiver_id: data.receiverId,
     sender_name: data.senderName,
     receiver_name: data.receiverName,
+    sender_email: data.senderEmail,
+    receiver_email: data.receiverEmail,
     content: data.content,
     appointment_id: data.appointmentId,
     appointment_title: data.appointmentTitle,
@@ -380,6 +398,7 @@ export async function sendTicketCreatedWebhook(data: {
   ticketId: string
   userId: string
   userEmail: string
+  studentName: string
   subject: string
   category: string
   priority: string
@@ -389,7 +408,8 @@ export async function sendTicketCreatedWebhook(data: {
   await sendMakeWebhook('ticket.created', {
     ticket_id: data.ticketId,
     user_id: data.userId,
-    user_email: data.userEmail,
+    student_email: data.userEmail,
+    student_name: data.studentName,
     subject: data.subject,
     category: data.category,
     priority: data.priority,
@@ -405,6 +425,7 @@ export async function sendTicketStatusChangedWebhook(data: {
   ticketId: string
   userId: string
   userEmail: string
+  studentName: string
   oldStatus: string
   newStatus: string
   changedBy: string
@@ -414,7 +435,8 @@ export async function sendTicketStatusChangedWebhook(data: {
   await sendMakeWebhook('ticket.status_changed', {
     ticket_id: data.ticketId,
     user_id: data.userId,
-    user_email: data.userEmail,
+    student_email: data.userEmail,
+    student_name: data.studentName,
     old_status: data.oldStatus,
     new_status: data.newStatus,
     changed_by: data.changedBy,
@@ -431,6 +453,7 @@ export async function sendTicketMessageWebhook(data: {
   messageId: string
   userId: string
   userEmail: string
+  studentName: string
   senderRole: string
   message: string
   isInternal: boolean
@@ -440,7 +463,8 @@ export async function sendTicketMessageWebhook(data: {
     ticket_id: data.ticketId,
     message_id: data.messageId,
     user_id: data.userId,
-    user_email: data.userEmail,
+    student_email: data.userEmail,
+    student_name: data.studentName,
     sender_role: data.senderRole,
     message: data.message,
     is_internal: data.isInternal,

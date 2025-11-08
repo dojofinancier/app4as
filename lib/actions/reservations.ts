@@ -117,11 +117,19 @@ export async function rescheduleAppointment(data: {
       return updatedAppointment
     })
 
+    // Fetch student and tutor emails for webhook
+    const [student, tutor] = await Promise.all([
+      prisma.user.findUnique({ where: { id: appointment.userId }, select: { email: true } }),
+      prisma.user.findUnique({ where: { id: appointment.tutorId }, select: { email: true } })
+    ])
+
     // Send webhook notification
     await sendBookingRescheduledWebhook({
       appointmentId: data.appointmentId,
       userId: appointment.userId,
       tutorId: appointment.tutorId,
+      studentEmail: student?.email || '',
+      tutorEmail: tutor?.email || '',
       courseId: appointment.courseId,
       courseTitleFr: appointment.course.titleFr,
       rescheduledBy: 'student',

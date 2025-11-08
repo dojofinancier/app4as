@@ -90,7 +90,7 @@ export default async function CourseReservationPage({ params, searchParams }: Co
                <div className="mb-8">
                  <h1 className="text-4xl font-bold mb-4">{serializedCourse.titleFr}</h1>
                  <p className="text-lg text-muted-foreground mb-6">
-                   {serializedCourse.descriptionFr}
+                   {serializedCourse.code}
                  </p>
           
           {/* Course Info */}
