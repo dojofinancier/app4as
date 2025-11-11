@@ -179,4 +179,15 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;  /* Chrome, Safari and Opera */
   }
+  
+  /* Fix grid column sizing on mobile to prevent overflow */
+  .grid-fix-mobile {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  
+  @media (min-width: 1024px) {
+    .grid-fix-mobile {
+      grid-template-columns: revert;
+    }
+  }
 }

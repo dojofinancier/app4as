@@ -49,17 +49,17 @@ export function AppointmentCard({
 
 
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <h3 className="font-semibold">{appointment.course.titleFr}</h3>
-          <p className="text-sm text-muted-foreground">
+    <div className="rounded-lg border p-3 sm:p-4 w-full overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 w-full">
+        <div className="flex-1 min-w-0 w-full sm:w-auto">
+          <h3 className="font-semibold text-sm sm:text-base break-words">{appointment.course.titleFr}</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground break-words mt-1">
             Tuteur: {appointment.tutor.user.firstName} {appointment.tutor.user.lastName}
           </p>
-          <p className="mt-1 text-sm font-medium">
+          <p className="mt-1 text-xs sm:text-sm font-medium">
             {formatDateTime(new Date(appointment.startDatetime))}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Durée:{' '}
             {Math.round(
               (new Date(appointment.endDatetime).getTime() -
@@ -69,9 +69,9 @@ export function AppointmentCard({
             )}{' '}
             minutes
           </p>
-          <div className="mt-2">
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
             <span
-              className={`inline-block rounded-full px-2 py-0.5 text-xs ${
+              className={`inline-block rounded-full px-2 py-0.5 text-xs whitespace-nowrap ${
                 appointment.status === 'scheduled'
                   ? 'bg-info-light text-info dark:bg-info/20 dark:text-info'
                   : appointment.status === 'cancelled'
@@ -87,13 +87,13 @@ export function AppointmentCard({
           
           {/* Meeting Link Section */}
           {appointment.status === 'scheduled' && appointment.meetingLink && (
-            <div className="mt-3 p-3 bg-info-light rounded-lg">
-              <h4 className="text-sm font-medium text-info mb-2">Lien de réunion</h4>
+            <div className="mt-3 p-2 sm:p-3 bg-info-light rounded-lg overflow-hidden">
+              <h4 className="text-xs sm:text-sm font-medium text-info mb-2">Lien de réunion</h4>
               <a
                 href={appointment.meetingLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-info hover:text-info/80 underline break-all text-sm"
+                className="text-info hover:text-info/80 underline break-all text-xs sm:text-sm"
               >
                 {appointment.meetingLink}
               </a>
@@ -101,7 +101,7 @@ export function AppointmentCard({
           )}
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 flex-shrink-0 w-full sm:w-auto">
           <MessageIndicator 
             tutorId={appointment.tutorId}
           />

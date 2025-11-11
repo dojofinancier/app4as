@@ -158,7 +158,7 @@ export function StudentDashboard({
 
 
   return (
-    <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12">
+    <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12 max-w-full overflow-x-hidden">
       <div className="mb-6 md:mb-8">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
           {frCA.dashboard.student.title}
@@ -292,14 +292,14 @@ export function StudentDashboard({
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (
-        <div className="grid gap-4 sm:gap-6 md:gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+        <div className="grid gap-4 sm:gap-6 md:gap-8 lg:grid-cols-3 w-full max-w-full min-w-0 grid-fix-mobile">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6 w-full min-w-0 max-w-full">
           {/* Upcoming Appointments */}
-          <Card className="mb-4 sm:mb-6">
-            <CardHeader>
+          <Card className="mb-4 sm:mb-6 w-full overflow-hidden">
+            <CardHeader className="p-3 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
-                <div>
-                  <CardTitle className="text-lg sm:text-xl">{frCA.dashboard.student.upcomingAppointments}</CardTitle>
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-lg sm:text-xl break-words">{frCA.dashboard.student.upcomingAppointments}</CardTitle>
                   <CardDescription className="text-xs sm:text-sm">
                     {upcomingAppointments.length} rendez-vous à venir
                   </CardDescription>
@@ -309,13 +309,13 @@ export function StudentDashboard({
                   size="sm"
                   onClick={refreshAppointments}
                   disabled={isRefreshing}
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto flex-shrink-0 min-w-0 overflow-hidden"
                 >
-                  {isRefreshing ? 'Actualisation...' : 'Actualiser'}
+                  <span className="truncate block">{isRefreshing ? 'Actualisation...' : 'Actualiser'}</span>
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 sm:p-6">
               {isRefreshing && upcomingAppointments.length === 0 ? (
                 <div className="space-y-4">
                   {[...Array(2)].map((_, i) => (
@@ -334,7 +334,7 @@ export function StudentDashboard({
                   {frCA.dashboard.student.noAppointments}
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4 w-full min-w-0">
                   {upcomingAppointments.map((appointment) => (
                     <AppointmentCard
                       key={appointment.id}
@@ -347,22 +347,22 @@ export function StudentDashboard({
           </Card>
 
           {/* Past Appointments */}
-          <Card>
-            <CardHeader>
+          <Card className="w-full overflow-hidden">
+            <CardHeader className="p-3 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
-                <CardTitle className="text-lg sm:text-xl">{frCA.dashboard.student.pastAppointments}</CardTitle>
+                <CardTitle className="text-lg sm:text-xl break-words min-w-0 flex-1">{frCA.dashboard.student.pastAppointments}</CardTitle>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={refreshAppointments}
                   disabled={isRefreshing}
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto flex-shrink-0 min-w-0 overflow-hidden"
                 >
-                  {isRefreshing ? 'Actualisation...' : 'Actualiser'}
+                  <span className="truncate block">{isRefreshing ? 'Actualisation...' : 'Actualiser'}</span>
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 sm:p-6">
               {isRefreshing && pastAppointments.length === 0 ? (
                 <div className="space-y-4">
                   {[...Array(2)].map((_, i) => (
@@ -381,7 +381,7 @@ export function StudentDashboard({
                   Aucun rendez-vous passé
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4 w-full min-w-0">
                   {pastAppointments.slice(0, 5).map((appointment) => (
                     <AppointmentCard
                       key={appointment.id}
@@ -397,11 +397,11 @@ export function StudentDashboard({
 
         <div className="lg:col-span-1 space-y-4 sm:space-y-6">
           {/* Quick Actions */}
-          <Card className="mb-4 sm:mb-6">
-            <CardHeader>
+          <Card className="mb-4 sm:mb-6 w-full overflow-hidden">
+            <CardHeader className="p-3 sm:p-6">
               <CardTitle className="text-lg sm:text-xl">Actions rapides</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-wrap">
+            <CardContent className="p-3 sm:p-6 flex flex-col sm:flex-row gap-2 sm:gap-3 flex-wrap min-w-0">
               {/* Show buttons for unique course/tutor combinations if any exist */}
               {uniqueCourseTutorCombinations.length > 0 && (
                 <>
@@ -409,9 +409,12 @@ export function StudentDashboard({
                     <Button
                       key={`${combo.courseId}-${combo.tutorId}`}
                       asChild
-                      className="w-full sm:w-auto"
+                      className="w-full sm:w-auto min-w-0"
                     >
-                      <Link href={`/cours/${combo.courseSlug}/reservation?tutorId=${combo.tutorId}`}>
+                      <Link 
+                        href={`/cours/${combo.courseSlug}/reservation?tutorId=${combo.tutorId}`}
+                        className="truncate block"
+                      >
                         Réserver d'autres séances de {combo.courseCode} avec {combo.tutorFirstName}
                       </Link>
                     </Button>
@@ -422,9 +425,11 @@ export function StudentDashboard({
               <Button
                 asChild
                 variant={uniqueCourseTutorCombinations.length > 0 ? "outline" : "default"}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto min-w-0"
               >
-                <Link href="/cours">Réserver du tutorat pour d'autres cours</Link>
+                <Link href="/cours" className="truncate block">
+                  Réserver du tutorat pour d'autres cours
+                </Link>
               </Button>
             </CardContent>
           </Card>

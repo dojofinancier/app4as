@@ -47,14 +47,14 @@ export function MessageIndicator({ tutorId }: MessageIndicatorProps) {
       variant="outline"
       size="sm"
       onClick={handleMessageClick}
-      className="relative"
+      className="relative w-full sm:w-auto min-w-0 flex-shrink-0 whitespace-nowrap"
     >
-      <MessageCircle className="h-4 w-4 mr-2" />
-      Message
+      <MessageCircle className="h-4 w-4 sm:mr-2 flex-shrink-0" />
+      <span className="hidden sm:inline">Message</span>
       {unreadCount > 0 && (
         <Badge 
           variant="destructive" 
-          className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
+          className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs flex-shrink-0"
         >
           {unreadCount}
         </Badge>
