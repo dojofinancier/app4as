@@ -192,12 +192,27 @@ export async function POST(request: NextRequest) {
       const orderWithDetails = await prisma.order.findUnique({
         where: { id: result.order.id },
         include: {
+          user: {
+            select: {
+              email: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              role: true,
+              createdAt: true
+            }
+          },
           items: {
             include: {
               course: true,
               tutor: {
                 include: {
-                  user: true
+                  user: {
+                    select: {
+                      email: true,
+                      phone: true
+                    }
+                  }
                 }
               },
               appointment: true
@@ -210,43 +225,22 @@ export async function POST(request: NextRequest) {
         const { sendBookingCreatedWebhook, sendSignupWebhook } = await import('@/lib/webhooks/make')
         
         // Send signup webhook if this is a new user (guest checkout account creation)
-        if (isNewUser) {
+        if (isNewUser && orderWithDetails.user) {
           try {
-            const newUser = await prisma.user.findUnique({
-              where: { id: orderWithDetails.userId },
-              select: {
-                id: true,
-                email: true,
-                firstName: true,
-                lastName: true,
-                phone: true,
-                role: true,
-                createdAt: true
-              }
+            await sendSignupWebhook({
+              userId: orderWithDetails.userId,
+              role: orderWithDetails.user.role,
+              email: orderWithDetails.user.email,
+              firstName: orderWithDetails.user.firstName,
+              lastName: orderWithDetails.user.lastName,
+              phone: orderWithDetails.user.phone,
+              createdAt: orderWithDetails.user.createdAt.toISOString()
             })
-            
-            if (newUser) {
-              await sendSignupWebhook({
-                userId: newUser.id,
-                role: newUser.role,
-                email: newUser.email,
-                firstName: newUser.firstName,
-                lastName: newUser.lastName,
-                phone: newUser.phone,
-                createdAt: newUser.createdAt.toISOString()
-              })
-            }
           } catch (signupWebhookError) {
             // Don't fail if signup webhook fails
             console.error('Error sending signup webhook:', signupWebhookError)
           }
         }
-        
-        // Fetch user phone for booking webhook
-        const userForBooking = await prisma.user.findUnique({
-          where: { id: orderWithDetails.userId },
-          select: { phone: true }
-        })
 
         // Send booking created webhook
         await sendBookingCreatedWebhook({
@@ -257,13 +251,18 @@ export async function POST(request: NextRequest) {
           discountCad: Number(orderWithDetails.discountCad),
           totalCad: Number(orderWithDetails.totalCad),
           couponCode: cartData.couponCode || undefined,
-          phone: userForBooking?.phone || null,
+          phone: orderWithDetails.user?.phone || null,
+          studentEmail: orderWithDetails.user?.email || '',
+          studentFirstName: orderWithDetails.user?.firstName || '',
+          studentLastName: orderWithDetails.user?.lastName || '',
           items: orderWithDetails.items.map(item => ({
             appointmentId: item.appointment?.id || '',
             courseId: item.courseId,
             courseTitleFr: item.course.titleFr,
             tutorId: item.tutorId,
             tutorName: item.tutor.displayName,
+            tutorEmail: item.tutor.user?.email || '',
+            tutorPhone: item.tutor.user?.phone || null,
             startDatetime: item.startDatetime.toISOString(),
             durationMin: item.durationMin,
             priceCad: Number(item.lineTotalCad),

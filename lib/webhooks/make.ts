@@ -92,7 +92,9 @@ export async function sendMakeWebhook(
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json; charset=utf-8'
+      },
       body: JSON.stringify({ 
         type, 
         payload, 
@@ -193,12 +195,17 @@ export async function sendBookingCreatedWebhook(data: {
   totalCad: number
   couponCode?: string
   phone?: string | null
+  studentEmail: string
+  studentFirstName: string
+  studentLastName: string
   items: Array<{
     appointmentId: string
     courseId: string
     courseTitleFr: string
     tutorId: string
     tutorName: string
+    tutorEmail: string
+    tutorPhone?: string | null
     startDatetime: string
     durationMin: number
     priceCad: number
@@ -215,7 +222,22 @@ export async function sendBookingCreatedWebhook(data: {
     total_cad: data.totalCad,
     coupon_code: data.couponCode || null,
     phone: data.phone || null,
-    items: data.items,
+    student_email: data.studentEmail,
+    student_first_name: data.studentFirstName,
+    student_last_name: data.studentLastName,
+    items: data.items.map(item => ({
+      appointment_id: item.appointmentId,
+      course_id: item.courseId,
+      course_title_fr: item.courseTitleFr,
+      tutor_id: item.tutorId,
+      tutor_name: item.tutorName,
+      tutor_email: item.tutorEmail,
+      tutor_phone: item.tutorPhone || null,
+      start_datetime: item.startDatetime,
+      duration_min: item.durationMin,
+      price_cad: item.priceCad,
+      tutor_earnings_cad: item.tutorEarningsCad,
+    })),
     created_at: data.createdAt,
   })
 }
@@ -555,8 +577,14 @@ export async function sendBookingWebhook(data: {
       subtotalCad: data.subtotalCad || 0,
       discountCad: data.discountCad || 0,
       totalCad: data.totalCad || 0,
+      phone: null,
+      studentEmail: '',
+      studentFirstName: '',
+      studentLastName: '',
       items: (data.items || []).map(item => ({
         ...item,
+        tutorEmail: '',
+        tutorPhone: null,
         tutorEarningsCad: 0 // Legacy function doesn't provide this, default to 0
       })),
       createdAt: data.createdAt || new Date().toISOString(),

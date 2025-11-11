@@ -1,6 +1,10 @@
 # PowerShell Test Examples for All Webhook Types
 # Usage: Copy and paste each example into PowerShell (make sure your dev server is running)
 
+# Set UTF-8 encoding for proper character handling
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$PSDefaultParameterValues['*:Encoding'] = 'utf8'
+
 $baseUrl = "http://localhost:3000/api/test/webhooks"
 
 # Set your test API key (add TEST_WEBHOOK_API_KEY to your .env.local file)
@@ -9,7 +13,7 @@ $testApiKey = "test-webhook-key-12345"  # Change this to match your .env.local T
 
 # Headers with test API key
 $headers = @{
-    "Content-Type" = "application/json"
+    "Content-Type" = "application/json; charset=utf-8"
     "x-test-api-key" = $testApiKey
 }
 
@@ -53,6 +57,9 @@ $bookingCreatedBody = @{
         totalCad = 180.00
         couponCode = "TEST20"
         phone = "+15141234567"
+        studentEmail = "student@example.com"
+        studentFirstName = "Jean"
+        studentLastName = "Dupont"
         items = @(
             @{
                 appointmentId = "apt_$(Get-Random)"
@@ -60,6 +67,8 @@ $bookingCreatedBody = @{
                 courseTitleFr = "Mathématiques Avancées"
                 tutorId = "tutor_456"
                 tutorName = "Marie Tremblay"
+                tutorEmail = "tutor@example.com"
+                tutorPhone = "+15149876543"
                 startDatetime = (Get-Date).AddDays(7).ToString("yyyy-MM-ddTHH:mm:ssZ")
                 durationMin = 90
                 priceCad = 180.00

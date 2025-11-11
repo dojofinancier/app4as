@@ -268,12 +268,25 @@ export async function POST(request: NextRequest) {
       const orderWithDetails = await prisma.order.findUnique({
         where: { id: result.order.id },
         include: {
+          user: {
+            select: {
+              email: true,
+              firstName: true,
+              lastName: true,
+              phone: true
+            }
+          },
           items: {
             include: {
               course: true,
               tutor: {
                 include: {
-                  user: true
+                  user: {
+                    select: {
+                      email: true,
+                      phone: true
+                    }
+                  }
                 }
               },
               appointment: true
@@ -285,12 +298,6 @@ export async function POST(request: NextRequest) {
       if (orderWithDetails) {
         const { sendBookingCreatedWebhook } = await import('@/lib/webhooks/make')
         
-        // Fetch user phone for booking webhook
-        const userForBooking = await prisma.user.findUnique({
-          where: { id: orderWithDetails.userId },
-          select: { phone: true }
-        })
-        
         // Send booking created webhook
         await sendBookingCreatedWebhook({
           orderId: orderWithDetails.id,
@@ -300,13 +307,18 @@ export async function POST(request: NextRequest) {
           discountCad: Number(orderWithDetails.discountCad),
           totalCad: Number(orderWithDetails.totalCad),
           couponCode: finalCouponCode || undefined,
-          phone: userForBooking?.phone || null,
+          phone: orderWithDetails.user?.phone || null,
+          studentEmail: orderWithDetails.user?.email || '',
+          studentFirstName: orderWithDetails.user?.firstName || '',
+          studentLastName: orderWithDetails.user?.lastName || '',
           items: orderWithDetails.items.map(item => ({
             appointmentId: item.appointment?.id || '',
             courseId: item.courseId,
             courseTitleFr: item.course.titleFr,
             tutorId: item.tutorId,
             tutorName: item.tutor.displayName,
+            tutorEmail: item.tutor.user?.email || '',
+            tutorPhone: item.tutor.user?.phone || null,
             startDatetime: item.startDatetime.toISOString(),
             durationMin: item.durationMin,
             priceCad: Number(item.lineTotalCad),

@@ -1,7 +1,20 @@
 # Individual Webhook Test Examples
 # Copy and paste each example individually into PowerShell
 
+# Set UTF-8 encoding for proper character handling
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$PSDefaultParameterValues['*:Encoding'] = 'utf8'
+
 $baseUrl = "http://localhost:3000/api/test/webhooks"
+
+# Set your test API key (check your .env.local for TEST_WEBHOOK_API_KEY)
+$testApiKey = "test-webhook-key-12345"  # Change this to match your .env.local
+
+# Headers with test API key
+$headers = @{
+    "Content-Type" = "application/json; charset=utf-8"
+    "x-test-api-key" = $testApiKey
+}
 
 # ============================================================================
 # 1. SIGNUP WEBHOOK
@@ -18,10 +31,10 @@ $body = @{
         createdAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
 # ============================================================================
-# 2. BOOKING CREATED WEBHOOK
+# 2. BOOKING CREATED WEBHOOK (with 3 order items)
 # ============================================================================
 $body = @{
     type = "booking.created"
@@ -29,11 +42,14 @@ $body = @{
         orderId = "order_$(Get-Random)"
         userId = "user_123"
         currency = "CAD"
-        subtotalCad = 200.00
-        discountCad = 20.00
-        totalCad = 180.00
-        couponCode = "TEST20"
-        phone = "+15141234567"
+        subtotalCad = 540.00
+        discountCad = 54.00
+        totalCad = 486.00
+        couponCode = "TEST10"
+        phone = "+14389288338"
+        studentEmail = "miguelromain@gmail.com"
+        studentFirstName = "Jean"
+        studentLastName = "Dupont"
         items = @(
             @{
                 appointmentId = "apt_$(Get-Random)"
@@ -41,16 +57,44 @@ $body = @{
                 courseTitleFr = "Mathématiques Avancées"
                 tutorId = "tutor_456"
                 tutorName = "Marie Tremblay"
+                tutorEmail = "miguel@carredastutorat.com"
+                tutorPhone = "+14389288338"
                 startDatetime = (Get-Date).AddDays(7).ToString("yyyy-MM-ddTHH:mm:ssZ")
                 durationMin = 90
                 priceCad = 180.00
                 tutorEarningsCad = 144.00
+            },
+            @{
+                appointmentId = "apt_$(Get-Random)"
+                courseId = "course_456"
+                courseTitleFr = "Physique Quantique"
+                tutorId = "tutor_789"
+                tutorName = "Pierre Lavoie"
+                tutorEmail = "miguel@dojofinancier.com"
+                tutorPhone = "+14389288338"
+                startDatetime = (Get-Date).AddDays(10).ToString("yyyy-MM-ddTHH:mm:ssZ")
+                durationMin = 120
+                priceCad = 240.00
+                tutorEarningsCad = 192.00
+            },
+            @{
+                appointmentId = "apt_$(Get-Random)"
+                courseId = "course_789"
+                courseTitleFr = "Chimie Organique"
+                tutorId = "tutor_456"
+                tutorName = "Marie Tremblay"
+                tutorEmail = "quiz@dojofinancier.com"
+                tutorPhone = "+14389288338"
+                startDatetime = (Get-Date).AddDays(14).ToString("yyyy-MM-ddTHH:mm:ssZ")
+                durationMin = 60
+                priceCad = 120.00
+                tutorEarningsCad = 96.00
             }
         )
         createdAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
 # ============================================================================
 # 3. BOOKING CANCELLED WEBHOOK
@@ -76,7 +120,7 @@ $body = @{
         timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
 # ============================================================================
 # 4. BOOKING RESCHEDULED WEBHOOK
@@ -103,7 +147,7 @@ $body = @{
         timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
 # ============================================================================
 # 5. APPOINTMENT COMPLETED WEBHOOK
@@ -125,7 +169,7 @@ $body = @{
         completedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
 # ============================================================================
 # 6. ORDER REFUNDED WEBHOOK
@@ -144,7 +188,7 @@ $body = @{
         timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
 # ============================================================================
 # 7. MESSAGE SENT WEBHOOK
@@ -165,7 +209,7 @@ $body = @{
         timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
 # ============================================================================
 # 8. TICKET CREATED WEBHOOK
@@ -184,7 +228,7 @@ $body = @{
         createdAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
 # ============================================================================
 # 9. TICKET STATUS CHANGED WEBHOOK
@@ -203,7 +247,7 @@ $body = @{
         timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
 # ============================================================================
 # 10. TICKET MESSAGE ADDED WEBHOOK
@@ -222,7 +266,7 @@ $body = @{
         timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
 # ============================================================================
 # 11. RATING CREATED WEBHOOK
@@ -246,7 +290,7 @@ $body = @{
         updatedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
 # ============================================================================
 # 12. RATING UPDATED WEBHOOK
@@ -270,5 +314,5 @@ $body = @{
         updatedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 } | ConvertTo-Json -Depth 10
-Invoke-RestMethod -Uri $baseUrl -Method POST -ContentType "application/json" -Body $body
+Invoke-RestMethod -Uri $baseUrl -Method POST -Headers $headers -Body $body
 
