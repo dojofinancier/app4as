@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { 
   Search, 
@@ -15,9 +16,10 @@ import {
   Loader2,
   Eye,
   SortAsc,
-  SortDesc
+  SortDesc,
+  Plus
 } from 'lucide-react'
-import { getAllStudents } from '@/lib/actions/admin'
+import { getAllStudents, createStudentAccount } from '@/lib/actions/admin'
 import { StudentDetailsModal } from './student-details-modal'
 
 interface Student {
@@ -47,6 +49,7 @@ export function StudentManagement() {
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [showCreateForm, setShowCreateForm] = useState(false)
   const loadMoreRef = useRef<HTMLDivElement>(null)
 
   const fetchStudents = useCallback(async (cursor?: string, append = false) => {
@@ -171,6 +174,38 @@ export function StudentManagement() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold">Gestion des étudiants</h2>
+          <p className="text-muted-foreground">
+            Gérez les comptes étudiants
+          </p>
+        </div>
+        <Button onClick={() => setShowCreateForm(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nouveau étudiant
+        </Button>
+      </div>
+
+      {error && (
+        <div className="bg-error-light border border-error-border rounded-md p-4">
+          <p className="text-error">{error}</p>
+        </div>
+      )}
+
+      {showCreateForm && (
+        <CreateStudentForm
+          onClose={() => setShowCreateForm(false)}
+          onSuccess={() => {
+            setShowCreateForm(false)
+            setStudents([])
+            setNextCursor(null)
+            setHasMore(true)
+            fetchStudents()
+          }}
+        />
+      )}
+
       {/* Search and Sort Controls */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex items-center space-x-2 flex-1">
@@ -335,5 +370,139 @@ export function StudentManagement() {
         onClose={() => setSelectedStudentId(null)}
       />
     </div>
+  )
+}
+
+// Create Student Form Component
+function CreateStudentForm({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    try {
+      const result = await createStudentAccount({
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone || undefined,
+      })
+      
+      if (result.success) {
+        alert(result.message || 'Étudiant créé avec succès')
+        onSuccess()
+      } else {
+        setError(result.error || 'Erreur')
+      }
+    } catch (error) {
+      setError('Erreur lors de la création de l\'étudiant')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Créer un nouvel étudiant</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-error-light border border-error-border rounded-md p-4">
+              <p className="text-error">{error}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="password">Mot de passe *</Label>
+              <Input
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
+                minLength={6}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="firstName">Prénom *</Label>
+              <Input
+                id="firstName"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="lastName">Nom *</Label>
+              <Input
+                id="lastName"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="phone">Téléphone (optionnel)</Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="+1 (555) 123-4567"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Création...
+                </>
+              ) : (
+                'Créer l\'étudiant'
+              )}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

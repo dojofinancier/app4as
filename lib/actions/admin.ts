@@ -145,6 +145,109 @@ export async function createTutorAccount(data: {
 }
 
 /**
+ * Create a new student account (admin only)
+ */
+export async function createStudentAccount(data: {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  phone?: string
+}) {
+  const supabase = await createClient()
+  const { data: { user: currentUser } } = await supabase.auth.getUser()
+
+  if (!currentUser) {
+    return { success: false, error: 'Non autorisé' }
+  }
+
+  // Check if current user is admin
+  const adminUser = await prisma.user.findUnique({
+    where: { id: currentUser.id },
+    select: { role: true }
+  })
+
+  if (!adminUser || adminUser.role !== 'admin') {
+    return { success: false, error: 'Accès administrateur requis' }
+  }
+
+  let authUserId: string | null = null
+  
+  try {
+    // Step 1: Create user in Supabase Auth using admin client
+    const adminClient = createAdminClient()
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+      email: data.email,
+      password: data.password,
+      email_confirm: true, // Auto-confirm email
+      user_metadata: {
+        first_name: data.firstName,
+        last_name: data.lastName,
+        role: 'student'
+      }
+    })
+
+    if (authError) {
+      console.error('Supabase Auth error:', authError)
+      return { success: false, error: `Erreur d'authentification: ${authError.message}` }
+    }
+
+    if (!authData.user) {
+      return { success: false, error: 'Échec de la création du compte' }
+    }
+
+    authUserId = authData.user.id
+
+    // Step 2: Create user in database
+    const user = await prisma.user.create({
+      data: {
+        id: authData.user.id,
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone || null,
+        role: 'student',
+      },
+    })
+
+    // Step 3: Send signup webhook
+    await sendSignupWebhook({
+      userId: user.id,
+      role: user.role,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone,
+      createdAt: user.createdAt.toISOString(),
+    })
+
+    revalidatePath('/admin/etudiants')
+    return { 
+      success: true, 
+      message: 'Étudiant créé avec succès. L\'étudiant peut maintenant se connecter avec ses identifiants.',
+      data: {
+        user,
+      }
+    }
+  } catch (error) {
+    console.error('Error creating student account:', error)
+    
+    // If user was created in Supabase but database insert failed, try to clean up
+    if (authUserId) {
+      try {
+        const adminClient = createAdminClient()
+        await adminClient.auth.admin.deleteUser(authUserId)
+        console.log('Cleaned up Supabase user after database error')
+      } catch (cleanupError) {
+        console.error('Error cleaning up Supabase user:', cleanupError)
+      }
+    }
+    
+    return { success: false, error: 'Une erreur est survenue lors de la création de l\'étudiant' }
+  }
+}
+
+/**
  * Get all tutors for admin management
  */
 export async function getAllTutors() {
@@ -2405,13 +2508,28 @@ export async function createManualAppointment(data: {
     // Calculate duration and earnings
     const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60)
     const tutorEarnings = (Number(tutor.hourlyBaseRateCad) * durationMinutes) / 60
+    
+    // Calculate student price based on duration (for display purposes, but will be free)
+    const studentRate = Number(course.studentRateCad)
+    const durationHours = durationMinutes / 60
+    let unitPrice = studentRate
+    let lineTotal = studentRate * durationHours
+    
+    // For 90-minute sessions, multiply by 1.5; for 120-minute, multiply by 2
+    if (durationMinutes === 90) {
+      lineTotal = studentRate * 1.5
+    } else if (durationMinutes === 120) {
+      lineTotal = studentRate * 2
+    }
 
     // Create manual order and order item
+    // Note: We use actual prices for order_item (required by constraint), 
+    // but set order total to 0 with a discount equal to the subtotal to make it free
     const order = await prisma.order.create({
       data: {
         userId: studentId,
-        subtotalCad: 0, // Free for student
-        discountCad: 0,
+        subtotalCad: lineTotal, // Actual price before discount
+        discountCad: lineTotal, // 100% discount to make it free
         totalCad: 0, // Free for student
         status: 'paid', // Mark as paid since it's manual
         stripePaymentIntentId: `manual_${Date.now()}`
@@ -2424,8 +2542,8 @@ export async function createManualAppointment(data: {
         courseId,
         tutorId,
         durationMin: Math.round(durationMinutes),
-        unitPriceCad: 0, // Free for student
-        lineTotalCad: 0, // Free for student
+        unitPriceCad: unitPrice, // Use actual course rate (constraint requires > 0)
+        lineTotalCad: lineTotal, // Use actual calculated price (constraint requires >= 0)
         tutorEarningsCad: tutorEarnings, // Tutor still gets paid
         startDatetime: start,
         endDatetime: end,
@@ -2467,8 +2585,63 @@ export async function createManualAppointment(data: {
       }
     })
 
+    // Fetch the appointment with relations to return complete data
+    const appointmentWithDetails = await prisma.appointment.findUnique({
+      where: { id: appointment.id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        tutor: {
+          select: {
+            id: true,
+            displayName: true,
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
+          }
+        },
+        course: {
+          select: {
+            id: true,
+            titleFr: true,
+            slug: true
+          }
+        },
+        orderItem: {
+          select: {
+            id: true,
+            unitPriceCad: true,
+            lineTotalCad: true,
+            tutorEarningsCad: true,
+            durationMin: true
+          }
+        }
+      }
+    })
+
+    // Convert Decimal fields to numbers for serialization
+    const serializedAppointment = appointmentWithDetails ? {
+      ...appointmentWithDetails,
+      orderItem: appointmentWithDetails.orderItem ? {
+        ...appointmentWithDetails.orderItem,
+        unitPriceCad: Number(appointmentWithDetails.orderItem.unitPriceCad),
+        lineTotalCad: Number(appointmentWithDetails.orderItem.lineTotalCad),
+        tutorEarningsCad: Number(appointmentWithDetails.orderItem.tutorEarningsCad)
+      } : null
+    } : appointment
+
     revalidatePath('/admin')
-    return { success: true, data: appointment }
+    return { success: true, data: serializedAppointment }
   } catch (error) {
     console.error('Error creating manual appointment:', error)
     return { success: false, error: 'Une erreur est survenue' }
@@ -2770,8 +2943,10 @@ export async function getStudentsForAutocomplete(search?: string) {
 
 /**
  * Get courses for autocomplete (admin only)
+ * If tutorId is provided, returns only courses assigned to that tutor
+ * Otherwise, returns all active courses
  */
-export async function getCoursesForAutocomplete(search?: string) {
+export async function getCoursesForAutocomplete(search?: string, tutorId?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -2790,16 +2965,38 @@ export async function getCoursesForAutocomplete(search?: string) {
   }
 
   try {
+    const whereClause: any = {
+      active: true
+    }
+
+    // If tutorId is provided, filter by tutor's assigned courses
+    if (tutorId) {
+      whereClause.tutorCourses = {
+        some: {
+          tutorId: tutorId,
+          status: 'approved',
+          active: true
+        }
+      }
+    }
+
+    // Add search filter if provided
+    if (search) {
+      whereClause.titleFr = { contains: search, mode: 'insensitive' }
+    }
+
     const courses = await prisma.course.findMany({
-      where: search ? {
-        titleFr: { contains: search, mode: 'insensitive' }
-      } : {},
+      where: whereClause,
       select: {
         id: true,
+        code: true,
         titleFr: true,
         slug: true
       },
-      take: 10
+      orderBy: {
+        titleFr: 'asc'
+      },
+      take: tutorId ? 100 : 10 // If filtering by tutor, allow more results
     })
 
     return { success: true, data: courses }
@@ -2853,6 +3050,7 @@ export async function getFinancialAnalytics(year?: number, month?: number) {
       select: {
         id: true,
         totalCad: true,
+        status: true,
         createdAt: true,
         items: {
           select: {
@@ -2890,16 +3088,24 @@ export async function getFinancialAnalytics(year?: number, month?: number) {
     const yearlyRefunds = yearlyOrders.reduce((sum, order) => 
       sum + order.refundRequests.reduce((refundSum, refund) => refundSum + Number(refund.amount), 0), 0
     )
-    const yearlyTutorPayments = yearlyOrders.reduce((sum, order) => 
-      sum + order.items.reduce((itemSum, item) => {
+    const yearlyTutorPayments = yearlyOrders.reduce((sum, order) => {
+      // If order is fully refunded, exclude all tutor payments
+      if (order.status === 'refunded') {
+        return sum
+      }
+      return sum + order.items.reduce((itemSum, item) => {
         // Accrual accounting: Count ALL tutor costs (scheduled + earned + paid)
-        // Exclude cancelled appointments (they don't incur costs)
-        if (item.earningsStatus && item.earningsStatus !== 'cancelled') {
+        // Exclude cancelled/refunded appointments (they don't incur costs)
+        // Check both earningsStatus and appointment status as fallback for legacy data
+        const isCancelled = item.earningsStatus === 'cancelled' || 
+                           item.appointment?.status === 'cancelled' || 
+                           item.appointment?.status === 'refunded'
+        if (!isCancelled) {
           return itemSum + Number(item.tutorEarningsCad)
         }
         return itemSum
-      }, 0), 0
-    )
+      }, 0)
+    }, 0)
     const yearlyGrossMargin = yearlyRevenue - yearlyRefunds - yearlyTutorPayments
     const yearlyRefundRate = yearlyRevenue > 0 ? (yearlyRefunds / yearlyRevenue) * 100 : 0
     const yearlyGrossMarginPercent = yearlyRevenue > 0 ? (yearlyGrossMargin / yearlyRevenue) * 100 : 0
@@ -2910,16 +3116,24 @@ export async function getFinancialAnalytics(year?: number, month?: number) {
     const monthlyRefunds = monthlyOrders.reduce((sum, order) => 
       sum + order.refundRequests.reduce((refundSum, refund) => refundSum + Number(refund.amount), 0), 0
     )
-    const monthlyTutorPayments = monthlyOrders.reduce((sum, order) => 
-      sum + order.items.reduce((itemSum, item) => {
+    const monthlyTutorPayments = monthlyOrders.reduce((sum, order) => {
+      // If order is fully refunded, exclude all tutor payments
+      if (order.status === 'refunded') {
+        return sum
+      }
+      return sum + order.items.reduce((itemSum, item) => {
         // Accrual accounting: Count ALL tutor costs (scheduled + earned + paid)
-        // Exclude cancelled appointments
-        if (item.earningsStatus && item.earningsStatus !== 'cancelled') {
+        // Exclude cancelled/refunded appointments (they don't incur costs)
+        // Check both earningsStatus and appointment status as fallback for legacy data
+        const isCancelled = item.earningsStatus === 'cancelled' || 
+                           item.appointment?.status === 'cancelled' || 
+                           item.appointment?.status === 'refunded'
+        if (!isCancelled) {
           return itemSum + Number(item.tutorEarningsCad)
         }
         return itemSum
-      }, 0), 0
-    )
+      }, 0)
+    }, 0)
     const monthlyGrossMargin = monthlyRevenue - monthlyRefunds - monthlyTutorPayments
     const monthlyAvgOrderValue = monthlyOrders.length > 0 ? monthlyRevenue / monthlyOrders.length : 0
 
@@ -2931,16 +3145,24 @@ export async function getFinancialAnalytics(year?: number, month?: number) {
       const monthRefunds = monthOrders.reduce((sum, order) => 
         sum + order.refundRequests.reduce((refundSum, refund) => refundSum + Number(refund.amount), 0), 0
       )
-      const monthTutorPayments = monthOrders.reduce((sum, order) => 
-        sum + order.items.reduce((itemSum, item) => {
+      const monthTutorPayments = monthOrders.reduce((sum, order) => {
+        // If order is fully refunded, exclude all tutor payments
+        if (order.status === 'refunded') {
+          return sum
+        }
+        return sum + order.items.reduce((itemSum, item) => {
           // Accrual accounting: Count ALL tutor costs (scheduled + earned + paid)
-          // Exclude cancelled appointments
-          if (item.earningsStatus && item.earningsStatus !== 'cancelled') {
+          // Exclude cancelled/refunded appointments (they don't incur costs)
+          // Check both earningsStatus and appointment status as fallback for legacy data
+          const isCancelled = item.earningsStatus === 'cancelled' || 
+                             item.appointment?.status === 'cancelled' || 
+                             item.appointment?.status === 'refunded'
+          if (!isCancelled) {
             return itemSum + Number(item.tutorEarningsCad)
           }
           return itemSum
-        }, 0), 0
-      )
+        }, 0)
+      }, 0)
       const monthGrossMargin = monthRevenue - monthRefunds - monthTutorPayments
       
       return {
@@ -3814,6 +4036,7 @@ export async function refundOrder(
         items: {
           select: {
             id: true,
+            earningsStatus: true,
             appointment: {
               select: {
                 id: true,
@@ -3993,6 +4216,26 @@ async function processRefundDatabaseOperations(
       data: { status: newStatus }
     })
 
+    // If full refund, cancel all tutor earnings for this order (even if appointments aren't explicitly cancelled)
+    // This ensures financial calculations exclude tutor costs for fully refunded orders
+    if (isFullRefund) {
+      const orderItemIds = order.items
+        .map((item: any) => item.id)
+        .filter(Boolean) as string[]
+      
+      if (orderItemIds.length > 0) {
+        await prisma.orderItem.updateMany({
+          where: {
+            id: { in: orderItemIds },
+            earningsStatus: { not: 'cancelled' } // Only update if not already cancelled
+          },
+          data: {
+            earningsStatus: 'cancelled'
+          }
+        })
+      }
+    }
+
     // Create refund request record
     // For order-level refunds, use the first appointment ID if available
     const firstAppointmentId = order.items.find((item: any) => item.appointment?.id)?.appointment?.id
@@ -4058,12 +4301,16 @@ async function processRefundDatabaseOperations(
       const appointmentIds = order.items
         .map((item: any) => item.appointment?.id)
         .filter(Boolean) as string[]
+      const orderItemIds = order.items
+        .map((item: any) => item.id)
+        .filter(Boolean) as string[]
 
       if (appointmentIds.length > 0) {
+        // Update appointments to cancelled
         await prisma.appointment.updateMany({
           where: {
             id: { in: appointmentIds },
-            status: 'scheduled'
+            status: { in: ['scheduled', 'completed'] } // Also cancel completed appointments if refunded
           },
           data: {
             status: 'cancelled',
@@ -4072,6 +4319,20 @@ async function processRefundDatabaseOperations(
             cancelledAt: new Date()
           }
         })
+
+        // CRITICAL: Update order items' earningsStatus to 'cancelled' to remove tutor costs from financial calculations
+        // This ensures refunded appointments don't count toward tutor payments in margin calculations
+        if (orderItemIds.length > 0) {
+          await prisma.orderItem.updateMany({
+            where: {
+              id: { in: orderItemIds },
+              earningsStatus: { not: 'cancelled' } // Only update if not already cancelled
+            },
+            data: {
+              earningsStatus: 'cancelled'
+            }
+          })
+        }
 
         // Log the cancellations
         for (const appointmentId of appointmentIds) {

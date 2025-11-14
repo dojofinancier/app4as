@@ -207,16 +207,33 @@ export async function cancelTutorAppointment(
       }
     }
 
-    // Update appointment status
-    await prisma.appointment.update({
+    // Update appointment status and cancel tutor earnings
+    const updatedAppointment = await prisma.appointment.update({
       where: { id: appointmentId },
       data: { 
         status: 'cancelled',
         cancellationReason: reason || 'Annulé par tuteur',
         cancelledBy: user.id,
         cancelledAt: new Date()
+      },
+      include: {
+        orderItem: {
+          select: {
+            id: true
+          }
+        }
       }
     })
+
+    // Cancel tutor earnings for this appointment
+    if (updatedAppointment.orderItem) {
+      await prisma.orderItem.update({
+        where: { id: updatedAppointment.orderItem.id },
+        data: {
+          earningsStatus: 'cancelled'
+        }
+      })
+    }
 
     // Fetch student and tutor emails for webhook
     const [student, tutor] = await Promise.all([

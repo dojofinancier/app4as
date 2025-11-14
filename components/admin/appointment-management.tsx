@@ -77,6 +77,7 @@ interface Student {
 
 interface Course {
   id: string
+  code: string
   titleFr: string
   slug: string
 }
@@ -209,7 +210,14 @@ export function AppointmentManagement() {
 
   // Handle form input changes
   const handleFormChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value }
+      // If tutor changes, clear course selection and reload courses
+      if (field === 'tutorId') {
+        newData.courseId = ''
+      }
+      return newData
+    })
     setCreateError(null)
   }
 
@@ -393,14 +401,14 @@ export function AppointmentManagement() {
     return () => observer.disconnect()
   }, [hasMore, loadingMore])
 
-  // Load autocomplete data
+  // Load autocomplete data (tutors and students - courses loaded separately based on tutor)
   useEffect(() => {
     const loadAutocompleteData = async () => {
       try {
         const [tutorsResult, studentsResult, coursesResult] = await Promise.all([
           getTutorsForAutocomplete(),
           getStudentsForAutocomplete(),
-          getCoursesForAutocomplete()
+          getCoursesForAutocomplete() // Load all active courses initially
         ])
 
         if (tutorsResult.success && tutorsResult.data) setTutors(tutorsResult.data)
@@ -413,6 +421,34 @@ export function AppointmentManagement() {
 
     loadAutocompleteData()
   }, [])
+
+  // Load courses based on selected tutor
+  useEffect(() => {
+    const loadCoursesForTutor = async () => {
+      if (formData.tutorId) {
+        try {
+          const coursesResult = await getCoursesForAutocomplete(undefined, formData.tutorId)
+          if (coursesResult.success && coursesResult.data) {
+            setCourses(coursesResult.data)
+          }
+        } catch (error) {
+          console.error('Error loading courses for tutor:', error)
+        }
+      } else {
+        // If no tutor selected, load all active courses
+        try {
+          const coursesResult = await getCoursesForAutocomplete()
+          if (coursesResult.success && coursesResult.data) {
+            setCourses(coursesResult.data)
+          }
+        } catch (error) {
+          console.error('Error loading all courses:', error)
+        }
+      }
+    }
+
+    loadCoursesForTutor()
+  }, [formData.tutorId])
 
   if (loading) {
     return (
@@ -510,7 +546,7 @@ export function AppointmentManagement() {
                   <SelectContent>
                     {courses.map((course) => (
                       <SelectItem key={course.id} value={course.id}>
-                        {course.titleFr}
+                        {course.code} - {course.titleFr}
                       </SelectItem>
                     ))}
                   </SelectContent>

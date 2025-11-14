@@ -158,7 +158,7 @@ export function StudentDashboard({
 
 
   return (
-    <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12 max-w-full overflow-x-hidden">
+    <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12 max-w-7xl overflow-x-hidden">
       <div className="mb-6 md:mb-8">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
           {frCA.dashboard.student.title}
@@ -292,8 +292,8 @@ export function StudentDashboard({
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (
-        <div className="grid gap-4 sm:gap-6 md:gap-8 lg:grid-cols-3 w-full max-w-full min-w-0 grid-fix-mobile">
-        <div className="lg:col-span-2 space-y-4 sm:space-y-6 w-full min-w-0 max-w-full">
+        <div className="grid gap-4 sm:gap-6 md:gap-8 lg:grid-cols-3 w-full min-w-0 grid-fix-mobile">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6 w-full min-w-0">
           {/* Upcoming Appointments */}
           <Card className="mb-4 sm:mb-6 w-full overflow-hidden">
             <CardHeader className="p-3 sm:p-6">
