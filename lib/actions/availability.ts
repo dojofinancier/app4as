@@ -4,6 +4,10 @@ import { revalidatePath, unstable_cache } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
 import { CACHE_TTL, CACHE_TAGS } from '@/lib/utils/cache'
+import { set } from 'date-fns'
+import { fromZonedTime, toZonedTime } from 'date-fns-tz'
+
+const TIMEZONE = 'America/Toronto'
 
 export interface AvailabilityRule {
   id: string
@@ -184,13 +188,33 @@ export async function saveAvailabilityExceptions(
       })
 
       // Insert new exceptions
+      // Convert date strings (YYYY-MM-DD) to Date objects representing midnight Eastern Time
+      // We need to create dates that represent midnight in Eastern Time, then convert to UTC for storage
       await tx.availabilityException.createMany({
-        data: exceptions.map(exception => ({
-          tutorId: exception.tutorId,
-          startDate: new Date(exception.startDate),
-          endDate: new Date(exception.endDate),
-          isUnavailable: exception.isUnavailable
-        }))
+        data: exceptions.map(exception => {
+          // Parse the date string (YYYY-MM-DD format)
+          const [year, month, day] = exception.startDate.split('-').map(Number)
+          // Create a date representing midnight in Eastern Time
+          // Use a reference date in UTC, convert to Eastern, set to midnight, then back to UTC
+          const referenceDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0))
+          const easternDate = toZonedTime(referenceDate, TIMEZONE)
+          const midnightEastern = set(easternDate, { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 })
+          const startDate = fromZonedTime(midnightEastern, TIMEZONE)
+          
+          // Same for endDate
+          const [endYear, endMonth, endDay] = exception.endDate.split('-').map(Number)
+          const endReferenceDate = new Date(Date.UTC(endYear, endMonth - 1, endDay, 12, 0, 0, 0))
+          const endEasternDate = toZonedTime(endReferenceDate, TIMEZONE)
+          const endMidnightEastern = set(endEasternDate, { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 })
+          const endDate = fromZonedTime(endMidnightEastern, TIMEZONE)
+          
+          return {
+            tutorId: exception.tutorId,
+            startDate,
+            endDate,
+            isUnavailable: exception.isUnavailable
+          }
+        })
       })
     })
 

@@ -133,32 +133,20 @@ async function getTutorAvailability(
   })
 
   // Get exceptions with retry logic - use proper Date objects
+  // Standard overlap check: exception overlaps if startDate < toDate AND endDate > fromDate
   const exceptions = await withRetry(async () => {
     return await prisma.availabilityException.findMany({
       where: {
         tutorId,
-        OR: [
-          // Exception covers the entire date range
+        AND: [
           {
             startDate: {
-              lte: fromDate,
-            },
-            endDate: {
-              gte: toDate,
-            },
-          },
-          // Exception starts within the date range
-          {
-            startDate: {
-              gte: fromDate,
               lt: toDate,
             },
           },
-          // Exception ends within the date range
           {
             endDate: {
               gt: fromDate,
-              lte: toDate,
             },
           },
         ],
@@ -200,9 +188,10 @@ async function getTutorAvailability(
     // Check for exceptions first - use string comparison to avoid timezone issues
     const dateExceptions = exceptions.filter((ex) => {
       // Convert dates to YYYY-MM-DD format for comparison (all in Eastern Time)
+      // Normalize to start of day in Eastern Time to ensure accurate date comparison
       const currentDateStr = format(currentDate, 'yyyy-MM-dd')
-      const exceptionStartEastern = toZonedTime(ex.startDate, TIMEZONE)
-      const exceptionEndEastern = toZonedTime(ex.endDate, TIMEZONE)
+      const exceptionStartEastern = startOfDay(toZonedTime(ex.startDate, TIMEZONE))
+      const exceptionEndEastern = startOfDay(toZonedTime(ex.endDate, TIMEZONE))
       const exceptionStartStr = format(exceptionStartEastern, 'yyyy-MM-dd')
       const exceptionEndStr = format(exceptionEndEastern, 'yyyy-MM-dd')
       
