@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { formatDateTime } from '@/lib/utils'
 import { TutorMessageIndicator } from '../messaging/tutor-message-indicator'
+import { TutorRescheduleModal } from './tutor-reschedule-modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Link as LinkIcon, Save, X } from 'lucide-react'
@@ -13,10 +14,11 @@ interface TutorAppointmentCardProps {
     id: string
     userId: string
     tutorId: string
-    startDatetime: Date
-    endDatetime: Date
+    startDatetime: Date | string
+    endDatetime: Date | string
     status: string
     meetingLink?: string | null
+    courseId: string
     course: {
       titleFr: string
     }
@@ -70,6 +72,25 @@ export function TutorAppointmentCard({
     setMeetingLink(appointment.meetingLink || '')
     setIsEditingLink(false)
     setError(null)
+  }
+
+  // Check if appointment can be rescheduled (2 hours before)
+  const now = new Date()
+  const startDatetime = new Date(appointment.startDatetime)
+  const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000)
+  const canRescheduleNow = !isPast && appointment.status === 'scheduled' && startDatetime > twoHoursFromNow
+
+  // Debug: Log reschedule availability
+  if (process.env.NODE_ENV === 'development') {
+    console.log('TutorAppointmentCard - Reschedule check:', {
+      appointmentId: appointment.id,
+      isPast,
+      status: appointment.status,
+      startDatetime: startDatetime.toISOString(),
+      twoHoursFromNow: twoHoursFromNow.toISOString(),
+      canRescheduleNow,
+      hasCourseId: !!appointment.courseId
+    })
   }
 
   return (
@@ -180,6 +201,10 @@ export function TutorAppointmentCard({
           <TutorMessageIndicator
             studentId={appointment.userId}
           />
+          {/* Show reschedule button for upcoming scheduled appointments (2+ hours away) with courseId */}
+          {canRescheduleNow && appointment.courseId && (
+            <TutorRescheduleModal appointment={appointment} />
+          )}
         </div>
       </div>
     </div>

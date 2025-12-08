@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
-import { sendBookingCancelledWebhook } from '@/lib/webhooks/make'
+import { sendBookingCancelledWebhook, sendBookingRescheduledWebhook } from '@/lib/webhooks/make'
 import { CANCELLATION_CUTOFF_HOURS } from '@/lib/slots/types'
 import { addMinutes } from 'date-fns'
 import type { AppointmentStatus } from '@prisma/client'
@@ -281,94 +281,147 @@ export async function cancelTutorAppointment(
 /**
  * Reschedule appointment as tutor
  */
-export async function rescheduleTutorAppointment(
-  appointmentId: string,
-  newStartDatetime: Date,
-  newDurationMin: number
-) {
+export async function rescheduleTutorAppointment(data: {
+  appointmentId: string
+  newStartDatetime: Date
+  newEndDatetime: Date
+  reason: string
+}) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if (!user) {
+  if (!authUser) {
     return { success: false, error: 'Non autorisé' }
   }
 
   try {
+    // Get the appointment
     const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId },
+      where: { id: data.appointmentId },
       include: {
         user: true,
+        tutor: { include: { user: true } },
         course: true,
       },
     })
 
     if (!appointment) {
-      return { success: false, error: 'Rendez-vous introuvable' }
+      return { success: false, error: 'Rendez-vous non trouvé' }
     }
 
-    if (appointment.tutorId !== user.id) {
+    // Check if tutor owns this appointment
+    if (appointment.tutorId !== authUser.id) {
       return { success: false, error: 'Non autorisé' }
     }
 
-    if (appointment.status !== 'scheduled') {
-      return {
-        success: false,
-        error: 'Ce rendez-vous ne peut pas être reprogrammé',
-      }
-    }
-
-    // Check if within rescheduling window
+    // Check if appointment is in the future
     const now = new Date()
-    const cutoffTime = new Date(
-      appointment.startDatetime.getTime() -
-        CANCELLATION_CUTOFF_HOURS * 60 * 60 * 1000
-    )
-
-    if (now > cutoffTime) {
-      return {
-        success: false,
-        error: 'Reprogrammation trop tardive. Contactez le support si nécessaire.',
-      }
+    if (appointment.startDatetime <= now) {
+      return { success: false, error: 'Impossible de reprogrammer un rendez-vous passé' }
     }
 
-    const newEndDatetime = addMinutes(newStartDatetime, newDurationMin)
+    // Check 2-hour rescheduling policy
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000)
+    if (appointment.startDatetime <= twoHoursFromNow) {
+      return { success: false, error: 'Impossible de reprogrammer moins de 2 heures avant le rendez-vous' }
+    }
 
-    // Check for conflicts
+    // Check if already cancelled
+    if (appointment.status === 'cancelled') {
+      return { success: false, error: 'Ce rendez-vous est annulé et ne peut pas être reprogrammé' }
+    }
+
+    // Check if new time slot is available
     const conflictingAppointment = await prisma.appointment.findFirst({
       where: {
         tutorId: appointment.tutorId,
-        id: { not: appointmentId },
-        startDatetime: { lt: newEndDatetime },
-        endDatetime: { gt: newStartDatetime },
-        status: { in: ['scheduled', 'completed'] },
-      },
+        status: 'scheduled',
+        id: { not: data.appointmentId },
+        OR: [
+          {
+            startDatetime: {
+              gte: data.newStartDatetime,
+              lt: data.newEndDatetime
+            }
+          },
+          {
+            endDatetime: {
+              gt: data.newStartDatetime,
+              lte: data.newEndDatetime
+            }
+          }
+        ]
+      }
     })
 
     if (conflictingAppointment) {
-      return {
-        success: false,
-        error: 'Ce créneau est déjà occupé',
-      }
+      return { success: false, error: 'Ce créneau n\'est pas disponible' }
     }
 
-    // Update appointment
-    await prisma.appointment.update({
-      where: { id: appointmentId },
-      data: {
-        startDatetime: newStartDatetime,
-        endDatetime: newEndDatetime,
-      },
+    // Use transaction to ensure data consistency
+    await prisma.$transaction(async (tx) => {
+      // Update appointment
+      const updatedAppointment = await tx.appointment.update({
+        where: { id: data.appointmentId },
+        data: {
+          startDatetime: data.newStartDatetime,
+          endDatetime: data.newEndDatetime
+        }
+      })
+
+      // Log the modification
+      await tx.appointmentModification.create({
+        data: {
+          appointmentId: data.appointmentId,
+          modifiedBy: authUser.id,
+          modificationType: 'reschedule',
+          reason: data.reason,
+          oldData: {
+            startDatetime: appointment.startDatetime,
+            endDatetime: appointment.endDatetime
+          },
+          newData: {
+            startDatetime: data.newStartDatetime,
+            endDatetime: data.newEndDatetime
+          }
+        }
+      })
+
+      return updatedAppointment
     })
 
-    // Future enhancements:
-    // - Send email notification to student about reschedule
-    // - Update order item pricing if duration changed (recalculate tutor earnings)
+    // Fetch student and tutor emails for webhook
+    const [student, tutor] = await Promise.all([
+      prisma.user.findUnique({ where: { id: appointment.userId }, select: { email: true } }),
+      prisma.user.findUnique({ where: { id: appointment.tutorId }, select: { email: true } })
+    ])
 
-    revalidatePath('/tableau-de-bord')
+    // Send webhook notification
+    await sendBookingRescheduledWebhook({
+      appointmentId: data.appointmentId,
+      userId: appointment.userId,
+      tutorId: appointment.tutorId,
+      studentEmail: student?.email || '',
+      tutorEmail: tutor?.email || '',
+      courseId: appointment.courseId,
+      courseTitleFr: appointment.course.titleFr,
+      rescheduledBy: 'tutor',
+      rescheduledById: authUser.id,
+      reason: data.reason,
+      oldStartDatetime: appointment.startDatetime.toISOString(),
+      oldEndDatetime: appointment.endDatetime.toISOString(),
+      newStartDatetime: data.newStartDatetime.toISOString(),
+      newEndDatetime: data.newEndDatetime.toISOString(),
+      timestamp: new Date().toISOString()
+    })
+
+    revalidatePath('/', 'layout')
     return { success: true }
   } catch (error) {
     console.error('Error rescheduling appointment:', error)
-    return { success: false, error: 'Une erreur est survenue' }
+    return { success: false, error: 'Erreur lors de la reprogrammation du rendez-vous' }
   }
 }
 
