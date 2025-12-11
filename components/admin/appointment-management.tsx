@@ -20,6 +20,7 @@ import {
   getStudentsForAutocomplete,
   getCoursesForAutocomplete
 } from '@/lib/actions/admin'
+import { AdminRescheduleModal } from './admin-reschedule-modal'
 
 // Types
 interface Appointment {
@@ -30,6 +31,8 @@ interface Appointment {
   cancellationReason?: string | null
   cancelledAt?: Date | null
   meetingLink?: string | null
+  courseId: string
+  tutorId: string
   user: {
     id: string
     firstName: string
@@ -808,35 +811,38 @@ export function AppointmentManagement() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {appointment.status === 'scheduled' && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleStatusChange(appointment.id, 'completed')}>
-                                Marquer comme terminé
+                      <div className="flex items-center gap-2">
+                        <AdminRescheduleModal appointment={appointment} />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {appointment.status === 'scheduled' && (
+                              <>
+                                <DropdownMenuItem onClick={() => handleStatusChange(appointment.id, 'completed')}>
+                                  Marquer comme terminé
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleCancelAppointment(appointment.id)}>
+                                  Annuler
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {appointment.status === 'cancelled' && (
+                              <DropdownMenuItem onClick={() => handleStatusChange(appointment.id, 'scheduled', 'Rendez-vous réactivé')}>
+                                Réactiver
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleCancelAppointment(appointment.id)}>
-                                Annuler
+                            )}
+                            {appointment.status === 'completed' && (
+                              <DropdownMenuItem onClick={() => handleStatusChange(appointment.id, 'scheduled', 'Statut modifié')}>
+                                Revenir à programmé
                               </DropdownMenuItem>
-                            </>
-                          )}
-                          {appointment.status === 'cancelled' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(appointment.id, 'scheduled', 'Rendez-vous réactivé')}>
-                              Réactiver
-                            </DropdownMenuItem>
-                          )}
-                          {appointment.status === 'completed' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(appointment.id, 'scheduled', 'Statut modifié')}>
-                              Revenir à programmé
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   </div>
                 </div>

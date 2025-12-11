@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendSignupWebhook, sendTicketStatusChangedWebhook, sendTicketMessageWebhook, sendBookingCancelledWebhook, sendAppointmentCompletedWebhook } from '@/lib/webhooks/make'
+import { sendSignupWebhook, sendTicketStatusChangedWebhook, sendTicketMessageWebhook, sendBookingCancelledWebhook, sendAppointmentCompletedWebhook, sendBookingRescheduledWebhook } from '@/lib/webhooks/make'
 import { autoCompletePastAppointments } from './appointments'
 
 /**
@@ -1467,6 +1467,8 @@ export async function getStudentAppointments(studentId: string, params: {
         cancellationReason: true,
         cancelledBy: true,
         cancelledAt: true,
+        courseId: true,
+        tutorId: true,
         course: {
           select: {
             titleFr: true
@@ -1474,7 +1476,20 @@ export async function getStudentAppointments(studentId: string, params: {
         },
         tutor: {
           select: {
-            displayName: true
+            displayName: true,
+            user: {
+              select: {
+                firstName: true,
+                lastName: true
+              }
+            }
+          }
+        },
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true
           }
         }
       },
@@ -2260,6 +2275,8 @@ export async function getAllAppointments(params: {
         cancellationReason: true,
         cancelledAt: true,
         meetingLink: true,
+        courseId: true,
+        tutorId: true,
         user: {
           select: {
             id: true,
@@ -2838,6 +2855,149 @@ export async function updateAppointmentStatus(
  */
 export async function cancelAppointmentAdmin(appointmentId: string, reason: string) {
   return updateAppointmentStatus(appointmentId, 'cancelled', reason)
+}
+
+/**
+ * Reschedule appointment as admin (admin only)
+ * Admins can reschedule any appointment, including completed ones
+ */
+export async function rescheduleAppointmentAdmin(data: {
+  appointmentId: string
+  newStartDatetime: Date
+  newEndDatetime: Date
+  reason: string
+}) {
+  const supabase = await createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
+
+  if (!authUser) {
+    return { success: false, error: 'Non autorisé' }
+  }
+
+  // Check if user is admin
+  const dbUser = await prisma.user.findUnique({
+    where: { id: authUser.id },
+    select: { role: true }
+  })
+
+  if (dbUser?.role !== 'admin') {
+    return { success: false, error: 'Accès administrateur requis' }
+  }
+
+  try {
+    // Get the appointment
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: data.appointmentId },
+      include: {
+        user: true,
+        tutor: { include: { user: true } },
+        course: true
+      }
+    })
+
+    if (!appointment) {
+      return { success: false, error: 'Rendez-vous non trouvé' }
+    }
+
+    // Admins can reschedule any appointment, including completed ones
+    // Only check if it's cancelled (can still reschedule but need to reactivate)
+    const shouldReactivate = appointment.status === 'cancelled'
+
+    // Check if new time slot is available
+    const conflictingAppointment = await prisma.appointment.findFirst({
+      where: {
+        tutorId: appointment.tutorId,
+        status: 'scheduled',
+        id: { not: data.appointmentId },
+        OR: [
+          {
+            startDatetime: {
+              gte: data.newStartDatetime,
+              lt: data.newEndDatetime
+            }
+          },
+          {
+            endDatetime: {
+              gt: data.newStartDatetime,
+              lte: data.newEndDatetime
+            }
+          }
+        ]
+      }
+    })
+
+    if (conflictingAppointment) {
+      return { success: false, error: 'Ce créneau n\'est pas disponible' }
+    }
+
+    // Use transaction to ensure data consistency
+    await prisma.$transaction(async (tx) => {
+      // Update appointment (reactivate if cancelled)
+      const updatedAppointment = await tx.appointment.update({
+        where: { id: data.appointmentId },
+        data: {
+          startDatetime: data.newStartDatetime,
+          endDatetime: data.newEndDatetime,
+          status: shouldReactivate ? 'scheduled' : appointment.status
+        }
+      })
+
+      // Log the modification
+      await tx.appointmentModification.create({
+        data: {
+          appointmentId: data.appointmentId,
+          modifiedBy: authUser.id,
+          modificationType: 'reschedule',
+          reason: data.reason,
+          oldData: {
+            startDatetime: appointment.startDatetime.toISOString(),
+            endDatetime: appointment.endDatetime.toISOString(),
+            status: appointment.status
+          },
+          newData: {
+            startDatetime: data.newStartDatetime.toISOString(),
+            endDatetime: data.newEndDatetime.toISOString(),
+            status: shouldReactivate ? 'scheduled' : appointment.status
+          }
+        }
+      })
+
+      return updatedAppointment
+    })
+
+    // Fetch student and tutor emails for webhook
+    const [student, tutor] = await Promise.all([
+      prisma.user.findUnique({ where: { id: appointment.userId }, select: { email: true } }),
+      prisma.user.findUnique({ where: { id: appointment.tutorId }, select: { email: true } })
+    ])
+
+    // Send webhook notification
+    await sendBookingRescheduledWebhook({
+      appointmentId: data.appointmentId,
+      userId: appointment.userId,
+      tutorId: appointment.tutorId,
+      studentEmail: student?.email || '',
+      tutorEmail: tutor?.email || '',
+      courseId: appointment.courseId,
+      courseTitleFr: appointment.course.titleFr,
+      rescheduledBy: 'admin',
+      rescheduledById: authUser.id,
+      reason: data.reason,
+      oldStartDatetime: appointment.startDatetime.toISOString(),
+      oldEndDatetime: appointment.endDatetime.toISOString(),
+      newStartDatetime: data.newStartDatetime.toISOString(),
+      newEndDatetime: data.newEndDatetime.toISOString(),
+      timestamp: new Date().toISOString()
+    })
+
+    revalidatePath('/', 'layout')
+    return { success: true }
+  } catch (error) {
+    console.error('Error rescheduling appointment:', error)
+    return { success: false, error: 'Erreur lors de la reprogrammation du rendez-vous' }
+  }
 }
 
 /**

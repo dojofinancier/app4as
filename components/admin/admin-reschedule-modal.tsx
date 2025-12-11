@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CardDescription } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { rescheduleTutorAppointment } from '@/lib/actions/tutor'
+import { rescheduleAppointmentAdmin } from '@/lib/actions/admin'
 import { formatDateTime } from '@/lib/utils'
 import { Calendar, Clock } from 'lucide-react'
 import { CalendarBooking } from '@/components/booking/calendar-booking'
@@ -20,11 +20,12 @@ const rescheduleSchema = z.object({
 
 type RescheduleFormData = z.infer<typeof rescheduleSchema>
 
-interface TutorRescheduleModalProps {
+interface AdminRescheduleModalProps {
   appointment: {
     id: string
     startDatetime: Date | string
     endDatetime: Date | string
+    status: string
     courseId: string
     tutorId: string
     course: {
@@ -33,11 +34,18 @@ interface TutorRescheduleModalProps {
     user: {
       firstName: string
       lastName: string
+      email: string
+    }
+    tutor: {
+      user: {
+        firstName: string
+        lastName: string
+      }
     }
   }
 }
 
-export function TutorRescheduleModal({ appointment }: TutorRescheduleModalProps) {
+export function AdminRescheduleModal({ appointment }: AdminRescheduleModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -78,7 +86,7 @@ export function TutorRescheduleModal({ appointment }: TutorRescheduleModalProps)
     setMessage(null)
 
     try {
-      const result = await rescheduleTutorAppointment({
+      const result = await rescheduleAppointmentAdmin({
         appointmentId: appointment.id,
         newStartDatetime: selectedSlot.start,
         newEndDatetime: selectedSlot.end,
@@ -122,10 +130,10 @@ export function TutorRescheduleModal({ appointment }: TutorRescheduleModalProps)
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-info">
             <Calendar className="h-5 w-5" />
-            Reprogrammer le rendez-vous
+            Reprogrammer le rendez-vous (Admin)
           </DialogTitle>
           <CardDescription>
-            Choisissez une nouvelle date et heure
+            Choisissez une nouvelle date et heure. Les administrateurs peuvent reprogrammer tous les rendez-vous, y compris ceux terminés.
           </CardDescription>
         </DialogHeader>
         
@@ -133,10 +141,21 @@ export function TutorRescheduleModal({ appointment }: TutorRescheduleModalProps)
         <div className="p-4 bg-muted rounded-lg mb-6">
           <h3 className="font-medium mb-2">{appointment.course.titleFr}</h3>
           <p className="text-sm text-muted-foreground mb-1">
-            Étudiant: {appointment.user.firstName} {appointment.user.lastName}
+            Étudiant: {appointment.user.firstName} {appointment.user.lastName} ({appointment.user.email})
+          </p>
+          <p className="text-sm text-muted-foreground mb-1">
+            Tuteur: {appointment.tutor.user.firstName} {appointment.tutor.user.lastName}
           </p>
           <p className="text-sm text-muted-foreground mb-1">
             <strong>Actuel:</strong> {formatDateTime(new Date(appointment.startDatetime))}
+          </p>
+          <p className="text-sm text-muted-foreground mb-1">
+            <strong>Statut:</strong> {
+              appointment.status === 'scheduled' ? 'Programmé' :
+              appointment.status === 'completed' ? 'Terminé' :
+              appointment.status === 'cancelled' ? 'Annulé' :
+              appointment.status
+            }
           </p>
           <p className="text-sm text-muted-foreground">
             Durée: {durationMinutes} minutes
@@ -187,12 +206,14 @@ export function TutorRescheduleModal({ appointment }: TutorRescheduleModalProps)
             <div className="flex items-start gap-2">
               <Clock className="h-4 w-4 text-info mt-0.5 flex-shrink-0" />
               <div className="text-sm text-info">
-                <p className="font-medium mb-1">Important :</p>
+                <p className="font-medium mb-1">Important (Admin) :</p>
                 <ul className="space-y-1 text-xs">
                   <li>• Seuls les créneaux disponibles sont affichés</li>
-                  <li>• Même cours et même durée que le rendez-vous original ({durationMinutes} minutes)</li>
-                  <li>• L'étudiant sera notifié du changement</li>
-                  <li>• Reprogrammation possible jusqu'à 2h avant le rendez-vous</li>
+                  <li>• Même tuteur et même cours</li>
+                  <li>• Même durée que le rendez-vous original ({durationMinutes} minutes)</li>
+                  <li>• L'étudiant et le tuteur seront notifiés du changement</li>
+                  <li>• Vous pouvez reprogrammer même les rendez-vous terminés ou annulés</li>
+                  <li>• Les rendez-vous annulés seront automatiquement réactivés</li>
                 </ul>
               </div>
             </div>
@@ -235,7 +256,6 @@ export function TutorRescheduleModal({ appointment }: TutorRescheduleModalProps)
     </Dialog>
   )
 }
-
 
 
 

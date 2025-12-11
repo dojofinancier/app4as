@@ -15,6 +15,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { getStudentAppointments } from '@/lib/actions/admin'
+import { AdminRescheduleModal } from './admin-reschedule-modal'
 
 interface StudentAppointmentsListProps {
   studentId: string
@@ -28,11 +29,22 @@ interface Appointment {
   cancellationReason?: string | null
   cancelledBy?: string | null
   cancelledAt?: Date | null
+  courseId: string
+  tutorId: string
   course: {
     titleFr: string
   }
   tutor: {
     displayName: string
+    user: {
+      firstName: string
+      lastName: string
+    }
+  }
+  user: {
+    firstName: string
+    lastName: string
+    email: string
   }
 }
 
@@ -295,6 +307,9 @@ export function StudentAppointmentsList({ studentId }: StudentAppointmentsListPr
                           </div>
                         </div>
                       )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <AdminRescheduleModal appointment={appointment} />
                     </div>
                   </div>
                 </CardContent>
