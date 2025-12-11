@@ -5,7 +5,6 @@ import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
 import { sendBookingCancelledWebhook, sendBookingRescheduledWebhook } from '@/lib/webhooks/make'
 import { CANCELLATION_CUTOFF_HOURS } from '@/lib/slots/types'
-import { addMinutes } from 'date-fns'
 import type { AppointmentStatus } from '@prisma/client'
 
 /**
